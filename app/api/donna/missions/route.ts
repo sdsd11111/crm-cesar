@@ -55,7 +55,14 @@ export async function POST(req: Request) {
                 .set({ status: 'approved', updatedAt: new Date() })
                 .where(eq(loyaltyMissions.id, missionId));
 
-            return NextResponse.json({ success: true, message: 'Mission approved. It will be sent following safe-send rules.' });
+            // Hybrid Mode: Trigger Orchestrator immediately for testing/production without external cron
+            // Fire and forget - don't await strictly for response time
+            fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cron/notifications`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
+            }).catch(e => console.error('Error triggering orchestrator:', e));
+
+            return NextResponse.json({ success: true, message: 'Mission approved. Dispatch triggered immediately.' });
         }
 
         if (action === 'reject') {

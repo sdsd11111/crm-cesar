@@ -81,3 +81,17 @@ erDiagram
 ## 5. Notas de Seguridad y Auditoría
 *   **Row Level Security (RLS):** Activado en todas las tablas. Los usuarios solo ven lo que su `auth.uid()` permite.
 *   **Claves de API:** El frontend usa la `ANON_KEY`. Operaciones privilegiadas (como migraciones masivas) requieren `SERVICE_ROLE_KEY` (solo backend scripts).
+
+---
+
+## 6. El Círculo de Retroalimentación: "Buzón de Sugerencias" (Iteraciones)
+
+El sistema no solo almacena datos, sino que "aprende" del cliente a través de un flujo de sugerencias no invasivo.
+
+*   **Origen:** Cada interacción (reunión, chat, correo) permite capturar "Iteraciones".
+*   **Mecánica de Alimentación:** Estas iteraciones funcionan como un buzón de sugerencias que entra directo al **Agente Donna Individual** del proyecto.
+*   **Valor Estratégico:**
+    *   **Palabras Clave:** Capturamos la terminología técnica o modismos propios del cliente.
+    *   **Estilo:** Donna ajusta su forma de hablar y sus ejemplos para que el cliente sienta una afinidad total (Efecto Espejo).
+    *   **Fidelización:** Al ajustarse a las sugerencias implícitas o explícitas, el producto final se siente como "co-creado" con el cliente.
+

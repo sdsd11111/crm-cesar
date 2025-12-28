@@ -36,8 +36,28 @@ export async function POST(
       .single();
 
     if (updateError) {
-      console.error('Error converting lead to client:', updateError);
+      console.error('Error converting lead to client in contacts table:', updateError);
       return NextResponse.json({ error: 'Failed to convert lead: ' + updateError.message }, { status: 500 });
+    }
+
+    // 1.5. Mirror to legacy 'clients' table for backward compatibility and FK satisfaction
+    const { error: clientInsertError } = await supabase
+      .from('clients')
+      .upsert({
+        id: updatedContact.id,
+        lead_id: leadId,
+        business_name: updatedContact.business_name,
+        contact_name: updatedContact.contact_name,
+        phone: updatedContact.phone,
+        email: updatedContact.email,
+        city: updatedContact.city,
+        address: updatedContact.address,
+        updated_at: new Date().toISOString()
+      });
+
+    if (clientInsertError) {
+      console.error('Error mirroring to legacy clients table:', clientInsertError);
+      // We continue even if this fails, but it explains transaction failures if it does
     }
 
     // 2. Automated Financial Integration (Phase 1 of Mission Control)
@@ -81,6 +101,22 @@ export async function POST(
 
         if (txError) console.error('Error creating linked transactions:', txError);
       }
+    }
+
+    // Initialize Agent (Ensures one exists for the new client)
+    try {
+      const { agentService } = await import('@/lib/donna/services/AgentService');
+      await agentService.ensureAgent(updatedContact.id);
+    } catch (e) {
+      console.error('⚠️ ConvertAPI: Error initializing agent:', e);
+    }
+
+    // Trigger immediate planning (Donna Micro)
+    try {
+      const { planningEngine } = await import('@/lib/donna/services/PlanningEngine');
+      await planningEngine.generatePlanningForContact(updatedContact.id);
+    } catch (e) {
+      console.error('⚠️ ConvertAPI: Error triggering planning:', e);
     }
 
     return NextResponse.json({ success: true, client: updatedContact });

@@ -76,3 +76,13 @@ Conectar el CRM con el ecosistema de automatización **n8n** para disparar flujo
 - **Interesado/Llamada**: Agendó cita.
 - **Cliente**: Pagó.
 - **Newsletter**: Se suscribió a tu lista general (No molestar con venta directa agresiva).
+
+---
+
+## 6. ESCALABILIDAD: EL "CLON" PARA HOTELES (ORO PURO)
+El sistema está diseñado para ser replicado y vendido como un SaaS especializado para sectores específicos, siendo el hotelero el primer objetivo.
+
+*   **El Valor del Feedback:** Para un hotel, el "Buzón de Sugerencias" (Iteraciones) es oro puro. Los turistas dan feedback constante sobre su estancia.
+*   **Captura de Keywords:** Donna aprende qué es lo que más valoran los turistas (vistas, limpieza, atención) y ajusta los mensajes de seguimiento para fidelizarlos.
+*   **Independencia de OTAs:** El objetivo es que el hotel sea dueño de su cliente, moviéndolo de Booking/Expedia a su propio CRM + Sistema de Reservas.
+

@@ -38,3 +38,7 @@ Thumbs.db
 
 # Experimental features
 .next-boost/
+
+# Credentials
+google_credentials.json
+service-account.json

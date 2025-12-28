@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Clock, AlertTriangle, ArrowRight, CheckCircle2, User } from "lucide-react"
+import { Sparkles, Clock, AlertTriangle, ArrowRight, CheckCircle2, User, MessageSquare } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import Link from "next/link"
@@ -23,18 +23,35 @@ interface Commitment {
     actorRole: string;
 }
 
+interface Mission {
+    id: string;
+    content: string;
+    status: string;
+    createdAt: string;
+    metadata: any;
+    contactName: string;
+    businessName: string;
+    phone: string;
+}
+
 export default function DonnaPage() {
     const [commitments, setCommitments] = useState<Commitment[]>([]);
+    const [missions, setMissions] = useState<Mission[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchAll = async () => {
             try {
-                const response = await fetch('/api/donna/commitments/active');
-                const data = await response.json();
-                if (data.success) {
-                    setCommitments(data.commitments);
-                }
+                const [cRes, mRes] = await Promise.all([
+                    fetch('/api/donna/commitments/active'),
+                    fetch('/api/donna/missions')
+                ]);
+
+                const cData = await cRes.json();
+                const mData = await mRes.json();
+
+                if (cData.success) setCommitments(cData.commitments);
+                if (mData.success) setMissions(mData.missions);
             } catch (error) {
                 console.error("Error loading Donna ledger:", error);
             } finally {
@@ -43,6 +60,26 @@ export default function DonnaPage() {
         };
         fetchAll();
     }, []);
+
+    const handleMissionAction = async (missionId: string, action: 'approve' | 'reject') => {
+        // Get settings for test mode
+        const prefs = JSON.parse(localStorage.getItem('crm_user_preferences') || '{}');
+        const testNumber = prefs.whatsappTestMode ? prefs.whatsappTestNumber : null;
+
+        try {
+            const res = await fetch('/api/donna/missions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ missionId, action, testNumber })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setMissions(prev => prev.filter(m => m.id !== missionId));
+            }
+        } catch (error) {
+            console.error("Error acting on mission:", error);
+        }
+    };
 
     const severityColor = {
         high: 'bg-red-500/10 text-red-600 border-red-200',
@@ -137,6 +174,66 @@ export default function DonnaPage() {
                                                     <Link href={`/clients/${c.contactId}`}>
                                                         <ArrowRight className="w-4 h-4" />
                                                     </Link>
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Loyalty Missions Section */}
+                    <div className="lg:col-span-3 space-y-6 mt-10">
+                        <h2 className="text-xl font-bold flex items-center gap-2 px-1 text-gray-700 dark:text-gray-300">
+                            <MessageSquare className="w-5 h-5 text-green-500" /> Planificación de Goteo (La Tribu 🦁)
+                        </h2>
+
+                        {missions.length === 0 ? (
+                            <Card className="border-dashed border-2 py-10 bg-gray-50/30 dark:bg-gray-900/10">
+                                <CardContent className="flex flex-col items-center justify-center text-center">
+                                    <Sparkles className="w-12 h-12 text-gray-300 mb-2 opacity-30" />
+                                    <p className="text-sm font-bold text-gray-400">Sin misiones de lealtad pendientes hoy.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {missions.map((m) => (
+                                    <Card key={m.id} className="border-green-100 hover:border-green-300 transition-all bg-white dark:bg-gray-950">
+                                        <CardHeader className="pb-2">
+                                            <div className="flex justify-between items-center">
+                                                <Badge className="bg-green-500/10 text-green-600 border-green-100 text-[9px] uppercase font-black tracking-widest">
+                                                    Goteo Lion
+                                                </Badge>
+                                                <span className="text-[10px] text-gray-400 font-bold italic">
+                                                    {format(new Date(m.createdAt), "HH:mm 'del' dd MMM", { locale: es })}
+                                                </span>
+                                            </div>
+                                            <CardTitle className="text-sm font-black text-gray-800 dark:text-gray-200 mt-2">
+                                                Para: {m.businessName || m.contactName}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800 mb-4">
+                                                <p className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                    {m.content}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold"
+                                                    onClick={() => handleMissionAction(m.id, 'approve')}
+                                                >
+                                                    Aprobar y Enviar 🦁
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="text-gray-400 hover:text-red-500"
+                                                    onClick={() => handleMissionAction(m.id, 'reject')}
+                                                >
+                                                    Descartar
                                                 </Button>
                                             </div>
                                         </CardContent>

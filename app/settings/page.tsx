@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Save, Download, Upload, AlertTriangle, Building, Settings, Database, Store, Bot } from 'lucide-react';
+import { Save, Download, Upload, AlertTriangle, Building, Settings, Database, Store, Bot, MessageSquare, RefreshCw, LogOut, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 interface BusinessProfile {
     companyName: string;
@@ -25,6 +26,209 @@ interface UserPreferences {
     emailNotifications: boolean;
     browserNotifications: boolean;
     autoBackup: boolean;
+    whatsappTestMode: boolean;
+    whatsappTestNumber: string;
+}
+
+function WhatsAppConfig({ preferences, onPreferenceChange }: {
+    preferences: UserPreferences,
+    onPreferenceChange: (key: keyof UserPreferences, value: any) => void
+}) {
+    const { toast } = useToast();
+    const [status, setStatus] = useState<string>('disconnected');
+    const [qrCode, setQrCode] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const checkStatus = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/whatsapp/status');
+            const data = await res.json();
+            if (data.success && data.data?.instance) {
+                const state = data.data.instance.state;
+                const isConnected = state === 'open' || state === 'CONNECTED';
+                setStatus(isConnected ? 'connected' : 'disconnected');
+                if (!isConnected) setQrCode(null);
+            } else {
+                console.error('WhatsApp status error:', data.error);
+            }
+        } catch (error) {
+            console.error('Error checking WhatsApp status:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getQR = async () => {
+        setLoading(true);
+        setQrCode(null);
+        try {
+            const res = await fetch('/api/whatsapp/qr');
+            const data = await res.json();
+            if (data.success && data.data.qrcode) {
+                setQrCode(data.data.qrcode);
+            } else if (data.data?.instance?.state === 'open' || data.data?.instance?.state === 'CONNECTED') {
+                setStatus('connected');
+                toast({ title: "Ya conectado", description: "La instancia ya está vinculada." });
+            } else {
+                toast({
+                    title: "Error de Configuración",
+                    description: data.error || "No se pudo obtener el QR. Revisa la consola y las variables de entorno.",
+                    variant: "destructive"
+                });
+            }
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo generar el QR.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const logout = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/whatsapp/logout', { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                setStatus('disconnected');
+                setQrCode(null);
+                toast({ title: "Sesión cerrada", description: "WhatsApp se ha desvinculado." });
+            }
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo cerrar sesión.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        checkStatus();
+        const interval = setInterval(checkStatus, 30000); // Check every 30s
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <Card className="bg-gray-900 border-gray-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="text-green-500" size={20} />
+                        Conexión Evolution API
+                    </CardTitle>
+                    <CardDescription>
+                        Vincula tu WhatsApp para que Donna pueda enviar las misiones de lealtad.
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={checkStatus} disabled={loading} className="border-gray-600">
+                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                    <div className="flex items-center gap-4">
+                        <div className={`w-3 h-3 rounded-full ${status === 'connected' ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500'}`} />
+                        <div>
+                            <p className="font-bold text-white capitalize">{status === 'connected' ? 'Conectado' : 'Desconectado'}</p>
+                            <p className="text-xs text-gray-400">Instancia: Donna (Local)</p>
+                        </div>
+                    </div>
+                    {status === 'connected' ? (
+                        <Button variant="destructive" size="sm" onClick={logout} disabled={loading}>
+                            <LogOut size={14} className="mr-2" /> Desconectar
+                        </Button>
+                    ) : (
+                        <Button size="sm" onClick={getQR} disabled={loading} className="bg-green-600 hover:bg-green-700">
+                            Generar QR
+                        </Button>
+                    )}
+                </div>
+
+                {status === 'connected' && preferences.whatsappTestNumber && (
+                    <div className="p-4 bg-green-900/10 border border-green-900/30 rounded-lg flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-white">Prueba de Conexión</p>
+                            <p className="text-xs text-gray-400">Envía un saludo a {preferences.whatsappTestNumber}</p>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-green-600 text-green-500 hover:bg-green-900/20"
+                            onClick={async () => {
+                                setLoading(true);
+                                try {
+                                    const res = await fetch('/api/donna/missions', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            action: 'approve',
+                                            missionId: 'test-direct',
+                                            testNumber: preferences.whatsappTestNumber,
+                                            // Provide dummy content for direct test
+                                            contentOverride: "¡Test Directo! 🦁 Donna Goteo está rugiendo con fuerza. 🛡️"
+                                        })
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                        toast({ title: "Mensaje Enviado", description: "Revisa el WhatsApp del número de prueba." });
+                                    } else {
+                                        toast({ title: "Error", description: data.error, variant: "destructive" });
+                                    }
+                                } catch (e) {
+                                    toast({ title: "Error", description: "No se pudo enviar el test.", variant: "destructive" });
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                            disabled={loading}
+                        >
+                            Enviar Test 🦁
+                        </Button>
+                    </div>
+                )}
+
+                {qrCode && status === 'disconnected' && (
+                    <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl mx-auto w-fit">
+                        <img src={qrCode} alt="WhatsApp QR" className="w-64 h-64" />
+                        <p className="text-gray-900 text-xs mt-4 font-bold animate-pulse">Escanea con tu WhatsApp personal</p>
+                    </div>
+                )}
+
+                <Separator className="bg-gray-800" />
+
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <Label className="text-base flex items-center gap-2">
+                                <AlertTriangle size={16} className="text-amber-500" />
+                                Modo de Prueba (Goteo SEGURO)
+                            </Label>
+                            <p className="text-sm text-gray-400">
+                                Los mensajes se enviarán ÚNICAMENTE al número de Abel para pruebas.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={preferences.whatsappTestMode}
+                            onCheckedChange={(checked) => onPreferenceChange('whatsappTestMode', checked)}
+                        />
+                    </div>
+
+                    {preferences.whatsappTestMode && (
+                        <div className="p-4 bg-amber-900/10 border border-amber-900/30 rounded-lg">
+                            <Label className="text-xs text-amber-500 font-bold uppercase tracking-wider">Número de Prueba (Abel)</Label>
+                            <Input
+                                value={preferences.whatsappTestNumber}
+                                onChange={(e) => onPreferenceChange('whatsappTestNumber', e.target.value)}
+                                className="bg-gray-800 border-gray-700 text-white mt-2"
+                                placeholder="099..."
+                            />
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
 export default function SettingsPage() {
@@ -43,6 +247,8 @@ export default function SettingsPage() {
         emailNotifications: true,
         browserNotifications: true,
         autoBackup: true,
+        whatsappTestMode: true,
+        whatsappTestNumber: '593967491847',
     });
 
     const [lastBackupDate, setLastBackupDate] = useState<string | null>(null);
@@ -50,16 +256,20 @@ export default function SettingsPage() {
     const [aiPersonality, setAiPersonality] = useState<string>('');
 
     useEffect(() => {
-        // Load data from localStorage
-        const savedProfile = localStorage.getItem('crm_business_profile');
-        const savedPreferences = localStorage.getItem('crm_user_preferences');
-        const savedBackupDate = localStorage.getItem('crm_last_backup_date');
-        const savedAiPersona = localStorage.getItem('crm_ai_personality');
+        try {
+            // Load data from localStorage
+            const savedProfile = localStorage.getItem('crm_business_profile');
+            const savedPreferences = localStorage.getItem('crm_user_preferences');
+            const savedBackupDate = localStorage.getItem('crm_last_backup_date');
+            const savedAiPersona = localStorage.getItem('crm_ai_personality');
 
-        if (savedProfile) setProfile(JSON.parse(savedProfile));
-        if (savedPreferences) setPreferences(JSON.parse(savedPreferences));
-        if (savedBackupDate) setLastBackupDate(savedBackupDate);
-        if (savedAiPersona) setAiPersonality(savedAiPersona);
+            if (savedProfile) setProfile(JSON.parse(savedProfile));
+            if (savedPreferences) setPreferences(JSON.parse(savedPreferences));
+            if (savedBackupDate) setLastBackupDate(savedBackupDate);
+            if (savedAiPersona) setAiPersonality(savedAiPersona);
+        } catch (error) {
+            console.error("Error hydrating settings from localStorage:", error);
+        }
     }, []);
 
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,12 +343,26 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="container mx-auto py-8 text-white min-h-screen">
-            <div className="flex justify-between items-center mb-6">
+        <div className="p-8 max-w-6xl mx-auto space-y-8">
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
-                    <p className="text-gray-400">Gestiona tu perfil, preferencias y datos del sistema.</p>
+                    <h1 className="text-4xl font-extrabold tracking-tight">Configuración del Sistema</h1>
+                    <p className="text-muted-foreground mt-2">Gestiona el perfil de tu negocio, preferencias y conexiones de IA.</p>
                 </div>
+                <Link href="/">
+                    <Button variant="outline" size="sm" className="gap-2">
+                        <Home className="h-4 w-4" />
+                        Ir al Inicio
+                    </Button>
+                </Link>
+            </div>
+            <div className="flex justify-between items-center mb-6">
+                {/* This div was originally for the main title and save button.
+                    The title part has been moved to the new header structure.
+                    The save button remains here, potentially needing adjustment if it's meant to be part of the new header.
+                    Based on the instruction, the save button is now in a separate flex container below the main header.
+                */}
+                {/* The original title div content is now part of the new header above. */}
                 <Button onClick={saveSettings} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
                     <Save size={18} />
                     Guardar Cambios
@@ -158,6 +382,9 @@ export default function SettingsPage() {
                     </TabsTrigger>
                     <TabsTrigger value="ai" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white gap-2">
                         <Bot size={16} /> IA y Cortex
+                    </TabsTrigger>
+                    <TabsTrigger value="whatsapp" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white gap-2">
+                        <MessageSquare size={16} /> Conexión WhatsApp
                     </TabsTrigger>
                 </TabsList>
 
@@ -314,6 +541,10 @@ export default function SettingsPage() {
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                <TabsContent value="whatsapp">
+                    <WhatsAppConfig preferences={preferences} onPreferenceChange={handlePreferenceChange} />
                 </TabsContent>
 
                 <TabsContent value="system">

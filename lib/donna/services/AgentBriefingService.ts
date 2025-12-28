@@ -35,50 +35,20 @@ export class AgentBriefingService {
             .map(i => `[${i.type}] ${i.content}`)
             .join("\n");
 
-        // 3. Generate with Gemini
+        // 3. Load prompt from file and generate with Gemini
+        const fs = await import('fs');
+        const path = await import('path');
+        const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'agent_briefing.md');
+        const promptTemplate = fs.readFileSync(promptPath, 'utf-8');
+
+        const prompt = promptTemplate
+            .replace('{contact_name}', contact.businessName || contact.contactName || 'N/A')
+            .replace('{business_activity}', contact.businessActivity || 'N/A')
+            .replace('{interested_product}', contact.interestedProduct || 'N/A')
+            .replace('{interactions_history}', interactionsText || 'Sin interacciones previas registradas. Este es el momento de plantar la semilla de la confianza.');
+
         const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-1.5-flash";
         const model = this.genAI.getGenerativeModel({ model: modelName });
-
-        const prompt = `
-Actúa como Donna, la Gerente de Operaciones y Mano Derecha Estratégica de César en CRM OBJETIVO. Tu misión es preparar a César como un **CLOSER de alto nivel**. Tu enfoque es la **FIDELIZACIÓN** y el **CIERRE** mediante la aportación de valor incalculable.
-
-DATOS DEL CLIENTE:
-Nombre: ${contact.businessName || contact.contactName}
-Actividad: ${contact.businessActivity || 'N/A'}
-Interés: ${contact.interestedProduct || 'N/A'}
-
-HISTORIAL RECIENTE DE INTERACCIONES:
-${interactionsText || 'Sin interacciones previas registradas. Este es el momento de plantar la semilla de la confianza.'}
-
-TU OBJETIVO: Generar un briefing estratégico en JSON que prepare a César para una llamada de **ALTO NIVEL** siguiendo exactamente estas 6 FASES:
-
-1. **Fase 1 - Control del Marco (Frame Control):** Sugiere cómo arrancar para que el lead entienda que es un diagnóstico (ej: "No te voy a vender nada hoy, si no encajamos te lo diré").
-2. **Fase 2 - Exploración Emocional:** Sugiere 2-3 preguntas profundas para encontrar la frustración/dolor real (no racional).
-3. **Fase 3 - Amplificación:** Cómo reflejar el dolor detectado en el historial para que el cliente se escuche a sí mismo.
-4. **Fase 4 - Gap (Brecha):** Cómo hacerle ver la distancia entre su estado actual (dolor) y su futuro deseado.
-5. **Fase 5 - Autoridad Tranquila:** Cómo posicionar nuestra solución como experto sin presionar ni mostrar entusiasmo excesivo.
-6. **Fase 6 - Invitación:** Cómo sugerir que el lead pida la venta (ej: "¿Te gustaría que te explique cómo lo trabajamos?").
-
-JSON FORMAT:
-{
-  "summary": "Resumen ejecutivo del estado de poder de la relación.",
-  "closerStrategy": {
-    "frameControl": "Script/Guía para liderar el inicio",
-    "emotionalExploration": ["Pregunta de dolor 1", "Pregunta de dolor 2"],
-    "amplification": "Guía para reflejar el dolor sin inventar",
-    "gapAnalysis": "Cómo mostrar la brecha del negocio",
-    "quietAuthority": "Posicionamiento de experto",
-    "invitation": "La invitación final al cierre"
-  },
-  "talkingPoints": ["Punto clave comercial", "Punto con mentalidad ROI"],
-  "objections": [
-    {"ob": "Objeción probable", "res": "Respuesta estilo César (Asertiva)"}
-  ],
-  "iceBreakers": ["Rompehielos estratégico"]
-}
-
-No inventes datos. Si no hay historial, céntrate en prepararlo para el primer gran contacto basado en su actividad de negocio.
-`.trim();
 
         try {
             const result = await model.generateContent(prompt);

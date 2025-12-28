@@ -68,6 +68,8 @@ export async function GET(
             knownCompetition: client.known_competition,
             highSeason: client.high_season,
             criticalDates: client.critical_dates,
+            birthday: client.birthday,
+            anniversaryDate: client.anniversary_date,
             facebookFollowers: client.facebook_followers,
             otherAchievements: client.other_achievements,
             specificRecognitions: client.specific_recognitions,
@@ -180,7 +182,7 @@ export async function PATCH(
         if (body.weaknesses !== undefined) updateData.weaknesses = body.weaknesses;
         if (body.opportunities !== undefined) updateData.opportunities = body.opportunities;
         if (body.threats !== undefined) updateData.threats = body.threats;
-        if (body.relationshipType !== undefined) updateData.relationship_type = body.relationshipType;
+        if (body.relationshipType !== undefined) updateData.connection_type = body.relationshipType;
         if (body.quantifiedProblem !== undefined) updateData.quantified_problem = body.quantifiedProblem;
         if (body.conservativeGoal !== undefined) updateData.conservative_goal = body.conservativeGoal;
         if (body.yearsInBusiness !== undefined) updateData.years_in_business = body.yearsInBusiness;
@@ -191,6 +193,8 @@ export async function PATCH(
         if (body.knownCompetition !== undefined) updateData.known_competition = body.knownCompetition;
         if (body.highSeason !== undefined) updateData.high_season = body.highSeason;
         if (body.criticalDates !== undefined) updateData.critical_dates = body.criticalDates;
+        if (body.birthday !== undefined) updateData.birthday = body.birthday || null;
+        if (body.anniversaryDate !== undefined) updateData.anniversary_date = body.anniversaryDate || null;
         if (body.facebookFollowers !== undefined) updateData.facebook_followers = body.facebookFollowers;
         if (body.otherAchievements !== undefined) updateData.other_achievements = body.otherAchievements;
         if (body.specificRecognitions !== undefined) updateData.specific_recognitions = body.specificRecognitions;
@@ -214,6 +218,24 @@ export async function PATCH(
                 code: error.code
             }, { status: 500 });
         }
+
+        // --- DEVIL'S ADVOCATE FIX: Donna Triggers ---
+        // Ensure agent exists
+        try {
+            const { agentService } = await import('@/lib/donna/services/AgentService');
+            await agentService.ensureAgent(clientId);
+        } catch (e) {
+            console.error('⚠️ ClientsUpdateAPI: Error ensuring agent:', e);
+        }
+
+        // Trigger immediate planning (Donna Micro)
+        try {
+            const { planningEngine } = await import('@/lib/donna/services/PlanningEngine');
+            await planningEngine.generatePlanningForContact(clientId);
+        } catch (e) {
+            console.error('⚠️ ClientsUpdateAPI: Error triggering planning:', e);
+        }
+        // --------------------------------------------
 
         return NextResponse.json(updatedClient);
     } catch (error: any) {

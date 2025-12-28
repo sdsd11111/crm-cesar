@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, MapPin, Clock, User, Home } from "lucide-react"
-import { LeadCaptureForm } from "./lead-capture-form"
+import { UniversalContactForm } from "../shared/universal-contact-form"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 
 export function RecorridosLayout({ leadId }: { leadId?: string }) {
@@ -54,21 +54,31 @@ export function RecorridosLayout({ leadId }: { leadId?: string }) {
   }
 
   if (showNewLeadForm || activeLead) {
-    return <LeadCaptureForm leadId={activeLead} onBack={handleBack} />
+    return (
+      <UniversalContactForm
+        contactId={activeLead}
+        mode="lead"
+        onBack={handleBack}
+        onCancel={handleBack}
+        onSave={() => {
+          // Optionally handle post-save logic
+        }}
+      />
+    )
   }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-foreground">Recorridos de Campo</h2>
-              <p className="text-muted-foreground">Captura información de leads durante tus visitas comerciales</p>
-            </div>
-            <Button onClick={handleNewLead} size="lg">
-              <Plus className="h-5 w-5 mr-2" />
-              Nuevo Lead
-            </Button>
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">Recorridos de Campo</h2>
+            <p className="text-muted-foreground">Captura información de leads durante tus visitas comerciales</p>
+          </div>
+          <Button onClick={handleNewLead} size="lg">
+            <Plus className="h-5 w-5 mr-2" />
+            Nuevo Lead
+          </Button>
         </div>
 
         <Card>
@@ -93,12 +103,12 @@ export function RecorridosLayout({ leadId }: { leadId?: string }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(lead.createdAt).toLocaleDateString("es-ES")}
-                    </span>
-                    <Button variant="outline" size="sm">
-                        Continuar
-                    </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(lead.createdAt).toLocaleDateString("es-ES")}
+                  </span>
+                  <Button variant="outline" size="sm">
+                    Continuar
+                  </Button>
                 </div>
               </div>
             ))}
@@ -108,29 +118,29 @@ export function RecorridosLayout({ leadId }: { leadId?: string }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Leads Hoy</CardTitle>
-                <MapPin className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Leads Hoy</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">3</div>
+              <div className="text-2xl font-bold">3</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Esta Semana</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Esta Semana</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">12</div>
+              <div className="text-2xl font-bold">12</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tasa de Conversión</CardTitle>
-                <User className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Tasa de Conversión</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">68%</div>
+              <div className="text-2xl font-bold">68%</div>
             </CardContent>
           </Card>
         </div>

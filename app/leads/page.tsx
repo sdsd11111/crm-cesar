@@ -45,10 +45,12 @@ interface Lead {
   averageTicket?: number
   knownCompetition?: string
   highSeason?: string
-  criticalDates?: string
+  anniversaryDate?: string
+  birthday?: string
   facebookFollowers?: number
   otherAchievements?: string
   specificRecognitions?: string
+  criticalDates?: string
 }
 
 const STAGES = {
@@ -345,6 +347,8 @@ export default function LeadsPage() {
                       <p><span className='font-medium'>Competencia:</span> {selectedLead.knownCompetition}</p>
                       <p><span className='font-medium'>Temporada Alta:</span> {selectedLead.highSeason}</p>
                       <p><span className='font-medium'>Fechas Críticas:</span> {selectedLead.criticalDates}</p>
+                      <p><span className='font-medium'>Cumpleaños:</span> {selectedLead.birthday ? new Date(selectedLead.birthday).toLocaleDateString() : '-'}</p>
+                      <p><span className='font-medium'>Aniversario Negocio:</span> {selectedLead.anniversaryDate ? new Date(selectedLead.anniversaryDate).toLocaleDateString() : '-'}</p>
                       <p><span className='font-medium'>Logros:</span> {selectedLead.otherAchievements}</p>
                       <p><span className='font-medium'>Reconocimientos:</span> {selectedLead.specificRecognitions}</p>
                     </div>

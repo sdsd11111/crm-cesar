@@ -29,6 +29,14 @@ export class AgentService {
             })
             .returning();
 
+        // Trigger immediate planning for this new agent/contact
+        try {
+            const { planningEngine } = await import('./PlanningEngine');
+            await planningEngine.generatePlanningForContact(contactId);
+        } catch (error) {
+            console.error('⚠️ AgentService: Error triggering initial planning:', error);
+        }
+
         return newAgent;
     }
 

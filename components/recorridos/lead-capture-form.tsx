@@ -65,6 +65,7 @@ export function LeadCaptureForm({ leadId, onBack }: LeadCaptureFormProps) {
     businessLocation: "",
     businessActivity: "",
     relationshipType: "",
+    birthday: "", // New: Cumpleaños
     // Step 2
     interestedProduct: [] as string[], // Changed to array for multi-select
     pains: "", // New: Dolores
@@ -82,6 +83,7 @@ export function LeadCaptureForm({ leadId, onBack }: LeadCaptureFormProps) {
     knownCompetition: "",
     highSeason: "",
     criticalDates: "",
+    anniversaryDate: "", // New: Aniversario Negocio
     facebookFollowers: "",
     otherAchievements: "",
     specificRecognitions: "",
@@ -111,6 +113,7 @@ export function LeadCaptureForm({ leadId, onBack }: LeadCaptureFormProps) {
               businessLocation: data.businessLocation || "",
               businessActivity: data.businessActivity || "",
               relationshipType: data.relationshipType || "",
+              birthday: data.birthday ? new Date(data.birthday).toISOString().split('T')[0] : "",
               interestedProduct: Array.isArray(data.interestedProduct)
                 ? data.interestedProduct
                 : (typeof data.interestedProduct === 'string' && data.interestedProduct.length > 0
@@ -140,6 +143,7 @@ export function LeadCaptureForm({ leadId, onBack }: LeadCaptureFormProps) {
               weaknesses: data.weaknesses || "",
               opportunities: data.opportunities || "",
               threats: data.threats || "",
+              anniversaryDate: data.anniversaryDate ? new Date(data.anniversaryDate).toISOString().split('T')[0] : "",
             })
           } else {
             alert("Error al cargar los datos del lead.")
@@ -326,6 +330,7 @@ export function LeadCaptureForm({ leadId, onBack }: LeadCaptureFormProps) {
             {renderField("address", "Dirección")}
             {renderTextarea("businessActivity", "Actividad Comercial Principal")}
             {renderField("relationshipType", "Tipo de Relación (Ej: Amigo, Cliente previo)")}
+            {renderField("birthday", "Cumpleaños del Contacto", "date")}
           </>
         )
       case 2:
@@ -360,6 +365,7 @@ export function LeadCaptureForm({ leadId, onBack }: LeadCaptureFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
               {renderField("highSeason", "Temporada alta")}
               {renderField("criticalDates", "Fechas críticas")}
+              {renderField("anniversaryDate", "Aniversario del Negocio (Inauguración)", "date")}
             </div>
           </>
         )

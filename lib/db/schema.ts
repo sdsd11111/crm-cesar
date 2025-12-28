@@ -1,4 +1,4 @@
-import { pgTable, text, integer, doublePrecision, timestamp, boolean, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, doublePrecision, timestamp, boolean, uuid, jsonb } from 'drizzle-orm/pg-core';
 
 // ============================================
 // CONTACTS - Unified table for Prospects, Leads, and Clients
@@ -79,6 +79,12 @@ export const contacts = pgTable('contacts', {
   discoveryLeadId: uuid('discovery_lead_id').references(() => discoveryLeads.id), // ✅ HERENCIA DE IDENTIDAD
   convertedToLeadAt: timestamp('converted_to_lead_at'),
   convertedToClientAt: timestamp('converted_to_client_at'),
+
+  // Automated Planning Data
+  birthday: timestamp('birthday'),
+  anniversaryDate: timestamp('anniversary_date'),
+  categoryTags: text('category_tags').array().default([]),
+  whatsappOptOut: boolean('whatsapp_opt_out').default(false),
 
   // Metadata
   notes: text('notes'),
@@ -324,6 +330,7 @@ export const events = pgTable('events', {
   endTime: timestamp('end_time').notNull(),
   location: text('location'),
   meetingUrl: text('meeting_url'),
+  status: text('status', { enum: ['scheduled', 'cancelled', 'completed'] }).default('scheduled'),
   contactId: uuid('contact_id').references(() => contacts.id), // ✅ NUEVO: Referencia unificada
   relatedClientId: uuid('related_client_id').references(() => clients.id),
   relatedLeadId: uuid('related_lead_id').references(() => leads.id),
@@ -574,6 +581,7 @@ export const agents = pgTable('agents', {
 
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  lastPlannedAt: timestamp('last_planned_at'),
 });
 
 // 2. Agent Briefings (Pre-Meeting Output)
@@ -618,4 +626,63 @@ export const commitments = pgTable('commitments', {
 
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// ============================================
+// LOYALTY MISSIONS (Fidelization System)
+// ============================================
+export const loyaltyMissions = pgTable('loyalty_missions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  source: text('source', { enum: ['micro', 'macro'] }).notNull(),
+  status: text('status', {
+    enum: ['pending', 'approved', 'scheduled', 'executed', 'cancelled', 'rejected', 'suggested_rejected']
+  }).notNull().default('pending'),
+  plannedAt: timestamp('planned_at', { withTimezone: true }),
+  contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// ============================================
+// REMINDERS (Internal Task Notifications)
+// ============================================
+export const reminders = pgTable('reminders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }),
+  taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  sendAt: timestamp('send_at', { withTimezone: true }).notNull(),
+  status: text('status', { enum: ['pending', 'sent', 'cancelled', 'failed'] }).default('pending').notNull(),
+  channel: text('channel', { enum: ['telegram', 'whatsapp'] }).default('telegram').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================
+// CONVERSATIONAL STATE (Short-term Memory)
+// ============================================
+export const conversationStates = pgTable('conversation_states', {
+  key: text('key').primaryKey(), // chatId
+  data: text('data').default('{}'), // JSON stored as text
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================
+// WHATSAPP LOGS - Auditory and Antiban tracking
+// ============================================
+export const whatsappLogs = pgTable('whatsapp_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'cascade' }),
+  trigger: text('trigger').notNull(), // 'donna', 'finance', 'manual', 'test'
+  content: text('content').notNull(),
+  status: text('status', {
+    enum: ['sent', 'failed', 'rejected', 'processing']
+  }).notNull().default('processing'),
+  errorMessage: text('error_message'),
+  approvedBy: text('approved_by'), // ID of the user who approved
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });

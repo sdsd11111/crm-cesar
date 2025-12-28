@@ -34,6 +34,14 @@ export async function POST(
             discoveryLeadId: discoveryLead.id, // Linked reference
         } as any).returning();
 
+        // 2.5 Initialize Agent
+        try {
+            const { agentService } = await import('@/lib/donna/services/AgentService');
+            await agentService.ensureAgent(result[0].id);
+        } catch (e) {
+            console.error('⚠️ DiscoveryConvert: Error initializing agent:', e);
+        }
+
         // 3. Update discovery lead status
         await db.update(discoveryLeads).set({
             status: 'converted',

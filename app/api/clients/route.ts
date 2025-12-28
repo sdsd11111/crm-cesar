@@ -74,6 +74,8 @@ export async function POST(req: Request) {
       city: body.city,
       business_type: body.businessType,
       contract_value: body.contractValue || null,
+      birthday: body.birthday || null,
+      anniversary_date: body.anniversaryDate || null,
       // contract_start_date: body.contractStartDate, // Add if needed
     };
 
@@ -84,9 +86,20 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      console.error('Error creating client:', error);
+      console.error('Error creating client in contacts table:', error);
       return NextResponse.json({ error: 'Failed to create client: ' + error.message }, { status: 500 });
     }
+
+    // Mirror to legacy 'clients' table
+    await supabase.from('clients').upsert({
+      id: newClient.id,
+      business_name: newClient.business_name,
+      contact_name: newClient.contact_name,
+      phone: newClient.phone,
+      email: newClient.email,
+      city: newClient.city,
+      updated_at: new Date().toISOString()
+    });
 
     // Map back to camelCase for response
     const mappedClient = {
@@ -99,6 +112,14 @@ export async function POST(req: Request) {
       businessType: newClient.business_type,
       contractValue: newClient.contract_value,
     };
+
+    // Initialize Agent
+    try {
+      const { agentService } = await import('@/lib/donna/services/AgentService');
+      await agentService.ensureAgent(newClient.id);
+    } catch (e) {
+      console.error('⚠️ ClientsAPI: Error initializing agent:', e);
+    }
 
     return NextResponse.json(mappedClient);
   } catch (error) {

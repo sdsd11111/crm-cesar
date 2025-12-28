@@ -87,11 +87,17 @@ TU MISIÓN ES GENERAR LA SALIDA EXCLUSIVAMENTE EN FORMATO JSON SIGUIENDO ESTA ES
 
 {
   "report": "Texto completo del reporte siguiendo los puntos: 1. Resumen Ejecutivo, 2. Presencia Digital, 3. Puntos de Dolor, 4. Estrategia de Entrada, 5. Perfil Estimado. (Usa bullets y formato markdown dentro del string)",
-  "bookingInfo": "Resumen corto: 'Si/No trabaja con booking, X estrellas, comentarios positivos/negativos destacados'",
-  "googleInfo": "Resumen corto: 'Perfil Google: Si/No, X estrellas, XX reseñas, comentarios resumen: [comentario...]'"
+  "bookingInfo": "Resumen corto sobre plataformas de reserva (Booking, Expedia, etc).",
+  "googleInfo": "Resumen sobre el perfil de Google My Business.",
+  "strategicData": {
+    "birthday": "Fecha de nacimiento sugerida si se encuentra o detecta del propietario (YYYY-MM-DD o 'Sin dato')",
+    "anniversaryDate": "Fecha de fundación o aniversario del negocio si se encuentra (YYYY-MM-DD o 'Sin dato')",
+    "criticalPeriods": "Temporadas altas, feriados locales o periodos de crisis detectados"
+  }
 }
 
 REGLAS ESPECÍFICAS PARA EL CONTENIDO:
+- En 'strategicData', haz un esfuerzo por detectar la fecha de fundación o hitos importantes. Esto alimenta Donna Goteo.
 - En 'bookingInfo', si encuentras Booking, Expedia o similares, menciónalo con sus estrellas y un resumen de las quejas o halagos más comunes.
 - En 'googleInfo', sé preciso con el número de estrellas y cita un fragmento de un comentario real si es posible.
 - Si no hay datos, pon "Sin información detectada".
@@ -103,15 +109,21 @@ REGLA DE ORO: Si Tavily no dio resultados, no inventes datos específicos.
             const result = await model.generateContent(prompt);
             const textResponse = result.response.text();
 
-            // Cleanup in case Gemini returns markdown blocks
-            const cleanedJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleanedJson);
+            // More robust JSON extraction
+            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+            const cleanedJson = jsonMatch ? jsonMatch[0] : textResponse;
 
-            return {
-                report: parsed.report || "Error en generación de reporte.",
-                bookingInfo: parsed.bookingInfo || "Sin datos de Booking.",
-                googleInfo: parsed.googleInfo || "Sin datos de Google."
-            };
+            try {
+                const parsed = JSON.parse(cleanedJson);
+                return {
+                    report: parsed.report || "Error en generación de reporte.",
+                    bookingInfo: parsed.bookingInfo || "Sin datos de Booking.",
+                    googleInfo: parsed.googleInfo || "Sin datos de Google."
+                };
+            } catch (jsonError) {
+                console.error("Failed to parse Gemini JSON:", cleanedJson);
+                throw jsonError;
+            }
         } catch (error) {
             console.error("Error in Gemini (ResearchAgent):", error);
             return {

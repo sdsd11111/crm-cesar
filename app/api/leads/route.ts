@@ -61,6 +61,8 @@ export async function GET() {
       numberOfBranches: lead.number_of_branches,
       currentClientsPerMonth: lead.current_clients_per_month,
       averageTicket: lead.average_ticket,
+      birthday: lead.birthday,
+      anniversaryDate: lead.anniversary_date,
       knownCompetition: lead.known_competition,
       highSeason: lead.high_season,
       criticalDates: lead.critical_dates,
@@ -141,6 +143,8 @@ export async function POST(request: Request) {
       number_of_branches: body.numberOfBranches ? parseInt(body.numberOfBranches) : null,
       current_clients_per_month: body.currentClientsPerMonth ? parseInt(body.currentClientsPerMonth) : null,
       average_ticket: body.averageTicket ? parseInt(body.averageTicket) : null,
+      birthday: body.birthday || null,
+      anniversary_date: body.anniversaryDate || null,
 
       known_competition: body.knownCompetition,
       high_season: body.highSeason,
@@ -169,6 +173,14 @@ export async function POST(request: Request) {
     if (error) {
       console.error("Error creating lead:", error);
       return NextResponse.json({ error: "Failed to create lead: " + error.message, details: error }, { status: 500 });
+    }
+
+    // 2. Initialize Agent
+    try {
+      const { agentService } = await import('@/lib/donna/services/AgentService');
+      await agentService.ensureAgent(newLead.id);
+    } catch (e) {
+      console.error('⚠️ LeadsAPI: Error initializing agent:', e);
     }
 
     return NextResponse.json(newLead, { status: 201 });

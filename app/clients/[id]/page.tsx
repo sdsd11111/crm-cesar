@@ -28,7 +28,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ClientEditForm } from '@/components/clients/client-edit-form'
+import { UniversalContactForm } from '@/components/shared/universal-contact-form'
 import { StrategicBoard } from '@/components/clients/strategic-board'
 import { ProfileUpdateConfirmation } from '@/components/ai/ProfileUpdateConfirmation'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -416,8 +416,10 @@ export default function ClientDetailPage() {
         return (
             <DashboardLayout>
                 <div className="bg-background rounded-xl shadow-sm border">
-                    <ClientEditForm
-                        clientData={client}
+                    <UniversalContactForm
+                        contactId={client.id}
+                        initialData={client}
+                        mode="client"
                         onSave={() => {
                             setIsFullEditing(false)
                             fetchClientDetails()

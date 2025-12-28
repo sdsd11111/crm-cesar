@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, Plus, User, Phone, Mail, MapPin, Calendar, FileText, Trash2 } from 'lucide-react'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
+import { UniversalContactForm } from '@/components/shared/universal-contact-form'
 import { toast } from 'sonner'
 import {
     AlertDialog,
@@ -151,64 +151,15 @@ export default function ClientsPage() {
                                     <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Agregar Nuevo Cliente</DialogTitle>
-                                    <DialogDescription>
-                                        Registra un nuevo cliente manualmente.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="name" className="text-right">Negocio</Label>
-                                        <Input
-                                            id="name"
-                                            value={newClient.businessName}
-                                            onChange={(e) => setNewClient({ ...newClient, businessName: e.target.value })}
-                                            className="col-span-3"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="contact" className="text-right">Contacto</Label>
-                                        <Input
-                                            id="contact"
-                                            value={newClient.contactName}
-                                            onChange={(e) => setNewClient({ ...newClient, contactName: e.target.value })}
-                                            className="col-span-3"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="phone" className="text-right">Teléfono</Label>
-                                        <Input
-                                            id="phone"
-                                            value={newClient.phone}
-                                            onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                                            className="col-span-3"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="email" className="text-right">Email</Label>
-                                        <Input
-                                            id="email"
-                                            value={newClient.email}
-                                            onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                                            className="col-span-3"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="value" className="text-right">Valor Contrato</Label>
-                                        <Input
-                                            id="value"
-                                            type="number"
-                                            value={newClient.contractValue}
-                                            onChange={(e) => setNewClient({ ...newClient, contractValue: Number(e.target.value) })}
-                                            className="col-span-3"
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button onClick={handleCreateClient}>Guardar Cliente</Button>
-                                </DialogFooter>
+                            <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background border-none shadow-2xl">
+                                <UniversalContactForm
+                                    mode="client"
+                                    onSave={() => {
+                                        setIsAddOpen(false)
+                                        fetchClients()
+                                    }}
+                                    onCancel={() => setIsAddOpen(false)}
+                                />
                             </DialogContent>
                         </Dialog>
                     </div>

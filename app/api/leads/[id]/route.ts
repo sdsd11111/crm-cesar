@@ -52,6 +52,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       email: lead.email,
       address: lead.address,
       city: lead.city,
+      businessType: lead.business_type,
       connectionType: lead.connection_type,
       businessActivity: lead.business_activity,
       interestedProduct: lead.interested_product,
@@ -77,6 +78,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       knownCompetition: lead.known_competition,
       highSeason: lead.high_season,
       criticalDates: lead.critical_dates,
+      birthday: lead.birthday,
+      anniversaryDate: lead.anniversary_date,
       facebookFollowers: lead.facebook_followers,
       otherAchievements: lead.other_achievements,
       specificRecognitions: lead.specific_recognitions,
@@ -138,6 +141,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (body.email !== undefined) updateData.email = body.email;
     if (body.address !== undefined) updateData.address = body.address;
     if (body.city !== undefined) updateData.city = body.city;
+    if (body.businessType !== undefined) updateData.business_type = body.businessType;
 
     // Recorridos Fields
     if (body.relationshipType !== undefined) updateData.connection_type = body.relationshipType; // Note: map to connection_type per schema
@@ -177,6 +181,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (body.knownCompetition !== undefined) updateData.known_competition = body.knownCompetition;
     if (body.highSeason !== undefined) updateData.high_season = body.highSeason;
     if (body.criticalDates !== undefined) updateData.critical_dates = body.criticalDates;
+    if (body.birthday !== undefined) updateData.birthday = body.birthday || null;
+    if (body.anniversaryDate !== undefined) updateData.anniversary_date = body.anniversaryDate || null;
     if (body.otherAchievements !== undefined) updateData.other_achievements = body.otherAchievements;
     if (body.specificRecognitions !== undefined) updateData.specific_recognitions = body.specificRecognitions;
 
@@ -192,6 +198,22 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (error) {
       console.error("Error updating lead:", error);
       return NextResponse.json({ error: "Failed to update lead: " + error.message }, { status: 500 });
+    }
+
+    // Ensure agent exists (for older leads or manual updates)
+    try {
+      const { agentService } = await import('@/lib/donna/services/AgentService');
+      await agentService.ensureAgent(id);
+    } catch (e) {
+      console.error('⚠️ LeadUpdateAPI: Error ensuring agent:', e);
+    }
+
+    // Trigger immediate planning (Donna Micro)
+    try {
+      const { planningEngine } = await import('@/lib/donna/services/PlanningEngine');
+      await planningEngine.generatePlanningForContact(id);
+    } catch (e) {
+      console.error('⚠️ LeadUpdateAPI: Error triggering planning:', e);
     }
 
     return NextResponse.json({ message: "Lead updated successfully", data: updatedLead }, { status: 200 });

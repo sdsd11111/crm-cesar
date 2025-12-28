@@ -232,7 +232,33 @@ export default function LeadsPage() {
                   <CardHeader className='pb-3'>
                     <div className='flex items-center justify-between'>
                       <CardTitle className='text-lg font-semibold text-foreground'>{lead.businessName}</CardTitle>
-                      <Badge className='bg-purple-500 text-white capitalize'>{lead.status}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className='bg-purple-500 text-white capitalize'>{lead.status}</Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                              <MoreVertical className='h-4 w-4' />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align='end'>
+                            <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'sin_contacto')}>
+                              Mover a Sin Contacto
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'primer_contacto')}>
+                              Mover a 1er Contacto
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'segundo_contacto')}>
+                              Mover a 2do Contacto
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'tercer_contacto')}>
+                              Mover a 3er Contacto
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleConvertToClient(lead)} className="text-green-600">
+                              Convertir a Cliente
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                     <CardDescription className='flex items-center space-x-2'>
                       <User className='h-4 w-4' />

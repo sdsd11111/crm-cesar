@@ -22,11 +22,17 @@ export class NotificationOrchestrator {
         const planningResults = await planningEngine.generateDailyPlanning();
         console.log('📊 Planning Results:', planningResults);
 
-        // 3. Fetch all APPROVED missions that haven't been executed
+        // 3. Fetch all APPROVED missions that are scheduled for TODAY or earlier
+        // SAFETY CHECK: Never process future missions even if approved.
         const missions = await db
             .select()
             .from(loyaltyMissions)
-            .where(eq(loyaltyMissions.status, 'approved'));
+            .where(
+                and(
+                    eq(loyaltyMissions.status, 'approved'),
+                    sql`${loyaltyMissions.plannedAt} <= NOW()`
+                )
+            );
 
         const executionResults = {
             success: 0,

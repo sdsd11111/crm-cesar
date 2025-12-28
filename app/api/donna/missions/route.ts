@@ -56,8 +56,12 @@ export async function POST(req: Request) {
                 .where(eq(loyaltyMissions.id, missionId));
 
             // Hybrid Mode: Trigger Orchestrator immediately for testing/production without external cron
+            // Derive base URL from current request to work in any environment
+            const url = new URL(req.url);
+            const baseUrl = `${url.protocol}//${url.host}`;
+
             // Fire and forget - don't await strictly for response time
-            fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cron/notifications`, {
+            fetch(`${baseUrl}/api/cron/notifications`, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` }
             }).catch(e => console.error('Error triggering orchestrator:', e));

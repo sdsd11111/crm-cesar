@@ -764,58 +764,46 @@ export default function TrainerPage() {
                                                 <Card className="border-border/50 bg-card/30 backdrop-blur-md">
                                                     <CardHeader>
                                                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                                            <User className="h-5 w-5 text-primary" /> Perfil del Contacto
+                                                            <User className="h-5 w-5 text-primary" /> Perfil Detallado
                                                         </CardTitle>
                                                     </CardHeader>
-                                                    <CardContent className="space-y-4">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                            <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Empresa / Negocio</p>
-                                                                <p className="text-xl font-bold text-white">{selectedLead.businessName || "No registrado"}</p>
+                                                    <CardContent className="space-y-6">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Nombre Comercial</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.nombre_comercial || selectedLead.businessName || "No registrado"}</p>
                                                             </div>
-                                                            <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Persona de Contacto</p>
-                                                                <p className="text-xl font-bold text-white">
-                                                                    {selectedLead.source === 'discovery'
-                                                                        ? (selectedLead.razonSocialPropietario || selectedLead.representative || "Sin nombre")
-                                                                        : selectedLead.contactName}
-                                                                </p>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Actividad / Modalidad</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.actividadModalidad || selectedLead.businessType || "No especificado"}</p>
                                                             </div>
-                                                            <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Ubicación</p>
-                                                                <div className="flex items-center gap-2">
-                                                                    <MapPin className="h-4 w-4 text-primary" />
-                                                                    <p className="text-white">
-                                                                        {selectedLead.province || selectedLead.city || selectedLead.address ? (
-                                                                            `${selectedLead.province || ''} ${selectedLead.city || ''} ${selectedLead.address || ''}`
-                                                                        ) : "Ubicación no disponible"}
-                                                                    </p>
-                                                                </div>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Razón Social (Propietario)</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.razonSocialPropietario || "No registrado"}</p>
                                                             </div>
-                                                            <div className="space-y-1">
-                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Tipo de Negocio</p>
-                                                                <p className="text-white">{selectedLead.businessType || "No especificado"}</p>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Provincia / Cantón</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.provincia || selectedLead.province || "N/A"} - {selectedLead.canton || selectedLead.city || "N/A"}</p>
                                                             </div>
-                                                        </div>
-
-                                                        <div className="pt-4 border-t border-border/50 space-y-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="p-2 bg-primary/10 rounded-lg">
-                                                                    <Phone className="h-4 w-4 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Teléfono</p>
-                                                                    <p className="font-mono text-white">{selectedLead.phone || selectedLead.phone1 || "Sin teléfono"}</p>
-                                                                </div>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Teléfonos</p>
+                                                                <p className="text-md font-bold text-primary">{selectedLead.telefonoPrincipal || selectedLead.phone || "N/A"} / {selectedLead.telefonoSecundario || selectedLead.phone2 || "N/A"}</p>
                                                             </div>
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="p-2 bg-primary/10 rounded-lg">
-                                                                    <Mail className="h-4 w-4 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Email</p>
-                                                                    <p className="font-mono text-white">{selectedLead.email || "Sin email registrado"}</p>
-                                                                </div>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Correo Electrónico</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.correoElectronico || selectedLead.email || "No registrado"}</p>
+                                                            </div>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Dirección Web</p>
+                                                                <p className="text-md font-bold text-blue-400 truncate">{selectedLead.direccionWeb || selectedLead.website || "No disponible"}</p>
+                                                            </div>
+                                                            <div className="space-y-0.5">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Persona de Contacto</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.personaContacto || selectedLead.representative || selectedLead.contactName || "No registrado"}</p>
+                                                            </div>
+                                                            <div className="space-y-0.5 md:col-span-2">
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Correo Persona de Contacto</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.correoPersonaContacto || "No registrado"}</p>
                                                             </div>
                                                         </div>
                                                     </CardContent>
@@ -823,34 +811,51 @@ export default function TrainerPage() {
                                             </TabsContent>
 
                                             <TabsContent value="investigation" className="space-y-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <Card className="border-yellow-500/20 bg-yellow-500/5">
-                                                        <CardHeader className="pb-2">
-                                                            <CardTitle className="text-xs uppercase font-black text-yellow-500 tracking-widest flex items-center gap-2">
-                                                                <Search className="h-4 w-4" /> Google Insights
-                                                            </CardTitle>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            <p className="text-sm text-slate-300 italic leading-relaxed">
-                                                                {selectedLead.googleInfo || "No hay datos de Google para este prospecto."}
-                                                            </p>
-                                                        </CardContent>
-                                                    </Card>
+                                                <div className="grid grid-cols-1 gap-4">
+                                                    {selectedLead.researchData ? (
+                                                        <Card className="border-primary/20 bg-primary/5">
+                                                            <CardHeader className="pb-2">
+                                                                <CardTitle className="text-xs uppercase font-black text-primary tracking-widest flex items-center gap-2">
+                                                                    <BrainCircuit className="h-4 w-4" /> Investigación Completa (IA & Web)
+                                                                </CardTitle>
+                                                            </CardHeader>
+                                                            <CardContent>
+                                                                <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap bg-background/30 p-4 rounded-lg border border-border/50">
+                                                                    {selectedLead.researchData}
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    ) : null}
 
-                                                    <Card className="border-blue-500/20 bg-blue-500/5">
-                                                        <CardHeader className="pb-2">
-                                                            <CardTitle className="text-xs uppercase font-black text-blue-400 tracking-widest flex items-center gap-2">
-                                                                <Info className="h-4 w-4" /> Booking / OTA Data
-                                                            </CardTitle>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            <p className="text-sm text-slate-300 italic leading-relaxed">
-                                                                {selectedLead.bookingInfo || "Sin datos de Booking disponibles."}
-                                                            </p>
-                                                        </CardContent>
-                                                    </Card>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <Card className="border-yellow-500/20 bg-yellow-500/5">
+                                                            <CardHeader className="pb-2">
+                                                                <CardTitle className="text-xs uppercase font-black text-yellow-500 tracking-widest flex items-center gap-2">
+                                                                    <Search className="h-4 w-4" /> Google Insights
+                                                                </CardTitle>
+                                                            </CardHeader>
+                                                            <CardContent>
+                                                                <p className="text-sm text-slate-300 italic leading-relaxed">
+                                                                    {selectedLead.googleInfo || "No hay datos de Google para este prospecto."}
+                                                                </p>
+                                                            </CardContent>
+                                                        </Card>
 
-                                                    <Card className="md:col-span-2 border-primary/20 bg-primary/5">
+                                                        <Card className="border-blue-500/20 bg-blue-500/5">
+                                                            <CardHeader className="pb-2">
+                                                                <CardTitle className="text-xs uppercase font-black text-blue-400 tracking-widest flex items-center gap-2">
+                                                                    <Info className="h-4 w-4" /> Booking / OTA Data
+                                                                </CardTitle>
+                                                            </CardHeader>
+                                                            <CardContent>
+                                                                <p className="text-sm text-slate-300 italic leading-relaxed">
+                                                                    {selectedLead.bookingInfo || "Sin datos de Booking disponibles."}
+                                                                </p>
+                                                            </CardContent>
+                                                        </Card>
+                                                    </div>
+
+                                                    <Card className="border-primary/20 bg-primary/5">
                                                         <CardHeader className="pb-2">
                                                             <CardTitle className="text-xs uppercase font-black text-primary tracking-widest flex items-center gap-2">
                                                                 <History className="h-4 w-4" /> Última Interacción

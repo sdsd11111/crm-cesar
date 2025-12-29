@@ -32,28 +32,36 @@ Tu misión es generar un **PITCH HÍBRIDO ESTRATÉGICO**.
 
 ## ESTRUCTURA DEL PITCH (GUION CÉSAR)
 
-"Buenas tardes, ¿me comunico con ((NOMBRE_COMPLETO_O_EMPRESA))?"
-"Un gusto ((NOMBRE_PILA_O_EMPRESA)) te saluda César Reyes, le llamo de la empresa Objetivo."
-"Nosotros trabajamos exclusivamente como consultores para negocios turísticos en Ecuador."
+"Buenas tardes, ¿hablo con ((NOMBRE))?"
+
+"Un gusto, ((NOMBRE)), le saluda César Reyes, de la empresa Objetivo. Somos consultores exclusivamente para negocios turísticos en Ecuador, y queremos adelantarnos en desearles a usted y a todo el equipo que este 2026 venga lleno de más clientes y mejores oportunidades."
+
 "¿Me permite un par de minutos? Prometo ser muy puntual."
 
 ((BLOQUE VALIDACIÓN - ELEGIR EL MÁS RELEVANTE))
 - SI HAY BOOKING: "Vi que ustedes trabajan con Booking. Y la verdad, es una buena decisión, porque hay perfiles de viajeros a los que por alcance propio es difícil llegar."
 - SI NO HAY BOOKING PERO HAY GOOGLE: "Vi que tienen su ficha de Google con ((X)) estrellas. Es una buena base, pero hay mucho potencial por explotar."
 
-"Ahora, algo que escucho muy seguido en el sector es que, pagan comisión de booking, prefered en algunos casos, IVA y costo de tarjeta, normalmente eso ronda entre un 20 a un 30% ¿o es más?"
+"Ahora, algo que escucho muy seguido en el sector es que: 
+- Pagan comisión de booking
+- Prefered en algunos casos.
+- IVA y costo de tarjeta
+Normalmente eso ronda entre un 20 a un 30% ¿o es más?"
+
+((PARAFASEO + DOLOR SUAVE - Dependiendo de la respuesta))
+"Claro, eso me parece más correcto."
 
 "El problema no es Booking en sí… el problema es que cuando el crecimiento depende de plataformas externas, se vuelve muy difícil competir en una guerra de precios, sobre todo con Airbnb."
 
-"En Objetivo, lo que hacemos es ayudarles a depender menos de plataformas, y a capturar reservas directas de personas que ya están buscando hospedaje como el suyo."
+"En Objetivo, lo que hacemos es ayudarles a depender menos de estas plataformas, y a capturar reservas directas de personas que ya están buscando hospedaje como el suyo en GOOGLE."
 
-"Por eso quería preguntarle algo muy puntual: ¿le gustaría conocer cómo lo están haciendo otros negocios similares al suyo?"
+"Por eso quería preguntarle algo muy puntual: ¿le gustaría conocer cómo lo están haciendo otros negocios similares al suyo? Y como podemos ayudarles a que ustedes también lo tengan."
 
-"Entonces ((NOMBRE_PILA_O_EMPRESA)) le voy a enviar por WhatsApp nuestra página con la propuesta. Revísela con calma, porque nos contrate o no, lo que ahí mostramos es totalmente aplicable a su negocio."
+"Entonces ((NOMBRE)) le voy a enviar por WhatsApp nuestra página web con la propuesta. Revísela con calma, porque nos contrate o no, lo que ahí mostramos es totalmente aplicable a su negocio."
 
-"La diferencia es que esto no es manejo de redes ni publicaciones, es un sistema pensado exclusivamente para capturar reservas directas en GOOGLE y cuando te investiguen con CHATGPT, y nosotros nos dedicamos solo a eso desde el 2020."
+"(pausa breve) Y solo para que lo tenga claro: no es manejo de redes ni publicaciones, es un sistema enfocado exclusivamente en capturar reservas directas en GOOGLE. Y es a lo único que nos dedicamos desde el 2020."
 
-"((NOMBRE_PILA_O_EMPRESA)) Has sido muy amable, ¿tienes alguna pregunta antes de cortar?"
+"((NOMBRE)) Has sido muy amable, ¿tienes alguna pregunta antes de cortar?"
 
 ---
 

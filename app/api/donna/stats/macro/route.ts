@@ -1,3 +1,8 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { whatsappLogs, loyaltyMissions } from '@/lib/db/schema';
+import { sql, eq } from 'drizzle-orm';
+
 export async function GET() {
     try {
         const thirtyDaysAgo = new Date();
@@ -9,12 +14,12 @@ export async function GET() {
             db
                 .select({ count: sql<number>`COALESCE(count(*), 0)` })
                 .from(whatsappLogs)
-                .where(sql`${whatsappLogs.status} = 'sent' AND ${whatsappLogs.sentAt} >= ${thirtyDaysAgo}`)
+                .where(sql`${whatsappLogs.status} = 'sent' AND ${whatsappLogs.createdAt} >= ${thirtyDaysAgo}`)
                 .limit(1),
             db
                 .select({ count: sql<number>`COALESCE(count(*), 0)` })
                 .from(whatsappLogs)
-                .where(sql`${whatsappLogs.status} = 'failed' AND ${whatsappLogs.sentAt} >= ${thirtyDaysAgo}`)
+                .where(sql`${whatsappLogs.status} = 'failed' AND ${whatsappLogs.createdAt} >= ${thirtyDaysAgo}`)
                 .limit(1)
         ]);
 
@@ -30,13 +35,13 @@ export async function GET() {
 
         const dailyStats = await db
             .select({
-                date: sql<string>`DATE(${whatsappLogs.sentAt})`,
+                date: sql<string>`DATE(${whatsappLogs.createdAt})`,
                 count: sql<number>`COALESCE(count(*), 0)`
             })
             .from(whatsappLogs)
-            .where(sql`${whatsappLogs.status} = 'sent' AND ${whatsappLogs.sentAt} >= ${sevenDaysAgo}`)
-            .groupBy(sql`DATE(${whatsappLogs.sentAt})`)
-            .orderBy(sql`DATE(${whatsappLogs.sentAt})`)
+            .where(sql`${whatsappLogs.status} = 'sent' AND ${whatsappLogs.createdAt} >= ${sevenDaysAgo}`)
+            .groupBy(sql`DATE(${whatsappLogs.createdAt})`)
+            .orderBy(sql`DATE(${whatsappLogs.createdAt})`)
             .limit(7); // Safety limit
 
         // Campaign breakdown by type

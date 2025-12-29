@@ -27,6 +27,8 @@ import {
     Save,
     CheckCircle,
     XCircle,
+    LayoutDashboard,
+    Loader2,
     MessageSquare,
     Zap,
     Mail,
@@ -43,6 +45,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 export default function TrainerPage() {
@@ -69,6 +73,127 @@ export default function TrainerPage() {
     // Filter State
     const [filterMode, setFilterMode] = useState<'all' | 'queue' | 'investigated'>('all');
     const [isClearingQueue, setIsClearingQueue] = useState(false);
+
+    // WhatsApp Message State
+    const [waNumber, setWaNumber] = useState<string>('');
+    const [waTemplate, setWaTemplate] = useState<string>('receptionist');
+    const [waBody, setWaBody] = useState<string>('');
+    const [isSendingWa, setIsSendingWa] = useState(false);
+
+    const TEMPLATES = {
+        receptionist: (businessName: string) => `Hola, buen día 😊
+Tal como conversamos por teléfono, le comparto por aquí la información.
+
+El enlace incluye un video corto donde explico cómo hoteles como ${businessName || '((NOMBRE DEL HOTEL))'} podrían captar más reservas directas, tanto de huéspedes nacionales como extranjeros, aprovechando su reputación en Google.
+
+Si es tan amable, puede compartir esta información con la persona encargada, para que la revise con calma.
+Quedo atento a cualquier duda.
+
+Un saludo desde Loja,
+César Reyes
+
+👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
+        owner: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, un gusto saludarle nuevamente 😊
+Tal como conversamos por teléfono, le comparto por aquí la información.
+
+En el enlace encontrará un video corto donde explico, de forma clara y práctica, cómo algunos hoteles están captando huéspedes nacionales y extranjeros y aumentando sus reservas directas, aprovechando su reputación online.
+
+Revíselo con calma y, por favor, no dude en escribirme si le surge cualquier duda.
+Un saludo desde Loja,
+César Reyes
+
+👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`
+    };
+
+    // Auto-populate WhatsApp data when lead changes
+    useEffect(() => {
+        if (selectedLead) {
+            const phone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
+            setWaNumber(phone);
+
+            // Default template based on what we have
+            const name = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || '';
+            if (name) {
+                setWaTemplate('owner');
+                setWaBody(TEMPLATES.owner(name));
+            } else {
+                setWaTemplate('receptionist');
+                setWaBody(TEMPLATES.receptionist(selectedLead.businessName || selectedLead.nombre_comercial || ''));
+            }
+        }
+    }, [selectedLead]);
+
+    // Update body when template changes manually
+    const handleTemplateChange = (val: string) => {
+        setWaTemplate(val);
+        if (val === 'owner') {
+            const name = selectedLead?.contactName || selectedLead?.personaContacto || selectedLead?.representative || '';
+            setWaBody(TEMPLATES.owner(name));
+        } else {
+            const bName = selectedLead?.businessName || selectedLead?.nombre_comercial || '';
+            setWaBody(TEMPLATES.receptionist(bName));
+        }
+    };
+
+    const handleSendWhatsApp = async () => {
+        if (!waNumber || !waBody) {
+            toast.error("Número y mensaje son obligatorios");
+            return;
+        }
+
+        // Devil's Advocate: Safety Check for unreplaced tags
+        if (waBody.includes('((') || waBody.includes('))')) {
+            if (!confirm("⚠️ El mensaje contiene etiquetas sin reemplazar (ej: ((NOMBRE))). ¿Enviar así?")) {
+                return;
+            }
+        }
+
+        setIsSendingWa(true);
+        try {
+            const res = await fetch('/api/whatsapp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: waNumber,
+                    text: waBody,
+                    metadata: {
+                        leadId: selectedLead?.id,
+                        source: 'trainer_pitch',
+                        template: waTemplate
+                    }
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                toast.success("Mensaje enviado correctamente 🚀");
+
+                // Proactive Saving: If number was changed, save it to DB
+                const originalPhone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
+                if (waNumber !== originalPhone) {
+                    toast.info("💾 Guardando nuevo número en la ficha...");
+                    const updateUrl = selectedLead.source === 'discovery'
+                        ? `/api/discovery/${selectedLead.id}`
+                        : `/api/leads/${selectedLead.id}`;
+
+                    await fetch(updateUrl, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            telefonoPrincipal: selectedLead.source === 'discovery' ? waNumber : undefined,
+                            phone: selectedLead.source === 'lead' ? waNumber : undefined
+                        })
+                    });
+                }
+            } else {
+                throw new Error(data.error || "Error al enviar");
+            }
+        } catch (error: any) {
+            toast.error("Error: " + error.message);
+        } finally {
+            setIsSendingWa(false);
+        }
+    };
 
     // Real-time audio refs
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -350,6 +475,23 @@ export default function TrainerPage() {
         setIsSavingResult(true);
 
         try {
+            // 0. Proactive Phone Saving (if changed)
+            const originalPhone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
+            if (waNumber && waNumber !== originalPhone) {
+                const updateUrl = selectedLead.source === 'discovery'
+                    ? `/api/discovery/${selectedLead.id}`
+                    : `/api/leads/${selectedLead.id}`;
+
+                await fetch(updateUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        telefonoPrincipal: selectedLead.source === 'discovery' ? waNumber : undefined,
+                        phone: selectedLead.source === 'lead' ? waNumber : undefined
+                    })
+                });
+            }
+
             // 1. Save Interaction
             const interactionRes = await fetch('/api/interactions', {
                 method: 'POST',
@@ -365,12 +507,15 @@ export default function TrainerPage() {
                 })
             });
 
-            if (!interactionRes.ok) throw new Error("Error guardando interacción");
+            if (!interactionRes.ok) {
+                const errorData = await interactionRes.json();
+                throw new Error(`Error guardando interacción: ${errorData.details || errorData.error}`);
+            }
 
             // 2. Update Lead/Prospect Status
             const updateUrl = selectedLead.source === 'discovery'
                 ? `/api/discovery/${selectedLead.id}`
-                : `/api/leads/${selectedLead.id}`; // Assuming a similar endpoint exists for leads
+                : `/api/leads/${selectedLead.id}`;
 
             const updateRes = await fetch(updateUrl, {
                 method: 'PATCH',
@@ -378,19 +523,20 @@ export default function TrainerPage() {
                 body: JSON.stringify({
                     columna1: selectedLead.source === 'discovery' ? callOutcome : undefined,
                     columna2: selectedLead.source === 'discovery' ? callAction : undefined,
-                    status: selectedLead.source === 'lead' ? callOutcome : undefined // Simplification
+                    status: selectedLead.source === 'lead' ? callOutcome : undefined
                 })
             });
 
-            if (!updateRes.ok) throw new Error("Error actualizando estado del contacto");
+            if (!updateRes.ok) {
+                const errorData = await updateRes.json();
+                throw new Error(`Error actualizando estado: ${errorData.details || errorData.error}`);
+            }
 
             // 3. Handle 'Convertir a LEAD' Logic
             if (callAction === 'convertir_a_lead' && selectedLead.source === 'discovery') {
-
                 // A. Smart Extraction (AI Profiler)
                 let aiProfile = {};
                 try {
-                    // Only run AI if there are notes (at least 10 chars)
                     if (callNotes && callNotes.length > 10) {
                         toast.info("🧠 Analizando notas con IA...");
                         const extractRes = await fetch('/api/coach/extract-profile', {
@@ -400,36 +546,23 @@ export default function TrainerPage() {
                         });
                         if (extractRes.ok) {
                             aiProfile = await extractRes.json();
-                            console.log("AI Profile Extracted:", aiProfile);
-                            toast.success("Datos extraídos de tus notas ✨");
+                            toast.success("Datos extraídos ✨");
                         }
                     }
-                } catch (e) {
-                    console.error("Error extracting profile", e);
-                }
+                } catch (e) { console.error("Error extracting profile", e); }
 
                 const extracted = aiProfile as any;
-
                 const leadBody = {
-                    businessName: selectedLead.businessName || "Sin Nombre",
-                    contactName: selectedLead.razonSocialPropietario || selectedLead.representative || "Sin Nombre",
-                    // Priority: Extracted Phone > Discovery Phone
-                    phone: extracted?.phone || selectedLead.phone1 || selectedLead.phone2 || "",
+                    businessName: selectedLead.businessName || selectedLead.nombre_comercial || "Sin Nombre",
+                    contactName: extracted?.contactName || selectedLead.razonSocialPropietario || selectedLead.representative || selectedLead.personaContacto || "Sin Nombre",
+                    phone: waNumber || extracted?.phone || selectedLead.phone1 || selectedLead.phone2 || "",
                     email: extracted?.email || selectedLead.email || "",
-                    city: selectedLead.city || "",
-                    address: selectedLead.address || "",
-                    businessType: selectedLead.businessType || "",
-
-                    // Enriched Fields
-                    personalityType: extracted?.personalityType || "",
-                    communicationStyle: extracted?.communicationStyle || "",
-                    ageRange: extracted?.ageRange || "", // Assuming schemas allow this or put in notes
-
+                    city: selectedLead.city || selectedLead.canton || "",
+                    address: selectedLead.address || selectedLead.direccion || "",
+                    businessType: selectedLead.businessType || selectedLead.actividadModalidad || "",
                     source: 'trainer_conversion',
                     status: 'nuevo',
                     notes: `Lead convertido desde Trainer.\n\n📝 Notas Originales: ${callNotes}\n\n🧠 Análisis AI:\n- Personalidad: ${extracted?.personalityType || 'N/A'}\n- Estilo: ${extracted?.communicationStyle || 'N/A'}\n- Resumen: ${extracted?.summary || ''}\n\nOutcome: ${callOutcome}`,
-
-                    // Map research data
                     pains: selectedLead.googleInfo ? `Review Data: ${selectedLead.googleInfo}` : "",
                 };
 
@@ -440,16 +573,18 @@ export default function TrainerPage() {
                 });
 
                 if (createLeadRes.ok) {
-                    toast.success("🚀 ¡Lead convertido exitosamente!");
+                    toast.success("🚀 ¡Convertido a LEAD!");
+                    // To solve "no more contacts", we should reload leads
+                    window.location.reload();
                 } else {
-                    console.error("Error converting lead", await createLeadRes.json());
-                    toast.error("Error al convertir en Lead real (pero se guardó el resultado)");
+                    const errorData = await createLeadRes.json();
+                    throw new Error(`Error al crear Lead real: ${errorData.details || errorData.error}`);
                 }
             } else {
                 toast.success("Resultado guardado con éxito");
             }
 
-            // Refresh interaction history
+            // Refresh interaction history locally
             const param = selectedLead.source === 'discovery'
                 ? `discoveryLeadId=${selectedLead.id}`
                 : `contactId=${selectedLead.id}`;
@@ -459,7 +594,7 @@ export default function TrainerPage() {
                 setLastInteraction(data[0] || null);
             }
 
-            // Update leads list locally to reflect status changes
+            // Update local list
             setLeadsList(prev => prev.map(l => {
                 if (l.id === selectedLead.id) {
                     return {
@@ -471,12 +606,9 @@ export default function TrainerPage() {
                 }
                 return l;
             }));
-
-            // Optionally move to next lead
-            // handleNextLead();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error("Error al guardar el resultado");
+            toast.error(error.message || "Error al guardar el resultado");
         } finally {
             setIsSavingResult(false);
         }
@@ -758,6 +890,103 @@ export default function TrainerPage() {
                                                         </Card>
                                                     ))}
                                                 </div>
+
+                                                {/* WHATSAPP FOLLOW-UP PANEL */}
+                                                <Card className="border-green-500/30 bg-green-500/5 shadow-xl">
+                                                    <CardHeader className="pb-2 border-b border-green-500/10 flex flex-row items-center justify-between">
+                                                        <CardTitle className="text-sm uppercase tracking-widest text-green-500 font-bold flex items-center gap-2">
+                                                            <MessageSquare className="h-4 w-4" /> Seguimiento WhatsApp Centralizado
+                                                        </CardTitle>
+                                                        {waBody.includes('((') && (
+                                                            <Badge variant="destructive" className="animate-pulse text-[10px]">⚠️ Etiquetas pendientes</Badge>
+                                                        )}
+                                                    </CardHeader>
+                                                    <CardContent className="pt-6 space-y-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs uppercase font-bold text-muted-foreground flex justify-between">
+                                                                    Número de WhatsApp
+                                                                    {waNumber !== (selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone) && (
+                                                                        <span className="text-[10px] text-blue-400">✨ Nuevo número detectado</span>
+                                                                    )}
+                                                                </Label>
+                                                                <Input
+                                                                    value={waNumber}
+                                                                    onChange={(e) => setWaNumber(e.target.value)}
+                                                                    placeholder="Ej: 0991234567"
+                                                                    className={cn(
+                                                                        "bg-background/50",
+                                                                        waNumber !== (selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone) && "border-blue-500/50 ring-1 ring-blue-500/20"
+                                                                    )}
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs uppercase font-bold text-muted-foreground">Escoger Escenario</Label>
+                                                                <Select value={waTemplate} onValueChange={handleTemplateChange}>
+                                                                    <SelectTrigger className="bg-background/50">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="receptionist">🏢 Recepcionista (General)</SelectItem>
+                                                                        <SelectItem value="owner">👤 Dueño (Personalizado)</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Dynamic Placeholders Helpers */}
+                                                        <div className="flex flex-wrap gap-2 p-3 bg-background/30 rounded-lg border border-border/50">
+                                                            <p className="text-[10px] text-muted-foreground w-full uppercase font-bold mb-1">Variables dinámicas:</p>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-[10px] bg-primary/5 border-primary/20"
+                                                                onClick={() => {
+                                                                    const name = prompt("Nombre del dueño:", selectedLead.contactName || selectedLead.personaContacto || "");
+                                                                    if (name) setWaBody(prev => prev.replace(/\(\(NOMBRE\)\)/g, name).replace(/Hola \w*,/g, `Hola ${name},`));
+                                                                }}
+                                                            >
+                                                                👤 Rellenar Nombre
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-[10px] bg-primary/5 border-primary/20"
+                                                                onClick={() => {
+                                                                    const hotel = prompt("Nombre del hotel:", selectedLead.businessName || selectedLead.nombre_comercial || "");
+                                                                    if (hotel) setWaBody(prev => prev.replace(/\(\(NOMBRE DEL HOTEL\)\)/g, hotel));
+                                                                }}
+                                                            >
+                                                                🏨 Rellenar Hotel
+                                                            </Button>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs uppercase font-bold text-muted-foreground">Cuerpo del Mensaje</Label>
+                                                            <Textarea
+                                                                value={waBody}
+                                                                onChange={(e) => setWaBody(e.target.value)}
+                                                                className={cn(
+                                                                    "min-h-[180px] bg-background/50 leading-relaxed text-sm transition-all",
+                                                                    waBody.includes('((') && "border-destructive/50 ring-1 ring-destructive/20"
+                                                                )}
+                                                            />
+                                                        </div>
+
+                                                        <Button
+                                                            onClick={handleSendWhatsApp}
+                                                            disabled={isSendingWa}
+                                                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-6 shadow-lg shadow-green-500/20"
+                                                        >
+                                                            {isSendingWa ? (
+                                                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                                            ) : (
+                                                                <Zap className="h-5 w-5 mr-2" />
+                                                            )}
+                                                            ENVIAR INFO POR WHATSAPP
+                                                        </Button>
+                                                    </CardContent>
+                                                </Card>
                                             </TabsContent>
 
                                             <TabsContent value="info" className="space-y-4">

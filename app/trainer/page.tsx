@@ -837,7 +837,7 @@ César Reyes`
                                                     : "text-muted-foreground hover:bg-accent"
                                             )}
                                         >
-                                            <span className="text-lg mb-1">{mode.emoji}</span>
+                                            <mode.icon className="h-5 w-5 mb-1" />
                                             <span className="text-[9px] font-black uppercase tracking-tighter">{mode.label}</span>
                                         </button>
                                     ))}

@@ -81,42 +81,32 @@ export default function TrainerPage() {
     const [isSendingWa, setIsSendingWa] = useState(false);
 
     const TEMPLATES = {
-        receptionist: (businessName: string) => `Hola, buen día 😊
-Tal como conversamos por teléfono, le comparto por aquí la información.
+        owner: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
+Tal como conversamos por teléfono, le comparto aquí la información.
 
-El enlace incluye un video corto donde explico cómo hoteles como ${businessName || '((NOMBRE DEL HOTEL))'} podrían captar más reservas directas, tanto de huéspedes nacionales como extranjeros, aprovechando su reputación en Google.
-
-Si es tan amable, puede compartir esta información con la persona encargada, para que la revise con calma.
-Quedo atento a cualquier duda.
-
-Un saludo desde Loja,
-César Reyes
-
-👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
-        owner: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, un gusto saludarle nuevamente 😊
-Tal como conversamos por teléfono, le comparto por aquí la información.
-
-En el enlace encontrará un video corto donde explico, de forma clara y práctica, cómo algunos hoteles están captando huéspedes nacionales y extranjeros y aumentando sus reservas directas, aprovechando su reputación online.
+En el enlace encontrará un video corto donde explico, de forma clara y práctica, cómo algunos hoteles están captando huéspedes nacionales y extranjeros y aumentando sus reservas directas, aprovechando su reputación en Google.
 
 Revíselo con calma y, por favor, no dude en escribirme si le surge cualquier duda.
 Un saludo desde Loja,
 César Reyes
 
 👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
-        no_answer: (contactName: string, businessName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
-Intenté comunicarme por teléfono hace un momento, pero no logré contactarlo, por eso le escribo por aquí.
+        receptionist: () => `Hola, buen día 😊
+Tal como conversamos por teléfono, le comparto este video corto (2 minutos) donde explico cómo algunos hoteles en Ecuador están captando más reservas directas desde Google, reduciendo la dependencia de plataformas.
 
-Mi nombre es César Reyes y trabajo como consultor para negocios turísticos de alojamiento en Ecuador.
-Estuve revisando la presencia online de ${businessName || '((NOMBRE DEL HOTEL))'} y vi que trabajan con plataformas como Booking, lo cual es totalmente normal.
+👉 Este mensaje puede reenviarlo directamente al propietario o a la persona encargada del hotel.
 
-Lo que hacemos en Objetivo es ayudar a hoteles y hostales a depender menos de plataformas externas y a captar reservas directas de personas que ya están buscando hospedaje como el suyo en Google.
+Si lo consideran interesante, con gusto lo revisamos aplicado específicamente a su hotel.
+Muchas gracias por su apoyo 🙏
+César Reyes
 
-Si le parece bien, con gusto puedo enviarle por este medio una breve información para que la revise con calma y vea si tiene sentido para ${businessName || '((NOMBRE DEL HOTEL))'}.
+👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
+        no_answer: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
+Solo para confirmar si pudo revisar el video que le envié.
 
-También puede ver más detalles aquí: 👉 https://www.cesarreyesjaramillo.com/motor-reservas-hotel
+Si le parece interesante, con gusto lo vemos aplicado a su hotel en una llamada breve. Y si no es de su interés en este momento, no hay problema, prefiero saberlo para no insistirle.
 
 Quedo atento.
-Un saludo,
 César Reyes`
     };
 
@@ -152,7 +142,7 @@ César Reyes`
             setWaBody(TEMPLATES.owner(name));
         } else {
             setWaTemplate('receptionist');
-            setWaBody(TEMPLATES.receptionist(selectedLead.businessName || selectedLead.nombre_comercial || ''));
+            setWaBody(TEMPLATES.receptionist());
         }
 
         // Reset call result form
@@ -186,9 +176,9 @@ César Reyes`
         if (val === 'owner') {
             setWaBody(TEMPLATES.owner(name));
         } else if (val === 'receptionist') {
-            setWaBody(TEMPLATES.receptionist(bName));
+            setWaBody(TEMPLATES.receptionist());
         } else if (val === 'no_answer') {
-            setWaBody(TEMPLATES.no_answer(name, bName));
+            setWaBody(TEMPLATES.no_answer(name));
         }
     };
 
@@ -828,18 +818,18 @@ César Reyes`
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="px-6 pb-6 space-y-6">
-                                <div className="grid grid-cols-4 gap-1 p-1 bg-background/50 rounded-lg border border-border/50">
+                                <div className="flex bg-zinc-950/50 p-1.5 rounded-xl border border-border/50 backdrop-blur-sm">
                                     {[
-                                        { id: 'asesor', emoji: '🧐', label: 'Asesor' },
-                                        { id: 'consultor', emoji: '🧘', label: 'Consultor' },
-                                        { id: 'vendedor', emoji: '⚡', label: 'Vendedor' },
-                                        { id: 'contencion', emoji: '🛡️', label: 'Contención' }
+                                        { id: 'asesor', label: 'DUEÑO', icon: User },
+                                        { id: 'consultor', label: 'RECEPCIÓN', icon: Building },
+                                        { id: 'vendedor', label: 'OCUPADO', icon: Zap },
+                                        { id: 'contencion', label: 'ENOJADO', icon: ShieldAlert }
                                     ].map((mode) => (
                                         <button
                                             key={mode.id}
                                             onClick={() => setPrepMode(mode.id)}
                                             className={cn(
-                                                "flex flex-col items-center justify-center p-2 rounded-md transition-all",
+                                                "flex flex-col items-center justify-center flex-1 p-2 rounded-lg transition-all",
                                                 prepMode === mode.id
                                                     ? "bg-primary text-primary-foreground shadow-md"
                                                     : "text-muted-foreground hover:bg-accent"
@@ -989,9 +979,9 @@ César Reyes`
                                                                         <SelectValue />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
-                                                                        <SelectItem value="receptionist">🏢 Recepcionista (General)</SelectItem>
-                                                                        <SelectItem value="owner">👤 Dueño (Personalizado)</SelectItem>
-                                                                        <SelectItem value="no_answer">📞 No contestó la llamada</SelectItem>
+                                                                        <SelectItem value="owner">Dueño (Persona Directa)</SelectItem>
+                                                                        <SelectItem value="receptionist">Recepción (Para Reenvío)</SelectItem>
+                                                                        <SelectItem value="no_answer">No contestó / Seguimiento</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </div>

@@ -132,7 +132,7 @@ export default function TrainerPage() {
                 l.source === 'discovery' && l.columna2 === 'en_cola'
             );
 
-            await Promise.all(
+            const results = await Promise.allSettled(
                 queueLeads.map((lead: any) =>
                     fetch(`/api/discovery/${lead.id}`, {
                         method: 'PATCH',
@@ -142,11 +142,26 @@ export default function TrainerPage() {
                 )
             );
 
-            toast.success(`✅ Cola limpiada: ${queueLeads.length} leads removidos`);
+            const successful = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.filter(r => r.status === 'rejected').length;
 
-            // Refresh leads
-            window.location.reload();
+            if (failed > 0) {
+                toast.warning(`⚠️ Cola limpiada parcialmente: ${successful} exitosos, ${failed} fallidos`);
+            } else {
+                toast.success(`✅ Cola limpiada: ${successful} leads removidos`);
+            }
+
+            // Update local state instead of reload
+            setLeadsList(prev => prev.map(l =>
+                l.source === 'discovery' && l.columna2 === 'en_cola'
+                    ? { ...l, columna2: 'pendiente' }
+                    : l
+            ));
+
+            // Reset filter to show all after clearing
+            setFilterMode('all');
         } catch (error) {
+            console.error('Error clearing queue:', error);
             toast.error('Error al limpiar la cola');
         } finally {
             setIsClearingQueue(false);

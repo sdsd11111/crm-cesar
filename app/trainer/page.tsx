@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Mic,
     Square,
@@ -27,7 +28,10 @@ import {
     CheckCircle,
     XCircle,
     MessageSquare,
-    Zap
+    Zap,
+    Mail,
+    Search,
+    Info
 } from 'lucide-react';
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -691,55 +695,184 @@ export default function TrainerPage() {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* PITCH DE VENTA PERSONALIZADO */}
-                                        <Card className="border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5">
-                                            <CardHeader className="pb-2 border-b border-border/50">
-                                                <div className="flex justify-between items-center">
-                                                    <CardTitle className="text-sm uppercase tracking-widest text-primary font-bold">
-                                                        Pitch de Venta Personalizado
-                                                    </CardTitle>
-                                                    <Badge className="bg-primary/20 text-primary border-primary/30">
-                                                        Modo {prepMode.toUpperCase()}
-                                                    </Badge>
-                                                </div>
-                                            </CardHeader>
-                                            <CardContent className="pt-6">
-                                                <div
-                                                    className="bg-card p-6 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(prepResult.pitch);
-                                                        toast.success("Pitch copiado al portapapeles");
-                                                    }}
-                                                >
-                                                    <p className="text-lg leading-relaxed text-white whitespace-pre-line">
-                                                        {prepResult.pitch}
-                                                    </p>
-                                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Badge variant="outline" className="text-[10px] uppercase">Click para copiar</Badge>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                        <Tabs defaultValue="pitch" className="w-full">
+                                            <TabsList className="grid w-full grid-cols-3 mb-6 bg-background/50 border border-border/50 p-1 h-14 rounded-xl">
+                                                <TabsTrigger value="pitch" className="rounded-lg font-bold uppercase tracking-widest text-xs h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                                                    <Zap className="h-4 w-4 mr-2" /> Pitch
+                                                </TabsTrigger>
+                                                <TabsTrigger value="info" className="rounded-lg font-bold uppercase tracking-widest text-xs h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                                                    <User className="h-4 w-4 mr-2" /> Información
+                                                </TabsTrigger>
+                                                <TabsTrigger value="investigation" className="rounded-lg font-bold uppercase tracking-widest text-xs h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                                                    <Search className="h-4 w-4 mr-2" /> Investigación
+                                                </TabsTrigger>
+                                            </TabsList>
 
-                                        {/* GRID DE DISPARADORES */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {prepResult.disparadores?.map((d: any, i: number) => (
-                                                <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
-                                                    <CardHeader className="p-4 pb-2">
-                                                        <CardTitle className="text-[10px] uppercase font-black text-indigo-400">{d.titulo}</CardTitle>
+                                            <TabsContent value="pitch" className="space-y-6">
+                                                {/* PITCH DE VENTA PERSONALIZADO */}
+                                                <Card className="border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5">
+                                                    <CardHeader className="pb-2 border-b border-border/50">
+                                                        <div className="flex justify-between items-center">
+                                                            <CardTitle className="text-sm uppercase tracking-widest text-primary font-bold">
+                                                                Pitch de Venta Personalizado
+                                                            </CardTitle>
+                                                            <Badge className="bg-primary/20 text-primary border-primary/30">
+                                                                Modo {prepMode.toUpperCase()}
+                                                            </Badge>
+                                                        </div>
                                                     </CardHeader>
-                                                    <CardContent className="p-4 pt-0">
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {d.keywords.map((kw: string, j: number) => (
-                                                                <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[9px]">
-                                                                    {kw}
-                                                                </Badge>
-                                                            ))}
+                                                    <CardContent className="pt-6">
+                                                        <div
+                                                            className="bg-card p-6 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(prepResult.pitch);
+                                                                toast.success("Pitch copiado al portapapeles");
+                                                            }}
+                                                        >
+                                                            <p className="text-lg leading-relaxed text-white whitespace-pre-line">
+                                                                {prepResult.pitch}
+                                                            </p>
+                                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Badge variant="outline" className="text-[10px] uppercase">Click para copiar</Badge>
+                                                            </div>
                                                         </div>
                                                     </CardContent>
                                                 </Card>
-                                            ))}
-                                        </div>
+
+                                                {/* GRID DE DISPARADORES */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    {prepResult.disparadores?.map((d: any, i: number) => (
+                                                        <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
+                                                            <CardHeader className="p-4 pb-2">
+                                                                <CardTitle className="text-[10px] uppercase font-black text-indigo-400">{d.titulo}</CardTitle>
+                                                            </CardHeader>
+                                                            <CardContent className="p-4 pt-0">
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {d.keywords.map((kw: string, j: number) => (
+                                                                        <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[9px]">
+                                                                            {kw}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    ))}
+                                                </div>
+                                            </TabsContent>
+
+                                            <TabsContent value="info" className="space-y-4">
+                                                <Card className="border-border/50 bg-card/30 backdrop-blur-md">
+                                                    <CardHeader>
+                                                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                                            <User className="h-5 w-5 text-primary" /> Perfil del Contacto
+                                                        </CardTitle>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Empresa / Negocio</p>
+                                                                <p className="text-xl font-bold text-white">{selectedLead.businessName || "No registrado"}</p>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Persona de Contacto</p>
+                                                                <p className="text-xl font-bold text-white">
+                                                                    {selectedLead.source === 'discovery'
+                                                                        ? (selectedLead.razonSocialPropietario || selectedLead.representative || "Sin nombre")
+                                                                        : selectedLead.contactName}
+                                                                </p>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Ubicación</p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <MapPin className="h-4 w-4 text-primary" />
+                                                                    <p className="text-white">
+                                                                        {selectedLead.province || selectedLead.city || selectedLead.address ? (
+                                                                            `${selectedLead.province || ''} ${selectedLead.city || ''} ${selectedLead.address || ''}`
+                                                                        ) : "Ubicación no disponible"}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-muted-foreground uppercase font-black tracking-widest">Tipo de Negocio</p>
+                                                                <p className="text-white">{selectedLead.businessType || "No especificado"}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-4 border-t border-border/50 space-y-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="p-2 bg-primary/10 rounded-lg">
+                                                                    <Phone className="h-4 w-4 text-primary" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Teléfono</p>
+                                                                    <p className="font-mono text-white">{selectedLead.phone || selectedLead.phone1 || "Sin teléfono"}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="p-2 bg-primary/10 rounded-lg">
+                                                                    <Mail className="h-4 w-4 text-primary" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Email</p>
+                                                                    <p className="font-mono text-white">{selectedLead.email || "Sin email registrado"}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            </TabsContent>
+
+                                            <TabsContent value="investigation" className="space-y-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <Card className="border-yellow-500/20 bg-yellow-500/5">
+                                                        <CardHeader className="pb-2">
+                                                            <CardTitle className="text-xs uppercase font-black text-yellow-500 tracking-widest flex items-center gap-2">
+                                                                <Search className="h-4 w-4" /> Google Insights
+                                                            </CardTitle>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <p className="text-sm text-slate-300 italic leading-relaxed">
+                                                                {selectedLead.googleInfo || "No hay datos de Google para este prospecto."}
+                                                            </p>
+                                                        </CardContent>
+                                                    </Card>
+
+                                                    <Card className="border-blue-500/20 bg-blue-500/5">
+                                                        <CardHeader className="pb-2">
+                                                            <CardTitle className="text-xs uppercase font-black text-blue-400 tracking-widest flex items-center gap-2">
+                                                                <Info className="h-4 w-4" /> Booking / OTA Data
+                                                            </CardTitle>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <p className="text-sm text-slate-300 italic leading-relaxed">
+                                                                {selectedLead.bookingInfo || "Sin datos de Booking disponibles."}
+                                                            </p>
+                                                        </CardContent>
+                                                    </Card>
+
+                                                    <Card className="md:col-span-2 border-primary/20 bg-primary/5">
+                                                        <CardHeader className="pb-2">
+                                                            <CardTitle className="text-xs uppercase font-black text-primary tracking-widest flex items-center gap-2">
+                                                                <History className="h-4 w-4" /> Última Interacción
+                                                            </CardTitle>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            {lastInteraction ? (
+                                                                <div className="space-y-2">
+                                                                    <div className="flex justify-between">
+                                                                        <Badge variant="outline">{lastInteraction.outcome}</Badge>
+                                                                        <span className="text-xs text-muted-foreground">{new Date(lastInteraction.performedAt).toLocaleDateString()}</span>
+                                                                    </div>
+                                                                    <p className="text-sm text-slate-300">{lastInteraction.content}</p>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-sm text-muted-foreground italic">No hay interacciones previas registradas.</p>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                </div>
+                                            </TabsContent>
+                                        </Tabs>
 
                                         {/* ACTION PANEL */}
                                         <Card className="border-primary border-t-4 shadow-xl">

@@ -88,6 +88,7 @@ export const contacts = pgTable('contacts', {
 
   // Metadata
   notes: text('notes'),
+  investigacion: text('investigacion'), // Added based on user feedback
   source: text('source').default('recorridos'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -541,6 +542,7 @@ export const discoveryLeads = pgTable('discovery_leads', {
   researchData: text('research_data'),
   bookingInfo: text('booking_info'),
   googleInfo: text('google_info'),
+  investigacion: text('investigacion'), // Added based on user feedback
   status: text('status', {
     enum: ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted']
   }).default('pending'),

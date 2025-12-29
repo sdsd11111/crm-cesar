@@ -107,7 +107,11 @@ export async function GET(request: Request) {
             createdAt: lead.createdAt,
             bookingInfo: lead.bookingInfo,
             googleInfo: lead.googleInfo,
-            razonSocialPropietario: lead.razonSocialPropietario, // Keeping raw for specific logic
+            investigacion: lead.investigacion,
+            direccionWeb: lead.direccionWeb,
+            personaContacto: lead.personaContacto,
+            correoPersonaContacto: lead.correoPersonaContacto,
+            razonSocialPropietario: lead.razonSocialPropietario,
         }));
 
         return NextResponse.json({

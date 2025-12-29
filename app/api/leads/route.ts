@@ -75,6 +75,7 @@ export async function GET() {
       createdAt: lead.created_at,
       source: lead.source,
       notes: lead.notes,
+      investigacion: lead.investigacion, // Added based on user feedback
       quotation: lead.quotation
     })) || [];
 

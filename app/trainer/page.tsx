@@ -771,11 +771,11 @@ export default function TrainerPage() {
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Nombre Comercial</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.nombre_comercial || selectedLead.businessName || "No registrado"}</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.businessName || selectedLead.nombre_comercial || "No registrado"}</p>
                                                             </div>
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Actividad / Modalidad</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.actividadModalidad || selectedLead.businessType || "No especificado"}</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.businessType || selectedLead.actividadModalidad || "No especificado"}</p>
                                                             </div>
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Razón Social (Propietario)</p>
@@ -783,15 +783,15 @@ export default function TrainerPage() {
                                                             </div>
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Provincia / Cantón</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.provincia || selectedLead.province || "N/A"} - {selectedLead.canton || selectedLead.city || "N/A"}</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.province || selectedLead.provincia || "N/A"} - {selectedLead.city || selectedLead.canton || "N/A"}</p>
                                                             </div>
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Teléfonos</p>
-                                                                <p className="text-md font-bold text-primary">{selectedLead.telefonoPrincipal || selectedLead.phone || "N/A"} / {selectedLead.telefonoSecundario || selectedLead.phone2 || "N/A"}</p>
+                                                                <p className="text-md font-bold text-primary">{selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || "N/A"} / {selectedLead.phone2 || selectedLead.telefonoSecundario || selectedLead.phone2 || "N/A"}</p>
                                                             </div>
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Correo Electrónico</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.correoElectronico || selectedLead.email || "No registrado"}</p>
+                                                                <p className="text-md font-bold text-white">{selectedLead.email || selectedLead.correoElectronico || "No registrado"}</p>
                                                             </div>
                                                             <div className="space-y-0.5">
                                                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Dirección Web</p>
@@ -812,7 +812,7 @@ export default function TrainerPage() {
 
                                             <TabsContent value="investigation" className="space-y-4">
                                                 <div className="grid grid-cols-1 gap-4">
-                                                    {selectedLead.researchData ? (
+                                                    {(selectedLead.investigacion || selectedLead.researchData) ? (
                                                         <Card className="border-primary/20 bg-primary/5">
                                                             <CardHeader className="pb-2">
                                                                 <CardTitle className="text-xs uppercase font-black text-primary tracking-widest flex items-center gap-2">
@@ -821,7 +821,7 @@ export default function TrainerPage() {
                                                             </CardHeader>
                                                             <CardContent>
                                                                 <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap bg-background/30 p-4 rounded-lg border border-border/50">
-                                                                    {selectedLead.researchData}
+                                                                    {selectedLead.investigacion || selectedLead.researchData}
                                                                 </div>
                                                             </CardContent>
                                                         </Card>

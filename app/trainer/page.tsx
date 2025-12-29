@@ -105,23 +105,62 @@ César Reyes
 👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`
     };
 
-    // Auto-populate WhatsApp data when lead changes
+    // Auto-populate WhatsApp and Call data from draft or defaults
     useEffect(() => {
-        if (selectedLead) {
-            const phone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
-            setWaNumber(phone);
+        if (!selectedLead) return;
 
-            // Default template based on what we have
-            const name = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || '';
-            if (name) {
-                setWaTemplate('owner');
-                setWaBody(TEMPLATES.owner(name));
-            } else {
-                setWaTemplate('receptionist');
-                setWaBody(TEMPLATES.receptionist(selectedLead.businessName || selectedLead.nombre_comercial || ''));
+        const draftKey = `trainer_draft_${selectedLead.id}`;
+        const savedDraft = localStorage.getItem(draftKey);
+
+        if (savedDraft) {
+            try {
+                const draft = JSON.parse(savedDraft);
+                setWaNumber(draft.waNumber || '');
+                setWaTemplate(draft.waTemplate || 'receptionist');
+                setWaBody(draft.waBody || '');
+                setCallOutcome(draft.callOutcome || 'no_contesto');
+                setCallAction(draft.callAction || 'pendiente');
+                setCallNotes(draft.callNotes || '');
+                return; // Loaded from draft, skip defaults
+            } catch (e) {
+                console.error("Error loading draft", e);
             }
         }
+
+        // DEFAULT LOGIC if no draft
+        const phone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
+        setWaNumber(phone);
+
+        const name = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || '';
+        if (name) {
+            setWaTemplate('owner');
+            setWaBody(TEMPLATES.owner(name));
+        } else {
+            setWaTemplate('receptionist');
+            setWaBody(TEMPLATES.receptionist(selectedLead.businessName || selectedLead.nombre_comercial || ''));
+        }
+
+        // Reset call result form
+        setCallOutcome('no_contesto');
+        setCallAction('pendiente');
+        setCallNotes('');
     }, [selectedLead]);
+
+    // AUTOSAVE Effect
+    useEffect(() => {
+        if (!selectedLead) return;
+
+        const draftKey = `trainer_draft_${selectedLead.id}`;
+        const draft = {
+            waNumber,
+            waTemplate,
+            waBody,
+            callOutcome,
+            callAction,
+            callNotes
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+    }, [selectedLead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes]);
 
     // Update body when template changes manually
     const handleTemplateChange = (val: string) => {
@@ -167,6 +206,9 @@ César Reyes
             const data = await res.json();
             if (data.success) {
                 toast.success("Mensaje enviado correctamente 🚀");
+
+                // Clear draft on success
+                localStorage.removeItem(`trainer_draft_${selectedLead?.id}`);
 
                 // Proactive Saving: If number was changed, save it to DB
                 const originalPhone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
@@ -574,6 +616,7 @@ César Reyes
 
                 if (createLeadRes.ok) {
                     toast.success("🚀 ¡Convertido a LEAD!");
+                    localStorage.removeItem(`trainer_draft_${selectedLead.id}`); // Clear draft
                     // To solve "no more contacts", we should reload leads
                     window.location.reload();
                 } else {
@@ -582,6 +625,7 @@ César Reyes
                 }
             } else {
                 toast.success("Resultado guardado con éxito");
+                localStorage.removeItem(`trainer_draft_${selectedLead.id}`); // Clear draft
             }
 
             // Refresh interaction history locally

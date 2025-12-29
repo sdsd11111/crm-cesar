@@ -102,7 +102,22 @@ Revíselo con calma y, por favor, no dude en escribirme si le surge cualquier du
 Un saludo desde Loja,
 César Reyes
 
-👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`
+👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
+        no_answer: (contactName: string, businessName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
+Intenté comunicarme por teléfono hace un momento, pero no logré contactarlo, por eso le escribo por aquí.
+
+Mi nombre es César Reyes y trabajo como consultor para negocios turísticos de alojamiento en Ecuador.
+Estuve revisando la presencia online de ${businessName || '((NOMBRE DEL HOTEL))'} y vi que trabajan con plataformas como Booking, lo cual es totalmente normal.
+
+Lo que hacemos en Objetivo es ayudar a hoteles y hostales a depender menos de plataformas externas y a captar reservas directas de personas que ya están buscando hospedaje como el suyo en Google.
+
+Si le parece bien, con gusto puedo enviarle por este medio una breve información para que la revise con calma y vea si tiene sentido para ${businessName || '((NOMBRE DEL HOTEL))'}.
+
+También puede ver más detalles aquí: 👉 https://www.cesarreyesjaramillo.com/motor-reservas-hotel
+
+Quedo atento.
+Un saludo,
+César Reyes`
     };
 
     // Auto-populate WhatsApp and Call data from draft or defaults
@@ -165,12 +180,15 @@ César Reyes
     // Update body when template changes manually
     const handleTemplateChange = (val: string) => {
         setWaTemplate(val);
+        const name = selectedLead?.contactName || selectedLead?.personaContacto || selectedLead?.representative || '';
+        const bName = selectedLead?.businessName || selectedLead?.nombre_comercial || '';
+
         if (val === 'owner') {
-            const name = selectedLead?.contactName || selectedLead?.personaContacto || selectedLead?.representative || '';
             setWaBody(TEMPLATES.owner(name));
-        } else {
-            const bName = selectedLead?.businessName || selectedLead?.nombre_comercial || '';
+        } else if (val === 'receptionist') {
             setWaBody(TEMPLATES.receptionist(bName));
+        } else if (val === 'no_answer') {
+            setWaBody(TEMPLATES.no_answer(name, bName));
         }
     };
 
@@ -973,6 +991,7 @@ César Reyes
                                                                     <SelectContent>
                                                                         <SelectItem value="receptionist">🏢 Recepcionista (General)</SelectItem>
                                                                         <SelectItem value="owner">👤 Dueño (Personalizado)</SelectItem>
+                                                                        <SelectItem value="no_answer">📞 No contestó la llamada</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </div>

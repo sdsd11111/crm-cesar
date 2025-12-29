@@ -20,10 +20,23 @@ export function NotificationBell() {
     const fetchCount = async () => {
         try {
             const res = await fetch('/api/donna/missions/count');
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+
             const data = await res.json();
-            setCount(data.count || 0);
+
+            if (typeof data.count === 'number') {
+                setCount(data.count);
+            } else {
+                console.warn('Invalid count response:', data);
+                setCount(0);
+            }
         } catch (error) {
             console.error('Error fetching notifications:', error);
+            // Don't show toast on background refresh errors to avoid spam
+            // Just silently fail and keep previous count
         }
     };
 

@@ -103,11 +103,15 @@ Muchas gracias por su apoyo 🙏
 César Reyes
 
 👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
-        no_answer: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
-Solo para confirmar si pudo revisar el video que le envié.
-
-Si le parece interesante, con gusto lo vemos aplicado a su hotel en una llamada breve. Y si no es de su interés en este momento, no hay problema, prefiero saberlo para no insistirle.
-
+        no_answer: (contactName: string, businessName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
+Intenté llamarlo hace un momento,
+pero no logré contactarlo.
+Trabajo con hoteles en Ecuador
+ayudándoles a captar reservas directas desde Google
+y reducir la dependencia de Booking.
+¿Le puedo enviar un video corto (2 minutos)
+para que lo revise con calma
+y vea si aplica para ${businessName || '((HOTEL))'}?
 Quedo atento.
 César Reyes`
     };
@@ -180,7 +184,7 @@ César Reyes`
         } else if (val === 'receptionist') {
             setWaBody(TEMPLATES.receptionist());
         } else if (val === 'no_answer') {
-            setWaBody(TEMPLATES.no_answer(name));
+            setWaBody(TEMPLATES.no_answer(name, bName));
         }
     };
 
@@ -983,7 +987,7 @@ César Reyes`
                                                                     <SelectContent>
                                                                         <SelectItem value="owner">Dueño (Persona Directa)</SelectItem>
                                                                         <SelectItem value="receptionist">Recepción (Para Reenvío)</SelectItem>
-                                                                        <SelectItem value="no_answer">No contestó / Seguimiento</SelectItem>
+                                                                        <SelectItem value="no_answer">No contestó</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </div>

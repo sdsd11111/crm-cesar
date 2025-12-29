@@ -5,9 +5,9 @@
 -- WHATSAPP LOGS INDEXES (Critical for Donna Dashboard Stats)
 -- ============================================================================
 
--- Index for status + sentAt queries (used in macro stats endpoint)
-CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status_sent_at 
-ON whatsapp_logs(status, sent_at DESC);
+-- Index for status + createdAt queries (used in macro stats endpoint)
+CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status_created_at 
+ON whatsapp_logs(status, created_at DESC);
 
 -- Index for phone number lookups (used in message history)
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_phone 

@@ -1,5 +1,6 @@
 -- Critical Performance Indexes for Donna Stats and UX Improvements
 -- Run this migration to prevent performance degradation with large datasets
+-- CORRECTED: Column names match actual schema (camelCase in DB)
 
 -- ============================================================================
 -- WHATSAPP LOGS INDEXES (Critical for Donna Dashboard Stats)
@@ -8,10 +9,6 @@
 -- Index for status + createdAt queries (used in macro stats endpoint)
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status_created_at 
 ON whatsapp_logs(status, created_at DESC);
-
--- Index for phone number lookups (used in message history)
-CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_phone 
-ON whatsapp_logs(phone);
 
 -- Index for contact_id lookups (used in client history)
 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_contact_id 
@@ -35,7 +32,7 @@ ON loyalty_missions(contact_id);
 
 -- GIN index for metadata JSONB queries (used in campaign breakdown)
 CREATE INDEX IF NOT EXISTS idx_loyalty_missions_metadata_type 
-ON loyalty_missions USING GIN ((metadata->'type'));
+ON loyalty_missions USING GIN (metadata);
 
 -- ============================================================================
 -- TASKS INDEXES (Critical for Tasks Page Performance)
@@ -69,13 +66,13 @@ ON discovery_leads(status);
 CREATE INDEX IF NOT EXISTS idx_discovery_leads_columna2_status 
 ON discovery_leads(columna2, status);
 
--- Composite index for province + city (used in geographic filtering)
+-- Composite index for provincia + canton (used in geographic filtering)
 CREATE INDEX IF NOT EXISTS idx_discovery_leads_location 
-ON discovery_leads(province, city);
+ON discovery_leads(provincia, canton);
 
--- Index for business_name search (used in text search)
-CREATE INDEX IF NOT EXISTS idx_discovery_leads_business_name 
-ON discovery_leads(business_name);
+-- Index for nombre_comercial search (used in text search)
+CREATE INDEX IF NOT EXISTS idx_discovery_leads_nombre_comercial 
+ON discovery_leads(nombre_comercial);
 
 -- ============================================================================
 -- INTERACTIONS INDEXES (Critical for Trainer and Client History)

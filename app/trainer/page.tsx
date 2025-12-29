@@ -959,7 +959,7 @@ César Reyes
                                                                     onChange={(e) => setWaNumber(e.target.value)}
                                                                     placeholder="Ej: 0991234567"
                                                                     className={cn(
-                                                                        "bg-background/50",
+                                                                        "bg-zinc-950/80 text-white border-border/50",
                                                                         waNumber !== (selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone) && "border-blue-500/50 ring-1 ring-blue-500/20"
                                                                     )}
                                                                 />
@@ -967,7 +967,7 @@ César Reyes
                                                             <div className="space-y-2">
                                                                 <Label className="text-xs uppercase font-bold text-muted-foreground">Escoger Escenario</Label>
                                                                 <Select value={waTemplate} onValueChange={handleTemplateChange}>
-                                                                    <SelectTrigger className="bg-background/50">
+                                                                    <SelectTrigger className="bg-zinc-950/80 text-white border-border/50">
                                                                         <SelectValue />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
@@ -1011,7 +1011,7 @@ César Reyes
                                                                 value={waBody}
                                                                 onChange={(e) => setWaBody(e.target.value)}
                                                                 className={cn(
-                                                                    "min-h-[180px] bg-background/50 leading-relaxed text-sm transition-all",
+                                                                    "min-h-[180px] bg-zinc-950/80 text-white leading-relaxed text-sm transition-all border-border/50",
                                                                     waBody.includes('((') && "border-destructive/50 ring-1 ring-destructive/20"
                                                                 )}
                                                             />

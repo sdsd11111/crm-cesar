@@ -3,6 +3,7 @@
 
 import { FinancialAnalyticsWidget } from "@/components/dashboard/financial-analytics-widget"
 import { DonnaImpactWidget } from "@/components/donna/DonnaImpactWidget"
+import { NotificationBell } from "@/components/dashboard/notification-bell"
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -90,6 +91,7 @@ export function DashboardOverview() {
           </p>
         </div>
         <div className="flex gap-2">
+          <NotificationBell />
           <Button className="bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4 mr-2" /> Nuevo Prospecto
           </Button>

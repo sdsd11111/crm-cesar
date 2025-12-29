@@ -62,6 +62,10 @@ export default function TrainerPage() {
     const [isSavingResult, setIsSavingResult] = useState(false);
     const [lastInteraction, setLastInteraction] = useState<any>(null);
 
+    // Filter State
+    const [filterMode, setFilterMode] = useState<'all' | 'queue' | 'investigated'>('all');
+    const [isClearingQueue, setIsClearingQueue] = useState(false);
+
     // Real-time audio refs
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -116,6 +120,48 @@ export default function TrainerPage() {
         };
         fetchLeads();
     }, []);
+
+    const handleClearQueue = async () => {
+        if (!confirm('¿Estás seguro de limpiar todos los leads de la cola? Esta acción no se puede deshacer.')) {
+            return;
+        }
+
+        setIsClearingQueue(true);
+        try {
+            const queueLeads = leadsList.filter((l: any) =>
+                l.source === 'discovery' && l.columna2 === 'en_cola'
+            );
+
+            await Promise.all(
+                queueLeads.map((lead: any) =>
+                    fetch(`/api/discovery/${lead.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ columna2: 'pendiente' })
+                    })
+                )
+            );
+
+            toast.success(`✅ Cola limpiada: ${queueLeads.length} leads removidos`);
+
+            // Refresh leads
+            window.location.reload();
+        } catch (error) {
+            toast.error('Error al limpiar la cola');
+        } finally {
+            setIsClearingQueue(false);
+        }
+    };
+
+    const filteredLeadsList = leadsList.filter((lead: any) => {
+        if (filterMode === 'queue') {
+            return lead.source === 'discovery' && lead.columna2 === 'en_cola';
+        }
+        if (filterMode === 'investigated') {
+            return lead.source === 'discovery' && lead.status === 'investigated';
+        }
+        return true; // 'all'
+    });
 
     useEffect(() => {
         const fetchLastInteraction = async () => {
@@ -425,13 +471,42 @@ export default function TrainerPage() {
                         <h1 className="text-4xl font-extrabold tracking-tight">High Ticket Trainer</h1>
                         <p className="text-muted-foreground text-sm mt-2">Prepara tu mente antes de marcar.</p>
                     </div>
-                    <div className="flex gap-4">
+                    <div className="flex gap-2">
+                        <Button
+                            variant={filterMode === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilterMode('all')}
+                        >
+                            Todos ({leadsList.length})
+                        </Button>
+                        <Button
+                            variant={filterMode === 'queue' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilterMode('queue')}
+                        >
+                            📋 En Cola ({leadsList.filter((l: any) => l.source === 'discovery' && l.columna2 === 'en_cola').length})
+                        </Button>
+                        <Button
+                            variant={filterMode === 'investigated' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setFilterMode('investigated')}
+                        >
+                            🔍 Investigados ({leadsList.filter((l: any) => l.source === 'discovery' && l.status === 'investigated').length})
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleClearQueue}
+                            disabled={isClearingQueue}
+                        >
+                            {isClearingQueue ? 'Limpiando...' : '🗑️ Limpiar Cola'}
+                        </Button>
                         <Button
                             variant="ghost"
                             className="px-4 py-2 hover:text-primary transition-all"
                             onClick={handleNextLead}
                         >
-                            <ChevronRight className="mr-1 h-4 w-4" /> Siguiente en Cola
+                            <ChevronRight className="mr-1 h-4 w-4" /> Siguiente
                         </Button>
                     </div>
                 </div>
@@ -461,7 +536,7 @@ export default function TrainerPage() {
                                         <SelectValue placeholder="Elegir lead para hoy..." />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[400px]">
-                                        {leadsList.map((lead) => (
+                                        {filteredLeadsList.map((lead) => (
                                             <SelectItem key={lead.id} value={lead.id} className="py-3 px-4 border-b border-border/20 last:border-0 hover:bg-primary/5">
                                                 <div className="flex flex-col gap-0.5">
                                                     <div className="flex items-center gap-2">

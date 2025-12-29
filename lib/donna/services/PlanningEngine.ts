@@ -26,13 +26,17 @@ export class PlanningEngine {
         const [contact] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
         if (!contact) return;
 
-        // 2. Logic: Birthday (Today)
+        // 2. Logic: Birthday (Today) - Using Ecuador Timezone
         let isBirthdayToday = false;
         if (contact.birthday) {
             const bday = new Date(contact.birthday);
-            const nowUTC = new Date();
+            const now = new Date();
 
-            if (bday.getUTCMonth() === nowUTC.getUTCMonth() && bday.getUTCDate() === nowUTC.getUTCDate()) {
+            // Convert both dates to Ecuador timezone for comparison
+            const bdayEcuador = new Date(bday.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+            const nowEcuador = new Date(now.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+
+            if (bdayEcuador.getMonth() === nowEcuador.getMonth() && bdayEcuador.getDate() === nowEcuador.getDate()) {
                 isBirthdayToday = true;
             }
         }
@@ -50,18 +54,20 @@ export class PlanningEngine {
 
         // 2. Logic: Birthday (Today)
         if (isBirthdayToday) {
-            const nowUTC = new Date();
+            const nowEcuador = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
             console.log(`✅ PlanningEngine: Birthday match for ${contact.contactName}! Generating mission.`);
             await this.createMission({
                 contactId: contact.id,
                 source: 'micro',
                 content: `Rugido Heroico: Hoy es cumpleaños de ${contact.contactName}. Enviar saludo especial de La Tribu. 🦁🎂`,
-                metadata: { type: 'birthday', date: format(nowUTC, 'yyyy-MM-dd') }
+                metadata: { type: 'birthday', date: format(nowEcuador, 'yyyy-MM-dd') }
             });
         } else if (contact.birthday) {
             const bday = new Date(contact.birthday);
-            const nowUTC = new Date();
-            console.log(`❌ PlanningEngine: Birthday does not match today UTC (${bday.getUTCMonth() + 1}/${bday.getUTCDate()} vs ${nowUTC.getUTCMonth() + 1}/${nowUTC.getUTCDate()})`);
+            const now = new Date();
+            const bdayEcuador = new Date(bday.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+            const nowEcuador = new Date(now.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+            console.log(`❌ PlanningEngine: Birthday does not match today Ecuador (${bdayEcuador.getMonth() + 1}/${bdayEcuador.getDate()} vs ${nowEcuador.getMonth() + 1}/${nowEcuador.getDate()})`);
         } else {
             console.log(`ℹ️ PlanningEngine: No birthday set for ${contact.contactName}`);
         }

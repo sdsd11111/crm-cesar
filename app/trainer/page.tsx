@@ -33,7 +33,9 @@ import {
     Zap,
     Mail,
     Search,
-    Info
+    Info,
+    Building,
+    ShieldAlert
 } from 'lucide-react';
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";

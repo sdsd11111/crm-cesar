@@ -83,9 +83,9 @@ Debes devolver un JSON con esta estructura exacta:
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { entityId, entityType, role } = body;
+        const { entityId, entityType } = body;
 
-        if (!entityId || !entityType || !role) {
+        if (!entityId || !entityType) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
@@ -144,9 +144,6 @@ export async function POST(req: Request) {
         const finalPrompt = `
             ${MASTER_PROMPT}
 
-            DATOS DE ENTRADA:
-            MODO SOLICITADO: ${role.toUpperCase()}
-            
             CONTEXTO DEL INTERLOCUTOR:
             ${contextData}
         `;

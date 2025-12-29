@@ -496,83 +496,90 @@ export default function DiscoveryPage() {
                             )}
                         </div>
                     </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-                        <div className="space-y-2">
-                            <Label>Búsqueda</Label>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <CardContent className="space-y-4">
+                        {/* Primera Fila: Filtros Principales */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+                            <div className="space-y-2">
+                                <Label>Búsqueda</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Nombre del negocio..."
+                                        value={filters.search}
+                                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            </div>
+                            <MultiSelectFilter
+                                title="Provincia"
+                                options={facetOptions.provinces}
+                                selected={filters.provincia}
+                                onChange={(vals) => setFilters({ ...filters, provincia: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Cantón"
+                                options={facetOptions.cantons}
+                                selected={filters.canton}
+                                onChange={(vals) => setFilters({ ...filters, canton: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Actividad"
+                                options={facetOptions.activities}
+                                selected={filters.actividad_modalidad}
+                                onChange={(vals) => setFilters({ ...filters, actividad_modalidad: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Categoría"
+                                options={facetOptions.categories}
+                                selected={filters.categoria}
+                                onChange={(vals) => setFilters({ ...filters, categoria: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Clasificación"
+                                options={facetOptions.clasificaciones}
+                                selected={filters.clasificacion}
+                                onChange={(vals) => setFilters({ ...filters, clasificacion: vals })}
+                            />
+                            <div className="space-y-2">
+                                <Label>Web</Label>
                                 <Input
-                                    placeholder="Nombre del negocio..."
-                                    value={filters.search}
-                                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                    className="pl-9"
+                                    placeholder="URL web..."
+                                    value={filters.web}
+                                    onChange={(e) => setFilters({ ...filters, web: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Email</Label>
+                                <Input
+                                    placeholder="Correo..."
+                                    value={filters.email}
+                                    onChange={(e) => setFilters({ ...filters, email: e.target.value })}
                                 />
                             </div>
                         </div>
-                        <MultiSelectFilter
-                            title="Provincia"
-                            options={facetOptions.provinces}
-                            selected={filters.provincia}
-                            onChange={(vals) => setFilters({ ...filters, provincia: vals })}
-                        />
-                        <MultiSelectFilter
-                            title="Cantón"
-                            options={facetOptions.cantons}
-                            selected={filters.canton}
-                            onChange={(vals) => setFilters({ ...filters, canton: vals })}
-                        />
-                        <MultiSelectFilter
-                            title="Actividad"
-                            options={facetOptions.activities}
-                            selected={filters.actividad_modalidad}
-                            onChange={(vals) => setFilters({ ...filters, actividad_modalidad: vals })}
-                        />
-                        <MultiSelectFilter
-                            title="Categoría"
-                            options={facetOptions.categories}
-                            selected={filters.categoria}
-                            onChange={(vals) => setFilters({ ...filters, categoria: vals })}
-                        />
-                        <MultiSelectFilter
-                            title="Clasificación"
-                            options={facetOptions.clasificaciones}
-                            selected={filters.clasificacion}
-                            onChange={(vals) => setFilters({ ...filters, clasificacion: vals })}
-                        />
-                        <div className="space-y-2">
-                            <Label>Web</Label>
-                            <Input
-                                placeholder="URL web..."
-                                value={filters.web}
-                                onChange={(e) => setFilters({ ...filters, web: e.target.value })}
+
+                        {/* Segunda Fila: Filtros de Estado y Acciones */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <MultiSelectFilter
+                                title="Estado"
+                                options={facetOptions.status || ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted']}
+                                selected={filters.status}
+                                onChange={(vals) => setFilters({ ...filters, status: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Etiqueta Contacto"
+                                options={facetOptions.columna1}
+                                selected={filters.columna1}
+                                onChange={(vals) => setFilters({ ...filters, columna1: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Acción Seguimiento"
+                                options={facetOptions.columna2}
+                                selected={filters.columna2}
+                                onChange={(vals) => setFilters({ ...filters, columna2: vals })}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Email</Label>
-                            <Input
-                                placeholder="Correo..."
-                                value={filters.email}
-                                onChange={(e) => setFilters({ ...filters, email: e.target.value })}
-                            />
-                        </div>
-                        <MultiSelectFilter
-                            title="Estado"
-                            options={facetOptions.status || ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted']}
-                            selected={filters.status}
-                            onChange={(vals) => setFilters({ ...filters, status: vals })}
-                        />
-                        <MultiSelectFilter
-                            title="Etiqueta Contacto"
-                            options={facetOptions.columna1}
-                            selected={filters.columna1}
-                            onChange={(vals) => setFilters({ ...filters, columna1: vals })}
-                        />
-                        <MultiSelectFilter
-                            title="Acción Seguimiento"
-                            options={facetOptions.columna2}
-                            selected={filters.columna2}
-                            onChange={(vals) => setFilters({ ...filters, columna2: vals })}
-                        />
                     </CardContent>
                 </Card>
 

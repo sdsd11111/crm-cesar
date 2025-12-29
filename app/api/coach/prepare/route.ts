@@ -4,6 +4,7 @@ import { discoveryLeads, leads, clients, interactions } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
@@ -150,22 +151,45 @@ export async function POST(req: Request) {
             ${contextData}
         `;
 
-        // 3. Generate
-        const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-flash-latest";
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(finalPrompt);
-        const text = result.response.text();
+        // 3. Generate with Fallback
+        const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-1.5-flash";
+        console.log(`🤖 LLM Request (${modelName}) for ${entityType} ${entityId}`);
 
-        // 4. Parse JSON (with rudimentary cleanup if md blocks are included)
+        let text = "";
+        try {
+            const model = genAI.getGenerativeModel({ model: modelName });
+            const result = await model.generateContent(finalPrompt);
+            text = result.response.text();
+            console.log('✅ Gemini Response received');
+        } catch (geminiError: any) {
+            console.warn('⚠️ Gemini Failed, falling back to OpenAI:', geminiError.message);
+
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: 'Eres un experto en estrategia comercial. Responde solo con JSON válido.' },
+                    { role: 'user', content: finalPrompt }
+                ],
+                response_format: { type: 'json_object' }
+            });
+            text = completion.choices[0].message.content || "{}";
+            console.log('✅ OpenAI Fallback Response received');
+        }
+
+        // 4. Parse JSON
         const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const jsonResponse = JSON.parse(cleanedText);
 
         return NextResponse.json(jsonResponse);
 
-    } catch (error) {
-        console.error('Coach API Error:', error);
+    } catch (error: any) {
+        console.error('❌ Coach API Critical Failure:', error);
         return NextResponse.json(
-            { error: 'Failed to generate coach response' },
+            {
+                error: 'Failed to generate coach response',
+                details: error.message
+            },
             { status: 500 }
         );
     }

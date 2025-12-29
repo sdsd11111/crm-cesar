@@ -498,8 +498,7 @@ César Reyes`
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     entityId: selectedLead.id,
-                    entityType: selectedLead.source,
-                    role: prepMode
+                    entityType: selectedLead.source
                 })
             });
             const data = await res.json();
@@ -911,12 +910,13 @@ César Reyes`
                                                         <div
                                                             className="bg-card p-6 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
                                                             onClick={() => {
-                                                                navigator.clipboard.writeText(prepResult.pitch);
+                                                                const textToCopy = prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch;
+                                                                navigator.clipboard.writeText(textToCopy);
                                                                 toast.success("Pitch copiado al portapapeles");
                                                             }}
                                                         >
                                                             <p className="text-lg leading-relaxed text-white whitespace-pre-line">
-                                                                {prepResult.pitch}
+                                                                {prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch}
                                                             </p>
                                                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 <Badge variant="outline" className="text-[10px] uppercase">Click para copiar</Badge>

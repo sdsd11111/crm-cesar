@@ -98,9 +98,37 @@ export default function TasksPage() {
         }
     }
 
-    const filteredTasks = tasks.filter((t) =>
-        t.title.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+        const newStatus = currentStatus === 'done' ? 'todo' : 'done'
+
+        try {
+            const response = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+
+            if (!response.ok) throw new Error('Failed to update task')
+
+            // Update local state
+            setTasks(tasks.map(t =>
+                t.id === taskId ? { ...t, status: newStatus as Task['status'] } : t
+            ))
+
+            toast.success(newStatus === 'done' ? '✅ Tarea completada' : '🔄 Tarea reactivada')
+        } catch (error) {
+            console.error('Error:', error)
+            toast.error('Error al actualizar tarea')
+        }
+    }
+
+    const [showCompleted, setShowCompleted] = useState(true)
+
+    const filteredTasks = tasks.filter((t) => {
+        const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase())
+        const matchesCompletedFilter = showCompleted || t.status !== 'done'
+        return matchesSearch && matchesCompletedFilter
+    })
 
     if (loading) {
         return (
@@ -195,17 +223,32 @@ export default function TasksPage() {
                             className='pl-10'
                         />
                     </div>
+                    <Button
+                        variant={showCompleted ? "default" : "outline"}
+                        onClick={() => setShowCompleted(!showCompleted)}
+                    >
+                        {showCompleted ? "Ocultar Completadas" : "Mostrar Completadas"}
+                    </Button>
                 </div>
 
                 <div className="space-y-4">
                     {filteredTasks.map((task) => (
                         <Card key={task.id} className="glass-card hover:bg-accent/5 transition-colors">
                             <CardContent className="p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    {getStatusIcon(task.status)}
-                                    <div>
-                                        <h4 className="font-semibold text-lg">{task.title}</h4>
-                                        <p className="text-sm text-muted-foreground">{task.description}</p>
+                                <div className="flex items-center gap-4 flex-1">
+                                    <button
+                                        onClick={() => toggleTaskStatus(task.id, task.status)}
+                                        className="hover:scale-110 transition-transform"
+                                    >
+                                        {getStatusIcon(task.status)}
+                                    </button>
+                                    <div className={task.status === 'done' ? 'opacity-60' : ''}>
+                                        <h4 className={`font-semibold text-lg ${task.status === 'done' ? 'line-through' : ''}`}>
+                                            {task.title}
+                                        </h4>
+                                        <p className={`text-sm text-muted-foreground ${task.status === 'done' ? 'line-through' : ''}`}>
+                                            {task.description}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">

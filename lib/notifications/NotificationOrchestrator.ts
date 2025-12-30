@@ -85,24 +85,18 @@ export class NotificationOrchestrator {
                 const message = this.buildMessage(contact, mission.content, metadata);
 
                 // Send WhatsApp
-                const response = await whatsappService.sendMessage(contact.phone, message);
-
-                // LOG THE ATTEMPT
-                await db.insert(whatsappLogs).values({
-                    contactId: contact.id,
-                    trigger: metadata.type || 'loyalty',
-                    content: message,
-                    status: response.success ? 'sent' : 'failed',
-                    errorMessage: response.success ? null : (response.error || 'Unknown error'),
-                    metadata: JSON.stringify(metadata),
-                    createdAt: new Date()
+                const response = await whatsappService.sendMessage(contact.phone, message, {
+                    ...metadata,
+                    missionId: mission.id
                 });
 
                 if (response.success) {
                     executionResults.success++;
                 } else {
-                    // Revert status to approved if completely failed and want to retry? 
-                    // No, better keep as executed/failed to avoid loops without manual intervention
+                    // Update status to 'failed' in mission table if completely failed
+                    await db.update(loyaltyMissions)
+                        .set({ status: 'rejected', updatedAt: new Date() })
+                        .where(eq(loyaltyMissions.id, mission.id));
                     executionResults.failed++;
                 }
             } catch (error) {

@@ -481,14 +481,31 @@ export default function DiscoveryPage() {
                 {/* Filters Section */}
                 <Card className="border-primary/20 bg-primary/5">
                     <CardHeader className="pb-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Filter className="h-5 w-5 text-primary" />
-                                <CardTitle className="text-lg">Filtros Dinámicos</CardTitle>
-                                {activeFiltersCount > 0 && (
-                                    <Badge variant="secondary">{activeFiltersCount} activo{activeFiltersCount > 1 ? 's' : ''}</Badge>
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-5 w-5 text-primary" />
+                            <CardTitle className="text-lg">Filtros Dinámicos</CardTitle>
+                            {activeFiltersCount > 0 && (
+                                <Badge variant="secondary">{activeFiltersCount} activo{activeFiltersCount > 1 ? 's' : ''}</Badge>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant={filters.columna1.includes('no_contactado') ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => {
+                                    if (filters.columna1.includes('no_contactado')) {
+                                        setFilters({ ...filters, columna1: [] });
+                                    } else {
+                                        setFilters({ ...filters, columna1: ['no_contactado'] });
+                                    }
+                                }}
+                                className={cn(
+                                    "h-8 text-[11px] font-bold uppercase",
+                                    filters.columna1.includes('no_contactado') ? "bg-blue-600 hover:bg-blue-500" : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
                                 )}
-                            </div>
+                            >
+                                🎯 Pendientes de Contacto
+                            </Button>
                             {activeFiltersCount > 0 && (
                                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                                     <X className="h-4 w-4 mr-2" /> Limpiar

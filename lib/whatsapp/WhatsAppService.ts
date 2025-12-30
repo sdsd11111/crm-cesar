@@ -11,91 +11,36 @@ export interface WhatsAppMessage {
 }
 
 export class WhatsAppService {
-    private apiUrl: string;
-    private apiKey: string;
-    private instanceName: string;
+    private accessToken: string;
+    private phoneNumberId: string;
+    private verifyToken: string;
+    private version: string = 'v21.0';
 
     constructor() {
-        this.apiUrl = process.env.WHATSAPP_API_URL || 'http://localhost:8080';
-        this.apiKey = process.env.WHATSAPP_API_KEY || process.env.AUTHENTICATION_API_KEY || '';
-        this.instanceName = process.env.WHATSAPP_INSTANCE_NAME || 'Donna';
+        this.accessToken = process.env.META_WA_ACCESS_TOKEN || '';
+        this.phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID || '';
+        this.verifyToken = process.env.META_WA_VERIFY_TOKEN || '';
 
-        console.log(`📡 WhatsAppService Initialized:`);
-        console.log(`   - API URL: ${this.apiUrl}`);
-        console.log(`   - API Key: ${this.apiKey ? '***' + this.apiKey.slice(-4) : 'MISSING ❌'}`);
-        console.log(`   - Instance: ${this.instanceName}`);
+        console.log(`📡 WhatsAppService (Meta) Initialized:`);
+        console.log(`   - Phone Number ID: ${this.phoneNumberId ? '***' + this.phoneNumberId.slice(-4) : 'MISSING ❌'}`);
+        console.log(`   - Access Token: ${this.accessToken ? '***' + this.accessToken.slice(-8) : 'MISSING ❌'}`);
     }
 
     /**
-     * Gets instance status
-     */
-    async fetchStatus(): Promise<any> {
-        console.log(`🔍 WhatsAppService: Fetching status from ${this.apiUrl} for ${this.instanceName}...`);
-        if (!this.apiUrl || !this.apiKey) {
-            console.error('❌ WhatsAppService: API URL or Key missing in config');
-            return { success: false, error: 'Config missing' };
-        }
-        try {
-            const url = `${this.apiUrl}/instance/connectionState/${this.instanceName}`;
-            const response = await axios.get(url, { headers: { 'apikey': this.apiKey } });
-            console.log('✅ WhatsAppService: Status fetched:', response.data);
-            return { success: true, data: response.data };
-        } catch (error: any) {
-            const errorMsg = error.response?.data?.message || error.response?.data || error.message || "Unknown error";
-            console.error('❌ WhatsAppService: Status fetch error:', errorMsg);
-            return { success: false, error: errorMsg };
-        }
-    }
-
-    /**
-     * Connects and gets QR Code
-     */
-    async fetchQR(): Promise<any> {
-        console.log(`🔍 WhatsAppService: Requesting QR from ${this.apiUrl} for ${this.instanceName}...`);
-        if (!this.apiUrl || !this.apiKey) {
-            console.error('❌ WhatsAppService: API URL or Key missing in config');
-            return { success: false, error: 'Config missing' };
-        }
-        try {
-            const url = `${this.apiUrl}/instance/connect/${this.instanceName}`;
-            const response = await axios.get(url, { headers: { 'apikey': this.apiKey } });
-            console.log('✅ WhatsAppService: QR Response received:', JSON.stringify(response.data, null, 2));
-            return { success: true, data: response.data };
-        } catch (error: any) {
-            const errorMsg = error.response?.data?.message || error.response?.data || error.message || "Unknown error";
-            console.error('❌ WhatsAppService: QR Request error:', errorMsg);
-            return { success: false, error: errorMsg };
-        }
-    }
-
-    /**
-     * Logouts instance
-     */
-    async logoutInstance(): Promise<any> {
-        if (!this.apiUrl || !this.apiKey) return { success: false, error: 'Config missing' };
-        try {
-            const url = `${this.apiUrl}/instance/logout/${this.instanceName}`;
-            const response = await axios.delete(url, { headers: { 'apikey': this.apiKey } });
-            return { success: true, data: response.data };
-        } catch (error: any) {
-            return { success: false, error: error.response?.data || error.message };
-        }
-    }
-
-    /**
-     * Sends a text message via Evolution API with opt-out check and logging
-     * @param phone Phone number
+     * Sends a text message via Meta Cloud API 
+     * @param phone Phone number (E.164 format without +)
      * @param text Message content
-     * @param metadata Optional metadata for logging (trigger, approvedBy, etc.)
+     * @param metadata Optional metadata for logging
      */
     async sendMessage(phone: string, text: string, metadata: any = {}): Promise<any> {
-        if (!this.apiUrl || !this.apiKey) {
-            console.error('❌ WhatsAppService: API URL or Key not configured');
+        if (!this.accessToken || !this.phoneNumberId) {
+            console.error('❌ WhatsAppService: Meta Credentials missing');
             return { success: false, error: 'Config missing' };
         }
 
-        // Clean phone number
+        // Clean phone number (Meta requires internacional format without leading zeros or +)
         let cleanPhone = phone.replace(/\D/g, '');
+        // For Ecuador, ensure it starts with 593
         if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
             cleanPhone = '593' + cleanPhone.slice(1);
         } else if (cleanPhone.length === 9 && !cleanPhone.startsWith('593')) {
@@ -103,7 +48,7 @@ export class WhatsAppService {
         }
 
         try {
-            // 1. Check for Opt-Out
+            // 1. Check for Opt-Out (Master Rules)
             const [contact] = await db
                 .select()
                 .from(contacts)
@@ -115,17 +60,23 @@ export class WhatsAppService {
                 return { success: false, error: 'Contact opted out' };
             }
 
-            // 2. Send via API
-            const url = `${this.apiUrl}/message/sendText/${this.instanceName}`;
+            // 2. Send via Meta API
+            const url = `https://graph.facebook.com/${this.version}/${this.phoneNumberId}/messages`;
             const response = await axios.post(
                 url,
                 {
-                    number: cleanPhone,
-                    text: text,
-                    delay: Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000,
-                    linkPreview: true
+                    messaging_product: "whatsapp",
+                    recipient_type: "individual",
+                    to: cleanPhone,
+                    type: "text",
+                    text: { body: text }
                 },
-                { headers: { 'apikey': this.apiKey, 'Content-Type': 'application/json' } }
+                {
+                    headers: {
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
             );
 
             // 3. LOG SUCCESS
@@ -135,14 +86,14 @@ export class WhatsAppService {
                 content: text,
                 status: 'sent',
                 approvedBy: metadata.approvedBy || 'system',
-                metadata: JSON.stringify(metadata)
+                metadata: metadata // Pass object directly for jsonb
             });
 
-            console.log(`✅ WhatsApp sent to ${cleanPhone}`);
+            console.log(`✅ Meta WhatsApp sent to ${cleanPhone} (ID: ${response.data.messages?.[0]?.id})`);
             return { success: true, data: response.data };
         } catch (error: any) {
-            const errorMsg = error.response?.data?.message || error.message;
-            console.error(`❌ WhatsApp error:`, errorMsg);
+            const errorMsg = error.response?.data?.error?.message || error.message;
+            console.error(`❌ Meta WhatsApp error:`, errorMsg);
 
             // 4. LOG FAILURE
             try {
@@ -153,42 +104,33 @@ export class WhatsAppService {
                     content: text,
                     status: 'failed',
                     errorMessage: errorMsg,
-                    metadata: JSON.stringify(metadata)
+                    metadata: metadata // Pass object directly for jsonb
                 });
-            } catch (e) { /* silent fail for logging error */ }
+            } catch (e) { /* silent fail */ }
 
             return { success: false, error: errorMsg };
         }
     }
 
     /**
-     * Sends a media message (image/pdf)
+     * Sends a template message (Required for starting conversations after 24h)
      */
-    async sendMedia(phone: string, mediaUrl: string, caption: string, type: 'image' | 'document' = 'image'): Promise<any> {
-        const cleanPhone = phone.replace(/\D/g, '');
-
+    async sendTemplate(phone: string, templateName: string, languageCode: string = 'es_ES'): Promise<any> {
+        // Basic placeholder for marketing/utility templates
+        const url = `https://graph.facebook.com/${this.version}/${this.phoneNumberId}/messages`;
         try {
-            const url = `${this.apiUrl}/message/sendMedia/${this.instanceName}`;
-            const response = await axios.post(
-                url,
-                {
-                    number: cleanPhone,
-                    mediatype: type,
-                    caption: caption,
-                    media: mediaUrl
-                },
-                {
-                    headers: {
-                        'apikey': this.apiKey,
-                        'Content-Type': 'application/json'
-                    }
+            const response = await axios.post(url, {
+                messaging_product: "whatsapp",
+                to: phone,
+                type: "template",
+                template: {
+                    name: templateName,
+                    language: { code: languageCode }
                 }
-            );
-
+            }, { headers: { 'Authorization': `Bearer ${this.accessToken}` } });
             return { success: true, data: response.data };
         } catch (error: any) {
-            console.error(`❌ WhatsApp media error:`, error.response?.data || error.message);
-            return { success: false, error: error.response?.data || error.message };
+            return { success: false, error: error.response?.data?.error?.message || error.message };
         }
     }
 }

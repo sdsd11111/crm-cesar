@@ -180,6 +180,13 @@ export default function TrainerPage() {
         }
     };
 
+    const handleCallOutcomeChange = (val: string) => {
+        setCallOutcome(val);
+        if (val === 'contesto_interesado' && selectedLead?.source === 'discovery') {
+            setCallAction('convertir_a_lead');
+        }
+    };
+
     const handleSendWhatsApp = async () => {
         if (!waNumber || !waBody) {
             toast.error("Número y mensaje son obligatorios");
@@ -1146,7 +1153,7 @@ export default function TrainerPage() {
                                     <CardContent className="p-5 space-y-5">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resultado</label>
-                                            <Select value={callOutcome} onValueChange={setCallOutcome}>
+                                            <Select value={callOutcome} onValueChange={handleCallOutcomeChange}>
                                                 <SelectTrigger className="w-full h-10">
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -1154,8 +1161,6 @@ export default function TrainerPage() {
                                                     <SelectItem value="contesto_interesado">✅ Contestó / Interesado</SelectItem>
                                                     <SelectItem value="contesto_no_interesado">🤝 Contestó / No Interesa hoy</SelectItem>
                                                     <SelectItem value="no_contesto">❌ No contestó</SelectItem>
-                                                    <SelectItem value="buzon_voz">📠 Buzón de voz</SelectItem>
-                                                    <SelectItem value="numero_invalido">⚠️ Número inválido</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>

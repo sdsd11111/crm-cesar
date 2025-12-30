@@ -7,36 +7,69 @@ import { like } from 'drizzle-orm';
  * Endpoint for Evolution API Webhooks.
  * This ensures that EVERY message (sent or received) is logged in the CRM interactions history.
  */
+/**
+ * GET - Meta Webhook Verification (Handshake)
+ */
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url);
+    const mode = searchParams.get('hub.mode');
+    const token = searchParams.get('hub.verify_token');
+    const challenge = searchParams.get('hub.challenge');
+
+    const verifyToken = process.env.META_WA_VERIFY_TOKEN || '';
+
+    if (mode && token) {
+        if (mode === 'subscribe' && token === verifyToken) {
+            console.log('✅ Webhook Verified by Meta');
+            return new Response(challenge, { status: 200 });
+        } else {
+            console.warn('❌ Webhook Verification Failed: Token mismatch');
+            return new Response('Forbidden', { status: 403 });
+        }
+    }
+    return new Response('Bad Request', { status: 400 });
+}
+
+/**
+ * POST - Receive messages from Meta Cloud API
+ */
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const eventType = body.event;
 
-        console.log(`📩 [Evolution API Webhook] Event: ${eventType}`);
+        // Check if it's a WhatsApp message event
+        if (body.object === 'whatsapp_business_account') {
+            const entry = body.entry?.[0];
+            const change = entry?.changes?.[0];
+            const value = change?.value;
+            const messages = value?.messages;
 
-        // Evolution API v2 uses 'messages.upsert' for new messages
-        if (eventType === 'messages.upsert') {
-            const data = body.data;
-            const messageData = Array.isArray(data) ? data[0] : data;
-            const message = messageData.message;
+            if (!messages || messages.length === 0) {
+                return NextResponse.json({ success: true, reason: 'No messages' });
+            }
 
-            if (!message) return NextResponse.json({ success: true });
+            const msg = messages[0];
+            const from = msg.from; // Phone number (sender)
+            const msgId = msg.id;
 
-            const remoteJid = messageData.key.remoteJid;
-            const fromMe = messageData.key.fromMe;
+            // Extract text based on type
+            let text = '';
+            if (msg.type === 'text') {
+                text = msg.text?.body || '';
+            } else if (msg.type === 'image') {
+                text = `📸 Imagen: ${msg.image?.caption || 'Sin leyenda'}`;
+            } else if (msg.type === 'button') {
+                text = `🔘 Botón: ${msg.button?.text}`;
+            } else {
+                text = `[Mensaje tipo ${msg.type}]`;
+            }
 
-            // Extract text from various message types
-            const text = message.conversation ||
-                message.extendedTextMessage?.text ||
-                message.imageMessage?.caption ||
-                message.videoMessage?.caption ||
-                (message.documentMessage ? `📄 Documento: ${message.documentMessage.fileName}` : null);
+            if (!text) return NextResponse.json({ success: true, reason: 'Empty body' });
 
-            if (!text) return NextResponse.json({ success: true, reason: 'No extractable text' });
+            console.log(`📩 [Meta Webhook] New message from ${from}: "${text}"`);
 
-            // Phone extraction (remove @s.whatsapp.net)
-            const phone = remoteJid.split('@')[0];
-            const last9 = phone.slice(-9);
+            // Phone extraction - Meta usually gives international format (e.g. 593982...)
+            const last9 = from.slice(-9);
 
             // 1. MATCH CONTACT (CRM Master Table)
             const [contact] = await db.select().from(contacts)
@@ -48,12 +81,12 @@ export async function POST(req: Request) {
                 await db.insert(interactions).values({
                     contactId: contact.id,
                     type: 'whatsapp',
-                    direction: fromMe ? 'outbound' : 'inbound',
+                    direction: 'inbound',
                     content: text,
                     performedAt: new Date(),
                 });
 
-                // PROACTIVE BRAIN: Trigger Donna Planning to react to the new context
+                // PROACTIVE BRAIN: Trigger Donna Planning
                 try {
                     const { planningEngine } = await import('@/lib/donna/services/PlanningEngine');
                     await planningEngine.generatePlanningForContact(contact.id);
@@ -61,7 +94,7 @@ export async function POST(req: Request) {
                     console.error('⚠️ Webhook: Planning Trigger Error:', e);
                 }
             } else {
-                // 2. FALLBACK: MATCH DISCOVERY LEAD (Cold Research)
+                // 2. FALLBACK: MATCH DISCOVERY LEAD
                 const [discoveryLead] = await db.select().from(discoveryLeads)
                     .where(like(discoveryLeads.telefonoPrincipal, `%${last9}`))
                     .limit(1);
@@ -71,19 +104,19 @@ export async function POST(req: Request) {
                     await db.insert(interactions).values({
                         discoveryLeadId: discoveryLead.id,
                         type: 'whatsapp',
-                        direction: fromMe ? 'outbound' : 'inbound',
+                        direction: 'inbound',
                         content: text,
                         performedAt: new Date(),
                     });
                 } else {
-                    console.log(`ℹ️ Webhook Sync: Number ${phone} not found in any CRM table.`);
+                    console.log(`ℹ️ Webhook Sync: Number ${from} not found in CRM.`);
                 }
             }
         }
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('❌ WhatsApp Webhook Error:', error);
+        console.error('❌ Meta Webhook Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

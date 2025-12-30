@@ -22,12 +22,12 @@ César Reyes
 👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
 
     no_answer: (contactName: string, businessName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
-Intenté llamarlo hace un momento,
-pero no logré contactarlo.
+Intenté contactarle hace un momento,
+pero no logré comunicarme.
 Trabajo con hoteles en Ecuador
 ayudándoles a captar reservas directas desde Google
 y reducir la dependencia de Booking.
-¿Le puedo enviar un video corto (2 minutos)
+¿Le puedo enviar un video corto
 para que lo revise con calma
 y vea si aplica para ${businessName || '((HOTEL))'}?
 Quedo atento.

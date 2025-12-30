@@ -58,6 +58,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
 import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp';
+import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 
 // Dynamic PDF Download Component
@@ -128,13 +129,14 @@ export default function TrainerPage() {
         const phone = selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || '';
         setWaNumber(phone);
 
-        const name = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || '';
+        const rawName = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || selectedLead.razonSocialPropietario || '';
+        const formattedName = formatContactName(rawName);
         const bName = selectedLead.businessName || selectedLead.nombre_comercial || '';
 
         // Prioritize 'owner' template if a name is available
-        if (name) {
+        if (formattedName) {
             setWaTemplate('owner');
-            setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(name));
+            setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(formattedName));
         } else {
             setWaTemplate('receptionist');
             setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
@@ -167,15 +169,14 @@ export default function TrainerPage() {
     // Update body when template changes manually
     const handleTemplateChange = (val: string) => {
         setWaTemplate(val);
-        const name = selectedLead?.contactName || selectedLead?.personaContacto || selectedLead?.representative || '';
-        const bName = selectedLead?.businessName || selectedLead?.nombre_comercial || '';
+        const lead = selectedLead;
+        if (lead) {
+            const rawName = lead.contactName || lead.personaContacto || lead.representative || lead.razonSocialPropietario || '';
+            const formattedName = formatContactName(rawName);
 
-        if (val === 'owner') {
-            setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(name));
-        } else if (val === 'receptionist') {
-            setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
-        } else if (val === 'no_answer') {
-            setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(name, bName));
+            if (val === 'owner') setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(formattedName));
+            else if (val === 'receptionist') setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
+            else if (val === 'no_answer') setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(formattedName, lead.businessName || lead.nombre_comercial));
         }
     };
 

@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { formatContactName } from '@/lib/utils/name-utils';
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -578,10 +579,11 @@ export default function LeadDetailPage() {
                                             <Label>Plantilla</Label>
                                             <Select value={waTemplate} onValueChange={(val) => {
                                                 setWaTemplate(val);
-                                                const name = lead.contactName || '';
-                                                if (val === 'owner') setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(name));
+                                                const rawName = lead.contactName || '';
+                                                const formattedName = formatContactName(rawName);
+                                                if (val === 'owner') setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(formattedName));
                                                 else if (val === 'receptionist') setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
-                                                else if (val === 'no_answer') setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(name, lead.businessName));
+                                                else if (val === 'no_answer') setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(formattedName, lead.businessName));
                                             }}>
                                                 <SelectTrigger>
                                                     <SelectValue />
@@ -714,9 +716,11 @@ export default function LeadDetailPage() {
                                         </div>
                                     ) : (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                            <div className="p-6 bg-white border border-purple-100 rounded-xl shadow-inner min-h-[300px]">
+                                            <div className="p-8 bg-white border border-purple-200 rounded-xl shadow-inner min-h-[400px] overflow-auto prose prose-slate max-w-none prose-headings:text-slate-900 prose-p:text-slate-800 prose-strong:text-slate-900 prose-li:text-slate-800">
                                                 {/* @ts-ignore */}
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-sm max-w-none">
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
+                                                >
                                                     {proposalContent}
                                                 </ReactMarkdown>
                                             </div>

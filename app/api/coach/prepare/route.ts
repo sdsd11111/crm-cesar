@@ -19,10 +19,11 @@ Tu misión es generar **CUATRO ESTRATEGIAS SIMULTÁNEAS** para que César esté 
    - El pitch DEBE tener **saltos de línea frecuentes** (frases cortas). 
    - NO envíes un bloque de texto denso. César debe poder leer línea por línea mientras habla.
    
-2. **MANEJO DE NOMBRES ((NOMBRE)):**
-   - **IMPORTANTE:** Cuando uses ((NOMBRE)), identifica el **PRIMER NOMBRE** y el **PRIMER APELLIDO** del contacto. 
-   - EVITA usar solo el apellido (ej: No digas "Hola Gonzales", di "Hola Vanessa Gonzales"). 
-   - Si solo hay nombres en mayúsculas, conviértelos a formato de Nombre Propio (ej: "VANESSA" -> "Vanessa").
+2. **MANEJO DE NOMBRES (REEMPLAZO OBLIGATORIO):**
+   - **CRÍTICO:** Debes REEMPLAZAR el texto ((NOMBRE)) de la plantilla con el **PRIMER NOMBRE** y **PRIMER APELLIDO** real del contacto.
+   - **NO** dejes ((NOMBRE)) escrito en el texto final.
+   - Ejemplo: Si la plantilla dice "Hola ((NOMBRE))" y el contacto es "Juan Pérez", escribe "Hola Juan Pérez".
+   - Si solo hay nombres en mayúsculas, conviértelos a formato de Nombre Propio.
 
 3. **MISIÓN:** Generar los guiones exactos para:
    - **DUEÑO:** Técnica de Igualación de estatus, dolor del 20-30% de comisión.
@@ -30,10 +31,10 @@ Tu misión es generar **CUATRO ESTRATEGIAS SIMULTÁNEAS** para que César esté 
    - **OCUPADO:** Máxima brevedad, directo al grano, envío de video.
    - **ENOJADO:** Empatía táctica, validación de su tiempo, curiosidad sobre por qué el enojo ("otros hoteles me han dicho lo mismo...").
 
-4. **USA LAS PLANTILLAS EXACTAS (NO IMPROVISES):**
-   - **CRÍTICO:** Usa EXACTAMENTE las plantillas que se te dan a continuación. 
-   - NO agregues contenido extra, NO improvises, NO "mejores" el texto.
-   - Solo reemplaza ((NOMBRE)) y ((HOTEL)) con los datos del contacto.
+4. **USA LAS PLANTILLAS EXACTAS Y REEMPLAZA VARIABLES:**
+   - **CRÍTICO:** Usa la estructura de las plantillas de abajo.
+   - **TU ÚNICO TRABAJO CREATIVO ES**: Reemplazar ((NOMBRE)) y ((HOTEL)) con la información correcta.
+   - El resto del texto mantenlo IDÉNTICO.
 
 ---
 
@@ -44,11 +45,38 @@ Buenas tardes, ¿hablo con ((NOMBRE))?
 Un gusto, ((NOMBRE)).
 Le saluda César Reyes.
 Le llamo porque trabajamos solo con hoteles en Ecuador,
-ayudándolos a reducir dependencia de Booking
-y captar más reservas directas.
+ayudándolos a reducir dependencia de Booking y captar más reservas directas.
 ¿Me regala un minuto y si no le aporta, cortamos sin problema?
-
-(Desarrollo en reservas directas y dolor de comisiones)
+Vi que ustedes trabajan con Booking,
+y es una buena decisión,
+porque hay viajeros a los que es difícil llegar por cuenta propia.
+(Pausa breve)
+Lo que escucho muy seguido en el sector es que,
+entre comisión, IVA y costos de tarjeta,
+una reserva puede terminar costando entre 20 y 30%.
+(Pausa)
+¿Más o menos están por ahí?
+El problema no es Booking en sí.
+El problema es que cuando el crecimiento depende solo de plataformas externas,
+se vuelve muy difícil competir,
+sobre todo hoy con Airbnb y guerra de precios.
+Silencio corto.
+En Objetivo, lo que hacemos es ayudar a hoteles
+a depender menos de estas plataformas
+y a capturar reservas directas de personas que ya están buscando hospedaje en Google.
+Por eso quería preguntarle algo muy puntual:
+¿Le gustaría ver cómo lo están haciendo otros hoteles similares al suyo?
+Perfecto, entonces ((NOMBRE)),
+le voy a enviar por WhatsApp una página con un video corto.
+Revíselo con calma,
+porque nos contrate o no,
+lo que mostramos ahí es totalmente aplicable a su hotel.
+Y solo para que lo tenga claro:
+no es manejo de redes ni publicaciones.
+Es un sistema enfocado exclusivamente en capturar reservas directas desde Google,
+y es a lo único que nos dedicamos desde 2020.
+((NOMBRE)), ha sido muy amable.
+¿Tiene alguna pregunta rápida antes de cortar?
 
 ### PITCH B – RECEPCIÓN
 Buenas tardes 😊
@@ -56,7 +84,19 @@ Buenas tardes 😊
 Mucho gusto, ((NOMBRE)).
 Mi nombre es César Reyes.
 Le llamo muy breve, no es una venta para usted, por si acaso.
-(Enfoque en reenvío de video de 2 mins)
+Trabajo únicamente con hoteles aquí en Ecuador,
+ayudándoles a captar reservas directas desde Google,
+para depender menos de plataformas como Booking.
+Quisiera enviarle un video muy corto (2 minutos)
+para que, si usted lo considera oportuno,
+se lo pueda compartir al propietario
+o a la persona encargada del hotel.
+(silencio – esperar respuesta)
+Perfecto, muchas gracias 🙏
+En el mensaje voy a poner una frase
+para que usted solo lo reenvíe,
+así no le quito más tiempo.
+
 
 ### PITCH C – DUEÑO OCUPADO ("DÍGAME RÁPIDO")
 Perfecto, ((NOMBRE)), voy directo.
@@ -64,7 +104,12 @@ Ayudamos a hoteles como ((HOTEL))
 a captar más reservas directas desde Google,
 para depender menos de Booking
 y reducir comisiones.
-(Directo al envío de video)
+Le voy a enviar ahora mismo un video de 2 minutos
+donde lo explico de forma clara.
+Si le hace sentido, lo vemos aplicado a su hotel;
+y si no, no le quito más tiempo.
+¿Le parece bien?
+
 
 ### PITCH D – DUEÑO ENOJADO / CONTENCIÓN
 Entiendo perfectamente, ((NOMBRE)), y le agradezco la honestidad.

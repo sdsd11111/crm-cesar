@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from "next/dynamic";
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,12 @@ import {
     Search,
     Info,
     Building,
-    ShieldAlert
+    ShieldAlert,
+    FileText,
+    Copy,
+    PenTool,
+    Sparkles,
+    Download
 } from 'lucide-react';
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +56,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
+import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp';
+import { QuotationDocument } from "@/components/pdf/QuotationDocument";
+
+// Dynamic PDF Download Component
+const PDFDownloadLink = dynamic(() => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink), {
+    ssr: false,
+    loading: () => <Button disabled size="sm" className="h-8 text-xs"><Loader2 className="h-3 w-3 animate-spin" /></Button>,
+});
 
 export default function TrainerPage() {
     const [isRecording, setIsRecording] = useState(false);
@@ -73,7 +88,7 @@ export default function TrainerPage() {
     const [lastInteraction, setLastInteraction] = useState<any>(null);
 
     // Filter State
-    const [filterMode, setFilterMode] = useState<'all' | 'queue' | 'investigated'>('all');
+    const [filterMode, setFilterMode] = useState<'all' | 'queue' | 'investigated'>('queue');
     const [isClearingQueue, setIsClearingQueue] = useState(false);
 
     // WhatsApp Message State
@@ -82,39 +97,10 @@ export default function TrainerPage() {
     const [waBody, setWaBody] = useState<string>('');
     const [isSendingWa, setIsSendingWa] = useState(false);
 
-    const TEMPLATES = {
-        owner: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
-Tal como conversamos por teléfono, le comparto aquí la información.
-
-En el enlace encontrará un video corto donde explico, de forma clara y práctica, cómo algunos hoteles están captando huéspedes nacionales y extranjeros y aumentando sus reservas directas, aprovechando su reputación en Google.
-
-Revíselo con calma y, por favor, no dude en escribirme si le surge cualquier duda.
-Un saludo desde Loja,
-César Reyes
-
-👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
-        receptionist: () => `Hola, buen día 😊
-Tal como conversamos por teléfono, le comparto este video corto (2 minutos) donde explico cómo algunos hoteles en Ecuador están captando más reservas directas desde Google, reduciendo la dependencia de plataformas.
-
-👉 Este mensaje puede reenviarlo directamente al propietario o a la persona encargada del hotel.
-
-Si lo consideran interesante, con gusto lo revisamos aplicado específicamente a su hotel.
-Muchas gracias por su apoyo 🙏
-César Reyes
-
-👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
-        no_answer: (contactName: string, businessName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
-Intenté llamarlo hace un momento,
-pero no logré contactarlo.
-Trabajo con hoteles en Ecuador
-ayudándoles a captar reservas directas desde Google
-y reducir la dependencia de Booking.
-¿Le puedo enviar un video corto (2 minutos)
-para que lo revise con calma
-y vea si aplica para ${businessName || '((HOTEL))'}?
-Quedo atento.
-César Reyes`
-    };
+    // Proposal Generation State
+    const [proposalVariables, setProposalVariables] = useState<any>(null);
+    const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
+    const [proposalContent, setProposalContent] = useState<string>('');
 
     // Auto-populate WhatsApp and Call data from draft or defaults
     useEffect(() => {
@@ -143,18 +129,23 @@ César Reyes`
         setWaNumber(phone);
 
         const name = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || '';
+        const bName = selectedLead.businessName || selectedLead.nombre_comercial || '';
+
+        // Prioritize 'owner' template if a name is available
         if (name) {
             setWaTemplate('owner');
-            setWaBody(TEMPLATES.owner(name));
+            setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(name));
         } else {
             setWaTemplate('receptionist');
-            setWaBody(TEMPLATES.receptionist());
+            setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
         }
 
         // Reset call result form
         setCallOutcome('no_contesto');
         setCallAction('pendiente');
         setCallNotes('');
+        setProposalVariables(null);
+        setProposalContent('');
     }, [selectedLead]);
 
     // AUTOSAVE Effect
@@ -180,11 +171,11 @@ César Reyes`
         const bName = selectedLead?.businessName || selectedLead?.nombre_comercial || '';
 
         if (val === 'owner') {
-            setWaBody(TEMPLATES.owner(name));
+            setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(name));
         } else if (val === 'receptionist') {
-            setWaBody(TEMPLATES.receptionist());
+            setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
         } else if (val === 'no_answer') {
-            setWaBody(TEMPLATES.no_answer(name, bName));
+            setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(name, bName));
         }
     };
 
@@ -285,8 +276,17 @@ César Reyes`
                 }
 
                 const discoveryLeadsMap = new Map();
-                [...queue, ...investigated].forEach(l => {
+
+                // Prioritize queed leads
+                queue.forEach((l: any) => {
                     discoveryLeadsMap.set(l.id, { ...l, source: 'discovery' });
+                });
+
+                // Then investigated
+                investigated.forEach((l: any) => {
+                    if (!discoveryLeadsMap.has(l.id)) {
+                        discoveryLeadsMap.set(l.id, { ...l, source: 'discovery' });
+                    }
                 });
 
                 const list = [
@@ -297,6 +297,8 @@ César Reyes`
 
                 if (queue.length > 0 && !selectedLead) {
                     setSelectedLead({ ...queue[0], source: 'discovery' });
+                } else if (investigated.length > 0 && !selectedLead) {
+                    setSelectedLead({ ...investigated[0], source: 'discovery' });
                 }
             } catch (error) {
                 console.error("Error fetching leads for trainer:", error);
@@ -343,8 +345,8 @@ César Reyes`
                     : l
             ));
 
-            // Reset filter to show all after clearing
-            setFilterMode('all');
+            // Reset filter to queue (which will now be empty) or all
+            setFilterMode('queue');
         } catch (error) {
             console.error('Error clearing queue:', error);
             toast.error('Error al limpiar la cola');
@@ -360,7 +362,7 @@ César Reyes`
         if (filterMode === 'investigated') {
             return lead.source === 'discovery' && lead.status === 'investigated';
         }
-        return true; // 'all'
+        return true; // 'all' - In all mode, we still prioritize Discovery but show everything
     });
 
     useEffect(() => {
@@ -523,6 +525,8 @@ César Reyes`
         setSelectedLead(leadsList[nextIndex]);
         setPrepResult(null);
         setCallNotes('');
+        setProposalVariables(null); // Reset proposal on lead change
+        setProposalContent('');
     };
 
     const handleSaveCallResult = async () => {
@@ -636,9 +640,46 @@ César Reyes`
                     const errorData = await createLeadRes.json();
                     throw new Error(`Error al crear Lead real: ${errorData.details || errorData.error}`);
                 }
+            } else if (callAction === 'donna_reminder') {
+                // Handle Donna Reminder (Same Day Follow-up)
+                try {
+                    const donnaRes = await fetch('/api/donna/reminder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            note: callNotes,
+                            leadId: selectedLead.id,
+                            leadName: selectedLead.businessName || selectedLead.contactName || "Sin Nombre",
+                            source: selectedLead.source
+                        })
+                    });
+
+                    if (donnaRes.ok) {
+                        toast.success("🔔 Donna notificada: Recordatorio enviado a Telegram");
+                    } else {
+                        toast.error("Error al notificar a Donna");
+                    }
+                } catch (error) {
+                    console.error("Donna Reminder Error", error);
+                    toast.error("Error de conexión con Donna");
+                }
+
+                toast.success("Resultado guardado (Lead mantenido en cola)");
+                localStorage.removeItem(`trainer_draft_${selectedLead.id}`);
+                // Verify if we should move next or stay. User said "no descartarlos". 
+                // Usually we move next, but the lead remains in the list.
+                // Let's NOT call handleNextLead() automatically if user wants to keep working on it? 
+                // Or call it to allow flow? User said "allow to call again today".
+                // Default behavior: Move to next to keep flow, but lead is still in "cola".
+                handleNextLead();
+
             } else {
                 toast.success("Resultado guardado con éxito");
                 localStorage.removeItem(`trainer_draft_${selectedLead.id}`); // Clear draft
+                // Only move to next lead if not merely updating
+                // Check logic: if "pendiente" was chosen, maybe user wants to continue?
+                // Standard trainer flow usually moves next.
+                handleNextLead();
             }
 
             // Refresh interaction history locally
@@ -671,67 +712,76 @@ César Reyes`
         }
     };
 
+    const handleGenerateProposal = async () => {
+        if (!selectedLead) return;
+        setIsGeneratingProposal(true);
+        try {
+            const res = await fetch('/api/trainer/proposal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    leadId: selectedLead.id,
+                    source: selectedLead.source
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.variables) {
+                setProposalVariables(data.variables);
+
+                // Replace variables in template
+                let filledTemplate = PROPOSAL_TEMPLATE_HOTEL;
+                Object.keys(data.variables).forEach(key => {
+                    const regex = new RegExp(`{{${key}}}`, 'g');
+                    filledTemplate = filledTemplate.replace(regex, data.variables[key] || `[${key} no encontrado]`);
+                });
+                setProposalContent(filledTemplate);
+
+                toast.success("Propuesta generada ✨");
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error: any) {
+            toast.error("Error generando propuesta: " + error.message);
+        } finally {
+            setIsGeneratingProposal(false);
+        }
+    };
+
     return (
         <DashboardLayout>
-            <div className="p-8 max-w-6xl mx-auto space-y-8">
-                <div className="flex justify-between items-end">
+            <div className="p-4 w-full max-w-[1920px] mx-auto space-y-4">
+                {/* HEADER & FILTERS */}
+                <div className="flex justify-between items-end mb-4">
                     <div>
-                        <h1 className="text-4xl font-extrabold tracking-tight">High Ticket Trainer</h1>
-                        <p className="text-muted-foreground text-sm mt-2">Prepara tu mente antes de marcar.</p>
+                        <h1 className="text-3xl font-extrabold tracking-tight">High Ticket Trainer</h1>
+                        <p className="text-muted-foreground text-xs mt-1">Prepara tu mente antes de marcar.</p>
                     </div>
                     <div className="flex gap-2">
-                        <Button
-                            variant={filterMode === 'all' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterMode('all')}
-                        >
-                            Todos ({leadsList.length})
+                        <Button variant={filterMode === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilterMode('all')}>Todos ({leadsList.length})</Button>
+                        <Button variant={filterMode === 'queue' ? 'default' : 'outline'} size="sm" onClick={() => setFilterMode('queue')}>📋 En Cola ({leadsList.filter(l => l.source === 'discovery' && l.columna2 === 'en_cola').length})</Button>
+                        <Button variant={filterMode === 'investigated' ? 'default' : 'outline'} size="sm" onClick={() => setFilterMode('investigated')}>🔍 Investigados ({leadsList.filter(l => l.source === 'discovery' && l.status === 'investigated').length})</Button>
+                        <Button variant="destructive" size="sm" onClick={handleClearQueue} disabled={isClearingQueue}>
+                            {isClearingQueue ? '...' : '🗑️ Limpiar'}
                         </Button>
-                        <Button
-                            variant={filterMode === 'queue' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterMode('queue')}
-                        >
-                            📋 En Cola ({leadsList.filter((l: any) => l.source === 'discovery' && l.columna2 === 'en_cola').length})
-                        </Button>
-                        <Button
-                            variant={filterMode === 'investigated' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setFilterMode('investigated')}
-                        >
-                            🔍 Investigados ({leadsList.filter((l: any) => l.source === 'discovery' && l.status === 'investigated').length})
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={handleClearQueue}
-                            disabled={isClearingQueue}
-                        >
-                            {isClearingQueue ? 'Limpiando...' : '🗑️ Limpiar Cola'}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            className="px-4 py-2 hover:text-primary transition-all"
-                            onClick={handleNextLead}
-                        >
-                            <ChevronRight className="mr-1 h-4 w-4" /> Siguiente
+                        <Button variant="ghost" className="px-4 py-2 hover:text-primary transition-all" onClick={handleNextLead}>
+                            <ChevronRight className="mr-1 h-4 w-4" /> Sig.
                         </Button>
                     </div>
                 </div>
 
-                {/* MAIN TRAINER LAYOUT */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* MAIN GRID LAYOUT: 3 COLUMNS */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start h-[calc(100vh-180px)]">
 
-                    {/* LEFT COLUMN: CONTROL PANEL (4 units) */}
-                    <div className="lg:col-span-4 space-y-6">
+                    {/* COLUMN 1: SELECTOR & CONTEXT (3 Cols) */}
+                    <div className="xl:col-span-3 space-y-4 h-full flex flex-col overflow-y-auto pr-2 pb-20 custom-scrollbar">
                         {/* STEP 1: LEAD SELECTOR */}
-                        <Card className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm">
-                            <CardHeader className="p-6 py-4 border-b border-border/50">
+                        <Card className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm shrink-0">
+                            <CardHeader className="p-4 py-3 border-b border-border/50">
                                 <CardTitle className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-black">
                                     1. Selección de Prospecto
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-6 space-y-4">
+                            <CardContent className="p-4 space-y-3">
                                 <Select
                                     value={selectedLead?.id}
                                     onValueChange={(val) => {
@@ -740,24 +790,19 @@ César Reyes`
                                         setPrepResult(null); // Clear previous prep
                                     }}
                                 >
-                                    <SelectTrigger className="w-full h-14 text-lg font-bold bg-background border-2 border-border/50 focus:border-primary transition-all rounded-xl">
-                                        <SelectValue placeholder="Elegir lead para hoy..." />
+                                    <SelectTrigger className="w-full h-12 text-md font-bold bg-background border-2 border-border/50 focus:border-primary transition-all rounded-xl">
+                                        <SelectValue placeholder="Elegir lead..." />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[400px]">
                                         {filteredLeadsList.map((lead) => (
-                                            <SelectItem key={lead.id} value={lead.id} className="py-3 px-4 border-b border-border/20 last:border-0 hover:bg-primary/5">
+                                            <SelectItem key={lead.id} value={lead.id} className="py-2 px-3 border-b border-border/20 last:border-0 hover:bg-primary/5">
                                                 <div className="flex flex-col gap-0.5">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-white leading-tight">
+                                                        <span className="font-bold text-white leading-tight truncate max-w-[200px]">
                                                             {lead.businessName || "Sin Nombre Comercial"}
                                                         </span>
-                                                        {lead.source === 'discovery' && (
-                                                            <Badge variant="outline" className="text-[9px] uppercase tracking-tighter bg-blue-500/10 text-blue-400 border-blue-500/20">
-                                                                Discovery
-                                                            </Badge>
-                                                        )}
                                                     </div>
-                                                    <span className="text-[10px] text-muted-foreground">
+                                                    <span className="text-[9px] text-muted-foreground">
                                                         {lead.source === 'discovery' ? `${lead.province || ''}, ${lead.city || ''}` : lead.businessType}
                                                     </span>
                                                 </div>
@@ -767,31 +812,29 @@ César Reyes`
                                 </Select>
 
                                 {selectedLead && (
-                                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-primary/70">Contexto Actual</p>
-                                            <Badge variant="outline" className="text-[9px] border-primary/20 text-primary">
-                                                {selectedLead.status === 'investigated' ? 'Investigado' : 'Pendiente'}
-                                            </Badge>
+                                    <>
+                                        <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-primary/70">Contexto Actual</p>
+                                                <Badge variant="outline" className="text-[9px] border-primary/20 text-primary scale-90 origin-right">
+                                                    {selectedLead.status === 'investigated' ? 'Investigado' : 'Pendiente'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                                                {selectedLead.source === 'discovery'
+                                                    ? (selectedLead.razonSocialPropietario || selectedLead.representative || "Sin nombre registrado")
+                                                    : selectedLead.contactName}
+                                            </p>
+                                            <div className="flex gap-1 mt-2">
+                                                {selectedLead.bookingInfo && (
+                                                    <Badge variant="secondary" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-[9px] px-1 font-bold">Booking</Badge>
+                                                )}
+                                                {selectedLead.googleInfo && (
+                                                    <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-[9px] px-1 font-bold">Google Stars</Badge>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-slate-300 font-medium leading-relaxed">
-                                            {selectedLead.source === 'discovery'
-                                                ? (selectedLead.razonSocialPropietario || selectedLead.representative || "Sin nombre registrado")
-                                                : selectedLead.contactName}
-                                        </p>
-                                        <div className="flex gap-2 mt-2">
-                                            {selectedLead.bookingInfo && (
-                                                <Badge variant="secondary" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-[9px] px-1.5 font-bold">Booking</Badge>
-                                            )}
-                                            {selectedLead.googleInfo && (
-                                                <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-[9px] px-1.5 font-bold">Google Stars</Badge>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
 
-                                {selectedLead && (
-                                    <div className="space-y-2 mt-2">
                                         <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border group cursor-pointer hover:border-primary transition-colors"
                                             onClick={() => {
                                                 const phone = selectedLead.phone || selectedLead.phone1;
@@ -801,29 +844,29 @@ César Reyes`
                                                 }
                                             }}
                                         >
-                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                                <Phone className="h-5 w-5" />
+                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                <Phone className="h-4 w-4" />
                                             </div>
                                             <div>
-                                                <p className="text-xs text-muted-foreground uppercase tracking-widest">Teléfono Directo</p>
-                                                <p className="font-bold text-xl text-primary">{selectedLead.phone || selectedLead.phone1 || 'Sin teléfono'}</p>
+                                                <p className="text-[9px] text-muted-foreground uppercase tracking-widest">Teléfono Directo</p>
+                                                <p className="font-bold text-md text-primary">{selectedLead.phone || selectedLead.phone1 || 'Sin teléfono'}</p>
                                             </div>
-                                            <Zap className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <Zap className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
-                                    </div>
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
 
-                        {/* STEP 2: TACTICAL MODE & ACTION */}
-                        <Card className="rounded-2xl border text-card-foreground shadow-2xl border-primary/20 bg-primary/5">
-                            <CardHeader className="pb-3 px-6 pt-5">
+                        {/* STEP 2: TACTICAL MODE */}
+                        <Card className="rounded-2xl border text-card-foreground shadow-lg border-primary/20 bg-primary/5 shrink-0">
+                            <CardHeader className="pb-2 px-4 pt-4">
                                 <CardTitle className="text-xs uppercase tracking-widest text-primary font-bold">
                                     2. Enfoque de Llamada
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="px-6 pb-6 space-y-6">
-                                <div className="flex bg-zinc-950/50 p-1.5 rounded-xl border border-border/50 backdrop-blur-sm">
+                            <CardContent className="px-4 pb-4 space-y-4">
+                                <div className="grid grid-cols-2 gap-2">
                                     {[
                                         { id: 'asesor', label: 'DUEÑO', icon: User },
                                         { id: 'consultor', label: 'RECEPCIÓN', icon: Building },
@@ -834,419 +877,421 @@ César Reyes`
                                             key={mode.id}
                                             onClick={() => setPrepMode(mode.id)}
                                             className={cn(
-                                                "flex flex-col items-center justify-center flex-1 p-2 rounded-lg transition-all",
+                                                "flex flex-col items-center justify-center p-2 rounded-lg transition-all border border-transparent",
                                                 prepMode === mode.id
-                                                    ? "bg-primary text-primary-foreground shadow-md"
-                                                    : "text-muted-foreground hover:bg-accent"
+                                                    ? "bg-primary text-primary-foreground shadow-md border-primary/50"
+                                                    : "bg-background text-muted-foreground hover:bg-accent border-border/50"
                                             )}
                                         >
-                                            <mode.icon className="h-5 w-5 mb-1" />
-                                            <span className="text-[9px] font-black uppercase tracking-tighter">{mode.label}</span>
+                                            <mode.icon className="h-4 w-4 mb-1" />
+                                            <span className="text-[8px] font-black uppercase tracking-tighter">{mode.label}</span>
                                         </button>
                                     ))}
                                 </div>
 
                                 <Button
-                                    className="w-full h-16 text-xl font-black rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                                    className="w-full h-12 text-md font-black rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-500/20 transition-all active:scale-95"
                                     onClick={handlePrepareCall}
                                     disabled={!selectedLead || isPreparing}
                                 >
-                                    {isPreparing ? "Procesando..." : "PREPARAR LLAMADA"}
+                                    {isPreparing ? "Procesando..." : "PREPARAR PITCH"}
                                 </Button>
                             </CardContent>
                         </Card>
                     </div>
 
-                    {/* RIGHT COLUMN: AI PREPARATION & ACTION PANEL (8 units) */}
-                    <div className="lg:col-span-8 space-y-6">
+                    {/* COLUMN 2: READING PANE (PITCH & RESEARCH) (5 Cols) */}
+                    <div className="xl:col-span-5 h-full flex flex-col overflow-y-auto custom-scrollbar pb-20">
                         {!prepResult ? (
-                            <div className="h-full min-h-[500px] flex flex-col items-center justify-center p-12 border-2 border-dashed border-border rounded-xl text-muted-foreground bg-card/50">
-                                <BrainCircuit className="h-16 w-16 mb-4 opacity-20" />
-                                <p className="text-xl font-bold text-white/50">Esperando Frecuencia...</p>
-                                <p className="text-sm text-center max-w-xs mt-2">
-                                    Pulsa "Preparar Llamada" para generar tu pitch táctico.
+                            <div className="h-[400px] flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl text-muted-foreground bg-card/50">
+                                <BrainCircuit className="h-12 w-12 mb-4 opacity-20" />
+                                <p className="text-lg font-bold text-white/50">Esperando Frecuencia...</p>
+                                <p className="text-xs text-center max-w-xs mt-2">
+                                    Pulsa "Preparar Pitch" para generar tu guion táctico.
                                 </p>
                             </div>
                         ) : (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                                {prepResult.pitch === "SIN DATOS PARA CONTINUAR" ? (
-                                    <div className="p-12 border-2 border-red-500/20 bg-red-500/5 rounded-2xl text-center space-y-4">
-                                        <div className="h-20 w-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
-                                            <Zap className="h-10 w-10 text-red-400" />
+                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <Card className="border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5">
+                                    <CardHeader className="pb-2 border-b border-border/50 py-3 px-5">
+                                        <div className="flex justify-between items-center">
+                                            <CardTitle className="text-xs uppercase tracking-widest text-primary font-bold">
+                                                Pitch de Venta Personalizado
+                                            </CardTitle>
+                                            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
+                                                {prepMode.toUpperCase()}
+                                            </Badge>
                                         </div>
-                                        <h2 className="text-2xl font-black text-red-400 uppercase tracking-tighter">Sin datos suficientes</h2>
-                                        <p className="text-muted-foreground max-w-sm mx-auto">
-                                            Este prospecto no tiene información clara de Booking o Google. Salta este contacto para mantener el ritmo.
-                                        </p>
-                                        <Button variant="outline" onClick={handleNextLead} className="border-red-500/30 text-red-400 hover:bg-red-500/10">
-                                            Siguiente en Cola
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <Tabs defaultValue="pitch" className="w-full">
-                                            <TabsList className="grid w-full grid-cols-3 mb-6 bg-background/50 border border-border/50 p-1 h-14 rounded-xl">
-                                                <TabsTrigger value="pitch" className="rounded-lg font-bold uppercase tracking-widest text-xs h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                                    <Zap className="h-4 w-4 mr-2" /> Pitch
-                                                </TabsTrigger>
-                                                <TabsTrigger value="info" className="rounded-lg font-bold uppercase tracking-widest text-xs h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                                    <User className="h-4 w-4 mr-2" /> Información
-                                                </TabsTrigger>
-                                                <TabsTrigger value="investigation" className="rounded-lg font-bold uppercase tracking-widest text-xs h-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                                    <Search className="h-4 w-4 mr-2" /> Investigación
-                                                </TabsTrigger>
-                                            </TabsList>
+                                    </CardHeader>
+                                    <CardContent className="p-5">
+                                        <div
+                                            className="bg-card p-5 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
+                                            onClick={() => {
+                                                const textToCopy = prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch;
+                                                navigator.clipboard.writeText(textToCopy);
+                                                toast.success("Pitch copiado al portapapeles");
+                                            }}
+                                        >
+                                            <p className="text-base leading-relaxed text-white whitespace-pre-line">
+                                                {prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch}
+                                            </p>
+                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Badge variant="outline" className="text-[9px] uppercase">Copiar</Badge>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                                            <TabsContent value="pitch" className="space-y-6">
-                                                {/* PITCH DE VENTA PERSONALIZADO */}
-                                                <Card className="border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5">
-                                                    <CardHeader className="pb-2 border-b border-border/50">
-                                                        <div className="flex justify-between items-center">
-                                                            <CardTitle className="text-sm uppercase tracking-widest text-primary font-bold">
-                                                                Pitch de Venta Personalizado
-                                                            </CardTitle>
-                                                            <Badge className="bg-primary/20 text-primary border-primary/30">
-                                                                Modo {prepMode.toUpperCase()}
-                                                            </Badge>
-                                                        </div>
-                                                    </CardHeader>
-                                                    <CardContent className="pt-6">
-                                                        <div
-                                                            className="bg-card p-6 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
-                                                            onClick={() => {
-                                                                const textToCopy = prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch;
-                                                                navigator.clipboard.writeText(textToCopy);
-                                                                toast.success("Pitch copiado al portapapeles");
-                                                            }}
-                                                        >
-                                                            <p className="text-lg leading-relaxed text-white whitespace-pre-line">
-                                                                {prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch}
-                                                            </p>
-                                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <Badge variant="outline" className="text-[10px] uppercase">Click para copiar</Badge>
-                                                            </div>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-
-                                                {/* GRID DE DISPARADORES */}
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                    {prepResult.disparadores?.map((d: any, i: number) => (
-                                                        <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
-                                                            <CardHeader className="p-4 pb-2">
-                                                                <CardTitle className="text-[10px] uppercase font-black text-indigo-400">{d.titulo}</CardTitle>
-                                                            </CardHeader>
-                                                            <CardContent className="p-4 pt-0">
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {d.keywords.map((kw: string, j: number) => (
-                                                                        <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[9px]">
-                                                                            {kw}
-                                                                        </Badge>
-                                                                    ))}
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    ))}
-                                                </div>
-
-                                                {/* WHATSAPP FOLLOW-UP PANEL */}
-                                                <Card className="border-green-500/30 bg-green-500/5 shadow-xl">
-                                                    <CardHeader className="pb-2 border-b border-green-500/10 flex flex-row items-center justify-between">
-                                                        <CardTitle className="text-sm uppercase tracking-widest text-green-500 font-bold flex items-center gap-2">
-                                                            <MessageSquare className="h-4 w-4" /> Seguimiento WhatsApp Centralizado
-                                                        </CardTitle>
-                                                        {waBody.includes('((') && (
-                                                            <Badge variant="destructive" className="animate-pulse text-[10px]">⚠️ Etiquetas pendientes</Badge>
-                                                        )}
-                                                    </CardHeader>
-                                                    <CardContent className="pt-6 space-y-4">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="space-y-2">
-                                                                <Label className="text-xs uppercase font-bold text-muted-foreground flex justify-between">
-                                                                    Número de WhatsApp
-                                                                    {waNumber !== (selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone) && (
-                                                                        <span className="text-[10px] text-blue-400">✨ Nuevo número detectado</span>
-                                                                    )}
-                                                                </Label>
-                                                                <Input
-                                                                    value={waNumber}
-                                                                    onChange={(e) => setWaNumber(e.target.value)}
-                                                                    placeholder="Ej: 0991234567"
-                                                                    className={cn(
-                                                                        "bg-zinc-950/80 text-white border-border/50",
-                                                                        waNumber !== (selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone) && "border-blue-500/50 ring-1 ring-blue-500/20"
-                                                                    )}
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                <Label className="text-xs uppercase font-bold text-muted-foreground">Escoger Escenario</Label>
-                                                                <Select value={waTemplate} onValueChange={handleTemplateChange}>
-                                                                    <SelectTrigger className="bg-zinc-950/80 text-white border-border/50">
-                                                                        <SelectValue />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        <SelectItem value="owner">Dueño (Persona Directa)</SelectItem>
-                                                                        <SelectItem value="receptionist">Recepción (Para Reenvío)</SelectItem>
-                                                                        <SelectItem value="no_answer">No contestó</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Dynamic Placeholders Helpers */}
-                                                        <div className="flex flex-wrap gap-2 p-3 bg-background/30 rounded-lg border border-border/50">
-                                                            <p className="text-[10px] text-muted-foreground w-full uppercase font-bold mb-1">Variables dinámicas:</p>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-7 text-[10px] bg-primary/5 border-primary/20"
-                                                                onClick={() => {
-                                                                    const name = prompt("Nombre del dueño:", selectedLead.contactName || selectedLead.personaContacto || "");
-                                                                    if (name) setWaBody(prev => prev.replace(/\(\(NOMBRE\)\)/g, name).replace(/Hola \w*,/g, `Hola ${name},`));
-                                                                }}
-                                                            >
-                                                                👤 Rellenar Nombre
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-7 text-[10px] bg-primary/5 border-primary/20"
-                                                                onClick={() => {
-                                                                    const hotel = prompt("Nombre del hotel:", selectedLead.businessName || selectedLead.nombre_comercial || "");
-                                                                    if (hotel) setWaBody(prev => prev.replace(/\(\(NOMBRE DEL HOTEL\)\)/g, hotel));
-                                                                }}
-                                                            >
-                                                                🏨 Rellenar Hotel
-                                                            </Button>
-                                                        </div>
-
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs uppercase font-bold text-muted-foreground">Cuerpo del Mensaje</Label>
-                                                            <Textarea
-                                                                value={waBody}
-                                                                onChange={(e) => setWaBody(e.target.value)}
-                                                                className={cn(
-                                                                    "min-h-[180px] bg-zinc-950/80 text-white leading-relaxed text-sm transition-all border-border/50",
-                                                                    waBody.includes('((') && "border-destructive/50 ring-1 ring-destructive/20"
-                                                                )}
-                                                            />
-                                                        </div>
-
-                                                        <Button
-                                                            onClick={handleSendWhatsApp}
-                                                            disabled={isSendingWa}
-                                                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-6 shadow-lg shadow-green-500/20"
-                                                        >
-                                                            {isSendingWa ? (
-                                                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                                                            ) : (
-                                                                <Zap className="h-5 w-5 mr-2" />
-                                                            )}
-                                                            ENVIAR INFO POR WHATSAPP
-                                                        </Button>
-                                                    </CardContent>
-                                                </Card>
-                                            </TabsContent>
-
-                                            <TabsContent value="info" className="space-y-4">
-                                                <Card className="border-border/50 bg-card/30 backdrop-blur-md">
-                                                    <CardHeader>
-                                                        <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                                            <User className="h-5 w-5 text-primary" /> Perfil Detallado
-                                                        </CardTitle>
-                                                    </CardHeader>
-                                                    <CardContent className="space-y-6">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Nombre Comercial</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.businessName || selectedLead.nombre_comercial || "No registrado"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Actividad / Modalidad</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.businessType || selectedLead.actividadModalidad || "No especificado"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Razón Social (Propietario)</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.razonSocialPropietario || "No registrado"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Provincia / Cantón</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.province || selectedLead.provincia || "N/A"} - {selectedLead.city || selectedLead.canton || "N/A"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Teléfonos</p>
-                                                                <p className="text-md font-bold text-primary">{selectedLead.phone1 || selectedLead.telefonoPrincipal || selectedLead.phone || "N/A"} / {selectedLead.phone2 || selectedLead.telefonoSecundario || selectedLead.phone2 || "N/A"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Correo Electrónico</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.email || selectedLead.correoElectronico || "No registrado"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Dirección Web</p>
-                                                                <p className="text-md font-bold text-blue-400 truncate">{selectedLead.direccionWeb || selectedLead.website || "No disponible"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Persona de Contacto</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.personaContacto || selectedLead.representative || selectedLead.contactName || "No registrado"}</p>
-                                                            </div>
-                                                            <div className="space-y-0.5 md:col-span-2">
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Correo Persona de Contacto</p>
-                                                                <p className="text-md font-bold text-white">{selectedLead.correoPersonaContacto || "No registrado"}</p>
-                                                            </div>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            </TabsContent>
-
-                                            <TabsContent value="investigation" className="space-y-4">
-                                                <div className="grid grid-cols-1 gap-4">
-                                                    {(selectedLead.investigacion || selectedLead.researchData) ? (
-                                                        <Card className="border-primary/20 bg-primary/5">
-                                                            <CardHeader className="pb-2">
-                                                                <CardTitle className="text-xs uppercase font-black text-primary tracking-widest flex items-center gap-2">
-                                                                    <BrainCircuit className="h-4 w-4" /> Investigación Completa (IA & Web)
-                                                                </CardTitle>
-                                                            </CardHeader>
-                                                            <CardContent>
-                                                                <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap bg-background/30 p-4 rounded-lg border border-border/50">
-                                                                    {selectedLead.investigacion || selectedLead.researchData}
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    ) : null}
-
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <Card className="border-yellow-500/20 bg-yellow-500/5">
-                                                            <CardHeader className="pb-2">
-                                                                <CardTitle className="text-xs uppercase font-black text-yellow-500 tracking-widest flex items-center gap-2">
-                                                                    <Search className="h-4 w-4" /> Google Insights
-                                                                </CardTitle>
-                                                            </CardHeader>
-                                                            <CardContent>
-                                                                <p className="text-sm text-slate-300 italic leading-relaxed">
-                                                                    {selectedLead.googleInfo || "No hay datos de Google para este prospecto."}
-                                                                </p>
-                                                            </CardContent>
-                                                        </Card>
-
-                                                        <Card className="border-blue-500/20 bg-blue-500/5">
-                                                            <CardHeader className="pb-2">
-                                                                <CardTitle className="text-xs uppercase font-black text-blue-400 tracking-widest flex items-center gap-2">
-                                                                    <Info className="h-4 w-4" /> Booking / OTA Data
-                                                                </CardTitle>
-                                                            </CardHeader>
-                                                            <CardContent>
-                                                                <p className="text-sm text-slate-300 italic leading-relaxed">
-                                                                    {selectedLead.bookingInfo || "Sin datos de Booking disponibles."}
-                                                                </p>
-                                                            </CardContent>
-                                                        </Card>
-                                                    </div>
-
-                                                    <Card className="border-primary/20 bg-primary/5">
-                                                        <CardHeader className="pb-2">
-                                                            <CardTitle className="text-xs uppercase font-black text-primary tracking-widest flex items-center gap-2">
-                                                                <History className="h-4 w-4" /> Última Interacción
-                                                            </CardTitle>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            {lastInteraction ? (
-                                                                <div className="space-y-2">
-                                                                    <div className="flex justify-between">
-                                                                        <Badge variant="outline">{lastInteraction.outcome}</Badge>
-                                                                        <span className="text-xs text-muted-foreground">{new Date(lastInteraction.performedAt).toLocaleDateString()}</span>
-                                                                    </div>
-                                                                    <p className="text-sm text-slate-300">{lastInteraction.content}</p>
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-sm text-muted-foreground italic">No hay interacciones previas registradas.</p>
-                                                            )}
-                                                        </CardContent>
-                                                    </Card>
-                                                </div>
-                                            </TabsContent>
-                                        </Tabs>
-
-                                        {/* ACTION PANEL */}
-                                        <Card className="border-primary border-t-4 shadow-xl">
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                                    <ClipboardList className="h-5 w-5 text-primary" /> Resultado de la Llamada
-                                                </CardTitle>
-                                                <CardDescription>Documenta el resultado para perfilar al cliente.</CardDescription>
+                                {/* Trigger Keywords */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    {prepResult.disparadores?.map((d: any, i: number) => (
+                                        <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
+                                            <CardHeader className="p-3 pb-1">
+                                                <CardTitle className="text-[9px] uppercase font-black text-indigo-400 truncate">{d.titulo}</CardTitle>
                                             </CardHeader>
-                                            <CardContent className="space-y-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div className="space-y-2">
-                                                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">¿Qué pasó?</label>
-                                                        <Select value={callOutcome} onValueChange={setCallOutcome}>
-                                                            <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="Estado de contacto" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="contesto_interesado">✅ Contestó / Interesado</SelectItem>
-                                                                <SelectItem value="contesto_no_interesado">🤝 Contestó / No Interesa hoy</SelectItem>
-                                                                <SelectItem value="no_contesto">❌ No contestó</SelectItem>
-                                                                <SelectItem value="buzon_voz">📠 Buzón de voz</SelectItem>
-                                                                <SelectItem value="numero_invalido">⚠️ Número inválido</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Acción Siguiente</label>
-                                                        <Select value={callAction} onValueChange={setCallAction}>
-                                                            <SelectTrigger className="w-full">
-                                                                <SelectValue placeholder="Acción a tomar" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="convertir_a_lead">🚀 Convertir a LEAD</SelectItem>
-                                                                <SelectItem value="seguimiento_7_dias">⏳ Seguimiento (7 días)</SelectItem>
-                                                                <SelectItem value="seguimiento_30_dias">📅 Seguimiento (30 días)</SelectItem>
-                                                                <SelectItem value="descartar">🗑️ Descartar</SelectItem>
-                                                                <SelectItem value="pendiente">🔄 Mantener en cola</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Notas de Perfilado</label>
-                                                    <Textarea
-                                                        placeholder="Siente que las OTAs le roban margen..."
-                                                        className="min-h-[80px] bg-card border-border"
-                                                        value={callNotes}
-                                                        onChange={(e) => setCallNotes(e.target.value)}
-                                                    />
-                                                </div>
-
-                                                <div className="flex gap-4">
-                                                    <Button
-                                                        className="flex-1 h-12 text-lg font-bold"
-                                                        disabled={isSavingResult || !selectedLead}
-                                                        onClick={handleSaveCallResult}
-                                                    >
-                                                        {isSavingResult ? 'Guardando...' : 'Guardar Resultado'}
-                                                        <Save className="ml-2 h-5 w-5" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        className="h-12 px-6"
-                                                        onClick={handleNextLead}
-                                                    >
-                                                        Saltar
-                                                        <ChevronRight className="ml-2 h-5 w-5" />
-                                                    </Button>
+                                            <CardContent className="p-3 pt-1">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {d.keywords.map((kw: string, j: number) => (
+                                                        <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[8px] px-1 py-0">
+                                                            {kw}
+                                                        </Badge>
+                                                    ))}
                                                 </div>
                                             </CardContent>
                                         </Card>
-                                    </>
-                                )}
+                                    ))}
+                                </div>
+
+                                {/* Quick Info Tabs in Middle Column */}
+                                <Tabs defaultValue="investigation" className="w-full">
+                                    <TabsList className="w-full grid grid-cols-2 bg-background/50 border border-border/50 h-10 mb-2">
+                                        <TabsTrigger value="investigation" className="text-xs uppercase font-bold">Investigación</TabsTrigger>
+                                        <TabsTrigger value="details" className="text-xs uppercase font-bold">Detalles</TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="investigation" className="space-y-3">
+                                        {(selectedLead.investigacion || selectedLead.researchData || selectedLead.research) && (
+                                            <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap bg-background/30 p-3 rounded-lg border border-border/50 font-mono">
+                                                {typeof selectedLead.researchData === 'object' && selectedLead.researchData !== null
+                                                    ? Object.entries(selectedLead.researchData).map(([key, value]) => (
+                                                        <div key={key} className="mb-2">
+                                                            <span className="text-primary font-bold uppercase text-[8px]">{key.replace(/_/g, ' ')}:</span>
+                                                            <p className="ml-2">{String(value)}</p>
+                                                        </div>
+                                                    ))
+                                                    : (selectedLead.researchData || selectedLead.investigacion || selectedLead.research)}
+                                            </div>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {(selectedLead.googleInfo || (selectedLead.researchData?.google_info)) && (
+                                                <div className="p-3 border border-yellow-500/20 bg-yellow-500/5 rounded-lg">
+                                                    <p className="text-[10px] font-black text-yellow-500 uppercase mb-1">Google Insights</p>
+                                                    <p className="text-xs text-slate-300 italic">{selectedLead.googleInfo || selectedLead.researchData?.google_info || "N/A"}</p>
+                                                </div>
+                                            )}
+                                            {(selectedLead.bookingInfo || (selectedLead.researchData?.booking_info)) && (
+                                                <div className="p-3 border border-blue-500/20 bg-blue-500/5 rounded-lg">
+                                                    <p className="text-[10px] font-black text-blue-400 uppercase mb-1">Booking Data</p>
+                                                    <p className="text-xs text-slate-300 italic">{selectedLead.bookingInfo || selectedLead.researchData?.booking_info || "N/A"}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TabsContent>
+                                    <TabsContent value="details">
+                                        <Card className="border-border/50 bg-card/30">
+                                            <CardContent className="p-4 grid grid-cols-2 gap-4">
+                                                <div className="col-span-2 border-b border-white/10 pb-2 mb-2">
+                                                    <p className="text-[10px] uppercase font-black text-primary mb-1">Información General</p>
+                                                </div>
+
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Razón Social / Propietario</p>
+                                                    <p className="text-sm font-bold">{selectedLead.razonSocialPropietario || selectedLead.contactName || "N/A"}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Representante</p>
+                                                    <p className="text-sm text-slate-300">{selectedLead.representative || selectedLead.contactName || "N/A"}</p>
+                                                </div>
+
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Email</p>
+                                                    <p className="text-xs text-blue-400 truncate" title={selectedLead.email}>{selectedLead.email || "N/A"}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Teléfono Secundario</p>
+                                                    <p className="text-xs text-slate-300">{selectedLead.phone2 || selectedLead.telefonoSecundario || "N/A"}</p>
+                                                </div>
+
+                                                <div className="col-span-2 border-b border-white/10 pb-2 mb-2 mt-2">
+                                                    <p className="text-[10px] uppercase font-black text-primary mb-1">Ubicación</p>
+                                                </div>
+
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Provincia</p>
+                                                    <p className="text-xs text-slate-300">{selectedLead.province || selectedLead.provincia || "N/A"}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Cantón / Ciudad</p>
+                                                    <p className="text-xs text-slate-300">{selectedLead.canton || selectedLead.city || "N/A"}</p>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Dirección Completa</p>
+                                                    <p className="text-xs text-muted-foreground">{selectedLead.address || selectedLead.direccion || "N/A"}</p>
+                                                </div>
+
+                                                <div className="col-span-2 border-b border-white/10 pb-2 mb-2 mt-2">
+                                                    <p className="text-[10px] uppercase font-black text-primary mb-1">Digital & Otros</p>
+                                                </div>
+
+                                                <div className="col-span-2">
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Sitio Web</p>
+                                                    <a href={selectedLead.direccionWeb || selectedLead.website || "#"} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline truncate block">
+                                                        {selectedLead.direccionWeb || selectedLead.website || "N/A"}
+                                                    </a>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Actividad / Tipo</p>
+                                                    <p className="text-xs text-slate-300">{selectedLead.actividadModalidad || selectedLead.businessType || "N/A"}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-muted-foreground">Fuente</p>
+                                                    <Badge variant="outline" className="text-[9px] h-5">{selectedLead.source}</Badge>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                </Tabs>
                             </div>
                         )}
                     </div>
+
+                    {/* COLUMN 3: ACTION PANE (WHATSAPP, RESULT, PROPOSAL) (4 Cols) */}
+                    <div className="xl:col-span-4 h-full flex flex-col overflow-y-auto pb-20 custom-scrollbar pr-2">
+                        <Tabs defaultValue="whatsapp" className="w-full">
+                            <TabsList className="w-full grid grid-cols-3 bg-background/50 border border-border/50 h-10 mb-4 rounded-xl p-1">
+                                <TabsTrigger value="whatsapp" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-green-600 data-[state=active]:text-white">
+                                    <MessageSquare className="h-3 w-3 mr-1" /> WhatsApp
+                                </TabsTrigger>
+                                <TabsTrigger value="result" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                                    <ClipboardList className="h-3 w-3 mr-1" /> Resultado
+                                </TabsTrigger>
+                                <TabsTrigger value="proposal" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+                                    <FileText className="h-3 w-3 mr-1" /> Propuesta
+                                </TabsTrigger>
+                            </TabsList>
+
+                            {/* TAB 1: WHATSAPP */}
+                            <TabsContent value="whatsapp">
+                                <Card className="border-green-500/30 bg-green-500/5 shadow-xl">
+                                    <CardHeader className="pb-2 border-b border-green-500/10 flex flex-row items-center justify-between py-4 px-5">
+                                        <CardTitle className="text-xs uppercase tracking-widest text-green-500 font-bold flex items-center gap-2">
+                                            Seguimiento
+                                        </CardTitle>
+                                        <div className="flex gap-1">
+                                            <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 cursor-pointer hover:bg-green-500/10" onClick={() => handleTemplateChange('owner')}>Dueño</Badge>
+                                            <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 cursor-pointer hover:bg-green-500/10" onClick={() => handleTemplateChange('receptionist')}>Recepción</Badge>
+                                            <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 cursor-pointer hover:bg-green-500/10" onClick={() => handleTemplateChange('no_answer')}>No Cont.</Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-5 pt-4 space-y-4">
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground flex justify-between">Número Destino</Label>
+                                            <Input
+                                                value={waNumber}
+                                                onChange={(e) => setWaNumber(e.target.value)}
+                                                className="bg-zinc-950/80 text-white border-border/50 h-9 font-mono"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label>
+                                            <Textarea
+                                                value={waBody}
+                                                onChange={(e) => setWaBody(e.target.value)}
+                                                className="min-h-[220px] bg-zinc-950/80 text-white leading-relaxed text-sm transition-all border-border/50"
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button variant="outline" size="sm" className="h-6 text-[9px] px-2 bg-primary/5" onClick={() => {
+                                                const name = prompt("Nombre:", selectedLead.contactName || "");
+                                                if (name) setWaBody(prev => prev.replace(/\(\(NOMBRE\)\)/g, name));
+                                            }}>Variables: Nombre</Button>
+                                            <Button variant="outline" size="sm" className="h-6 text-[9px] px-2 bg-primary/5" onClick={() => {
+                                                const hotel = prompt("Hotel:", selectedLead.businessName || "");
+                                                if (hotel) setWaBody(prev => prev.replace(/\(\(HOTEL\)\)/g, hotel));
+                                            }}>Variables: Hotel</Button>
+                                        </div>
+
+                                        <Button
+                                            onClick={handleSendWhatsApp}
+                                            disabled={isSendingWa}
+                                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold h-12 shadow-lg shadow-green-500/20"
+                                        >
+                                            {isSendingWa ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+                                            ENVIAR WHATSAPP
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            {/* TAB 2: RESULT */}
+                            <TabsContent value="result">
+                                <Card className="border border-input bg-card shadow-xl">
+                                    <CardHeader className="py-4 px-5 border-b border-border/50">
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                            <ClipboardList className="h-4 w-4 text-primary" /> Registro de Llamada
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-5 space-y-5">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resultado</label>
+                                            <Select value={callOutcome} onValueChange={setCallOutcome}>
+                                                <SelectTrigger className="w-full h-10">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="contesto_interesado">✅ Contestó / Interesado</SelectItem>
+                                                    <SelectItem value="contesto_no_interesado">🤝 Contestó / No Interesa hoy</SelectItem>
+                                                    <SelectItem value="no_contesto">❌ No contestó</SelectItem>
+                                                    <SelectItem value="buzon_voz">📠 Buzón de voz</SelectItem>
+                                                    <SelectItem value="numero_invalido">⚠️ Número inválido</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Siguiente Paso</label>
+                                            <Select value={callAction} onValueChange={setCallAction}>
+                                                <SelectTrigger className="w-full h-10">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="donna_reminder">🔔 Recordatorio a Donna (Hoy)</SelectItem>
+                                                    <SelectItem value="convertir_a_lead">🚀 Convertir a LEAD</SelectItem>
+                                                    <SelectItem value="seguimiento_7_dias">⏳ Seguimiento (7 días)</SelectItem>
+                                                    <SelectItem value="pendiente">🔄 Mantener en cola</SelectItem>
+                                                    <SelectItem value="descartar">🗑️ Descartar</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        {callAction === 'donna_reminder' && (
+                                            <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                                <p className="text-[10px] uppercase font-bold text-purple-400 mb-2">Nota para Donna (Telegram)</p>
+                                                <Input
+                                                    placeholder="Ej: Volver a llamar a las 4pm..."
+                                                    value={callNotes}
+                                                    onChange={(e) => setCallNotes(e.target.value)}
+                                                    className="bg-background border-purple-500/20 focus:border-purple-500"
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Notas Generales</label>
+                                            <Textarea
+                                                placeholder="Detalles clave..."
+                                                className="min-h-[120px] bg-background border-border"
+                                                value={callNotes}
+                                                onChange={(e) => setCallNotes(e.target.value)}
+                                            />
+                                        </div>
+
+                                        <Button
+                                            className="w-full h-12 text-md font-bold"
+                                            disabled={isSavingResult || !selectedLead}
+                                            onClick={handleSaveCallResult}
+                                        >
+                                            {isSavingResult ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
+                                            GUARDAR RESULTADO
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            {/* TAB 3: PROPOSAL */}
+                            <TabsContent value="proposal">
+                                <Card className="border border-purple-500/20 bg-purple-500/5 shadow-xl h-full flex flex-col">
+                                    <CardHeader className="py-4 px-5 border-b border-purple-500/10 flex-shrink-0">
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2 text-purple-400">
+                                            <Lightbulb className="h-4 w-4" /> Generador de Propuestas (IA)
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-5 flex-1 flex flex-col min-h-0 space-y-4">
+                                        {!proposalContent && !isGeneratingProposal ? (
+                                            <div className="text-center py-10 space-y-4 flex-1 flex flex-col justify-center items-center">
+                                                <div className="h-12 w-12 bg-purple-500/10 rounded-full flex items-center justify-center">
+                                                    <BrainCircuit className="h-6 w-6 text-purple-400" />
+                                                </div>
+                                                <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">
+                                                    Genera una propuesta personalizada basada en la investigación del prospecto.
+                                                </p>
+                                                <Button
+                                                    onClick={handleGenerateProposal}
+                                                    disabled={isGeneratingProposal || !selectedLead}
+                                                    className="bg-purple-600 hover:bg-purple-500 text-white"
+                                                >
+                                                    ✨ Generar Propuesta
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between items-center gap-2 flex-shrink-0">
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            onClick={handleGenerateProposal}
+                                                            disabled={isGeneratingProposal || !selectedLead}
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-8 text-xs border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
+                                                        >
+                                                            {isGeneratingProposal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                                            Regenerar
+                                                        </Button>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => {
+                                                            navigator.clipboard.writeText(proposalContent);
+                                                            toast.success("Propuesta copiada!");
+                                                        }}>
+                                                            <Copy className="h-3 w-3 mr-1" /> Copiar
+                                                        </Button>
+
+                                                        {/* PDF DOWNLOAD BUTTON */}
+                                                        <PDFDownloadLink
+                                                            document={
+                                                                <QuotationDocument
+                                                                    content={proposalContent}
+                                                                    logoUrl={window.location.origin + "/logo-membrete.png"}
+                                                                    footerUrl={window.location.origin + "/pie-pagina.png"}
+                                                                />
+                                                            }
+                                                            fileName={`Propuesta_${selectedLead?.businessName || 'Cliente'}.pdf`}
+                                                        >
+                                                            {({ blob, url, loading, error }) => (
+                                                                <Button size="sm" disabled={loading} className="h-8 text-xs bg-purple-600 text-white hover:bg-purple-500">
+                                                                    {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+                                                                    {loading ? 'Generando...' : 'Descargar PDF'}
+                                                                </Button>
+                                                            )}
+                                                        </PDFDownloadLink>
+                                                    </div>
+                                                </div>
+
+                                                {/* EDITABLE TEXTAREA */}
+                                                <Textarea
+                                                    value={proposalContent}
+                                                    onChange={(e) => setProposalContent(e.target.value)}
+                                                    className="flex-1 min-h-[400px] w-full resize-none p-4 rounded-lg border border-purple-500/20 bg-background/50 font-mono text-xs leading-relaxed custom-scrollbar focus:border-purple-500/50 transition-colors"
+                                                    placeholder="El contenido de la propuesta aparecerá aquí..."
+                                                />
+                                            </>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+
                 </div>
             </div>
         </DashboardLayout>
     );
 }
-

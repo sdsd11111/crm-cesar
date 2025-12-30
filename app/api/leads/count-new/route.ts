@@ -18,12 +18,13 @@ export async function GET() {
 
   try {
     const { count, error } = await supabase
-      .from('leads')
+      .from('contacts')
       .select('*', { count: 'exact', head: true })
+      .eq('entity_type', 'lead')
       .eq('status', 'sin_contacto')
 
     if (error) {
-      console.error("Error counting new leads:", error)
+      console.error("Error counting new leads from contacts:", error)
       return NextResponse.json({ error: "Internal server error" }, { status: 500 })
     }
 

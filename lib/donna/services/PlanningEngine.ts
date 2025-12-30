@@ -135,9 +135,93 @@ export class PlanningEngine {
             });
         }
 
-        // 6. Update Cooldown
+        // 7. Logic: Natural Language Reminders from Tasks
+        try {
+            await this.extractTaskReminders(contactId);
+        } catch (e) {
+            console.error('⚠️ PlanningEngine: Error extracting task reminders:', e);
+        }
+
+        // 8. Update Cooldown
         if (agent) {
             await db.update(agents).set({ lastPlannedAt: now }).where(eq(agents.id, agent.id));
+        }
+    }
+
+    /**
+     * Scans tasks for a contact and extracts LLM-based reminders.
+     */
+    async extractTaskReminders(contactId: string) {
+        const { tasks } = await import('@/lib/db/schema');
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+
+        // 1. Fetch recent tasks for the contact
+        const recentTasks = await db.select()
+            .from(tasks)
+            .where(eq(tasks.contactId, contactId))
+            .orderBy(desc(tasks.createdAt))
+            .limit(3);
+
+        if (recentTasks.length === 0) return;
+
+        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+        const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-1.5-flash";
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        const nowEcuador = new Date().toLocaleString('en-US', { timeZone: 'America/Guayaquil' });
+
+        for (const task of recentTasks) {
+            const descLower = (task.description || '').toLowerCase();
+            const titleLower = task.title.toLowerCase();
+
+            // Only process tasks mentioning "Donna" or specific reminder keywords
+            if (!descLower.includes('donna') && !descLower.includes('recuérdame') &&
+                !titleLower.includes('donna') && !titleLower.includes('recuérdame')) continue;
+
+            console.log(`🧠 PlanningEngine: Analyzing task for reminders: ${task.title}`);
+
+            // Load Prompt
+            const fs = await import('fs');
+            const path = await import('path');
+            const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'task_reminder_extractor.md');
+            const promptTemplate = fs.readFileSync(promptPath, 'utf-8');
+
+            const prompt = promptTemplate
+                .replace('{title}', task.title)
+                .replace('{description}', task.description || '')
+                .replace('{now_ecuador}', nowEcuador);
+
+            try {
+                const result = await model.generateContent(prompt);
+                const textResponse = result.response.text();
+                const cleanedJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(cleanedJson);
+
+                if (Array.isArray(parsed)) {
+                    for (const r of parsed) {
+                        // Check if reminder already exists for this task to avoid duplicates
+                        const [existing] = await db.select().from(reminders)
+                            .where(and(
+                                eq(reminders.taskId, task.id),
+                                eq(reminders.message, r.message)
+                            )).limit(1);
+
+                        if (!existing) {
+                            await db.insert(reminders).values({
+                                taskId: task.id,
+                                title: r.title,
+                                message: r.message,
+                                sendAt: new Date(r.sendAt),
+                                status: 'pending',
+                                channel: r.channel || 'telegram'
+                            });
+                            console.log(`✅ PlanningEngine: Created reminder for task ${task.id}: ${r.title}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`❌ PlanningEngine: Error extracting reminders for task ${task.id}:`, error);
+            }
         }
     }
 

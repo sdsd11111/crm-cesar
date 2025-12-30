@@ -90,6 +90,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to create task: ' + error.message }, { status: 500 });
     }
 
+    // 2. Trigger Donna Planning if contactId exists
+    const contactId = newTask.contact_id || newTask.related_client_id || newTask.related_lead_id;
+    if (contactId) {
+      try {
+        const { planningEngine } = await import('@/lib/donna/services/PlanningEngine');
+        await planningEngine.generatePlanningForContact(contactId);
+      } catch (e) {
+        console.error('⚠️ TasksAPI: Error triggering planning:', e);
+      }
+    }
+
     // Map back to camelCase
     const mappedTask = {
       id: newTask.id,

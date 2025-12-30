@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -63,6 +64,7 @@ const STAGES = {
 type StageKey = keyof typeof STAGES
 
 export default function LeadsPage() {
+  const router = useRouter()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -216,7 +218,7 @@ export default function LeadsPage() {
               title={STAGES[stageKey]}
               leads={leadsByStage[stageKey]}
               onLeadMove={handleLeadMove}
-              onLeadClick={setSelectedLead}
+              onLeadClick={(lead) => router.push(`/leads/${lead.id}`)}
               onLeadConvert={handleConvertToClient}
             />
           ))}
@@ -280,7 +282,7 @@ export default function LeadsPage() {
                       size='sm'
                       variant='ghost'
                       className='w-full hover:bg-primary/10'
-                      onClick={() => setSelectedLead(lead)}
+                      onClick={() => router.push(`/leads/${lead.id}`)}
                     >
                       <Eye className='h-4 w-4 mr-1' />
                       Ver Detalles

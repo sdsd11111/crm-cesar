@@ -91,7 +91,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
       quotation: lead.quotation
     };
 
-    return NextResponse.json(mappedLead, { status: 200 });
+    // Fetch related data (interactions, tasks)
+    const [interactions, tasks] = await Promise.all([
+      supabase.from('interactions').select('*').eq('contact_id', id).order('performed_at', { ascending: false }),
+      supabase.from('tasks').select('*').eq('contact_id', id).order('created_at', { ascending: false })
+    ]);
+
+    return NextResponse.json({
+      lead: mappedLead,
+      interactions: interactions.data || [],
+      tasks: tasks.data || []
+    }, { status: 200 });
   } catch (error) {
     console.error("Error in GET /api/leads/[id]:", error);
     return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });

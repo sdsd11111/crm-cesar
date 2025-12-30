@@ -88,7 +88,8 @@ export const contacts = pgTable('contacts', {
 
   // Metadata
   notes: text('notes'),
-  investigacion: text('investigacion'), // Added based on user feedback
+  investigacion: text('investigacion'), // Legacy field
+  researchData: jsonb('research_data'), // NEW Consolidated Field
   source: text('source').default('recorridos'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -42,22 +42,37 @@ export function AIChatDrawer() {
     const [searchQuery, setSearchQuery] = useState('')
     const [isSearching, setIsSearching] = useState(false)
 
-    // Pre-select client if on details page - Fetch specifically that client
+    // Pre-select contact if on details page
     useEffect(() => {
         if (params?.id) {
-            const fetchCurrentClient = async () => {
+            const fetchCurrentContact = async () => {
                 try {
-                    const res = await fetch(`/api/clients/${params.id}`)
-                    const { client } = await res.json()
-                    if (client) {
-                        setClients([client])
-                        setSelectedClientId(client.id)
+                    // Try clients first
+                    let res = await fetch(`/api/clients/${params.id}`)
+                    if (res.ok) {
+                        const { client } = await res.json()
+                        if (client) {
+                            setClients([client])
+                            setSelectedClientId(client.id)
+                            return
+                        }
+                    }
+
+                    // Try leads next
+                    res = await fetch(`/api/leads/${params.id}`)
+                    if (res.ok) {
+                        const { lead } = await res.json()
+                        if (lead) {
+                            // Map lead to match client interface in the list
+                            setClients([{ ...lead, id: lead.id, businessName: lead.businessName || lead.contactName }])
+                            setSelectedClientId(lead.id)
+                        }
                     }
                 } catch (error) {
-                    console.error('Error auto-selecting client:', error)
+                    console.error('Error auto-selecting contact:', error)
                 }
             }
-            fetchCurrentClient()
+            fetchCurrentContact()
         }
     }, [params?.id])
 

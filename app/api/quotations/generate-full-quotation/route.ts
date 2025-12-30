@@ -25,11 +25,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Missing leadId' }, { status: 400 })
     }
 
-    // Fetch lead data using Supabase
+    // Fetch lead data using Supabase from unified contacts table
     const { data: rawLead, error } = await supabase
-      .from('leads')
+      .from('contacts')
       .select('*')
       .eq('id', leadId)
+      .eq('entity_type', 'lead')
       .single();
 
     if (error || !rawLead) {

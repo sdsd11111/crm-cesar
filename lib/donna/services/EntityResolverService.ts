@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { contacts, tasks } from '@/lib/db/schema';
+import { contacts, tasks, leads, clients, prospects } from '@/lib/db/schema';
 import { ilike, or, eq } from 'drizzle-orm';
 
 /**
@@ -50,21 +50,37 @@ export class EntityResolverService {
     /**
      * Busca contactos por nombre (fuzzy matching)
      */
-    async findContactByName(name: string): Promise<any[]> {
-        try {
-            const matches = await db
-                .select()
-                .from(contacts)
-                .where(
-                    or(
-                        ilike(contacts.contactName, `%${name}%`),
-                        ilike(contacts.businessName, `%${name}%`)
-                    )
-                )
-                .limit(5);
+    async findContactByName(name: string, allowedTables: string[] = ['contacts', 'leads', 'clients', 'prospects']): Promise<any[]> {
+        const cleanName = name.trim();
+        if (!cleanName) return [];
 
-            console.log(`🔎 Found ${matches.length} matches for "${name}"`);
-            return matches;
+        try {
+            // Search in multiple tables based on allowedTables
+            const promises = [];
+
+            if (allowedTables.includes('contacts')) {
+                promises.push(db.select().from(contacts).where(or(ilike(contacts.contactName, `%${cleanName}%`), ilike(contacts.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'contacts' }))));
+            }
+            if (allowedTables.includes('leads')) {
+                promises.push(db.select().from(leads).where(or(ilike(leads.contactName, `%${cleanName}%`), ilike(leads.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'leads' }))));
+            }
+            if (allowedTables.includes('clients')) {
+                promises.push(db.select().from(clients).where(or(ilike(clients.contactName, `%${cleanName}%`), ilike(clients.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'clients' }))));
+            }
+            if (allowedTables.includes('prospects')) {
+                promises.push(db.select().from(prospects).where(or(ilike(prospects.contactName, `%${cleanName}%`), ilike(prospects.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'prospects' }))));
+            }
+
+            const results = await Promise.all(promises);
+
+            // Combine and unify matches
+            const allMatches = results.flat();
+
+            // Remove duplicates by ID (if any contact exists in multiple tables with same ID)
+            const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
+
+            console.log(`🔎 Found ${uniqueMatches.length} total matches for "${cleanName}" in [${allowedTables.join(', ')}]`);
+            return uniqueMatches.slice(0, 5);
         } catch (error) {
             console.error('❌ Error searching contacts:', error);
             return [];
@@ -75,8 +91,8 @@ export class EntityResolverService {
      * Resuelve una entidad a un contactId
      * Retorna el contactId si hay match único, null si necesita aclaración
      */
-    async resolve(entityName: string, sendTelegramMessage: Function): Promise<string | null> {
-        const matches = await this.findContactByName(entityName);
+    async resolve(entityName: string, sendTelegramMessage: Function, allowedTables?: string[]): Promise<{ contactId: string | null, matches?: any[] }> {
+        const matches = await this.findContactByName(entityName, allowedTables);
 
         if (matches.length === 0) {
             // No existe - ofrecer crear contacto
@@ -87,25 +103,26 @@ export class EntityResolverService {
                 `2️⃣ No, dame más info\n` +
                 `3️⃣ Ignorar por ahora`
             );
-            return null; // Necesita aclaración
+            return { contactId: null, matches: [] }; // Necesita aclaración
         }
 
         if (matches.length === 1) {
             // Match único - usar automáticamente
             console.log(`✅ Resolved "${entityName}" to contact: ${matches[0].id}`);
-            return matches[0].id;
+            return { contactId: matches[0].id };
         }
 
         // Múltiples matches - pedir aclaración
         let message = `❓ Encontré ${matches.length} contactos con "${entityName}":\n\n`;
         matches.forEach((contact, index) => {
-            const displayName = contact.businessName || contact.contactName || 'Sin nombre';
-            message += `${index + 1}️⃣ ${displayName}\n`;
+            const displayName = contact.contactName || contact.businessName || 'Sin nombre';
+            const tableLabel = contact.sourceTable === 'leads' ? ' (Lead)' : contact.sourceTable === 'clients' ? ' (Cliente)' : '';
+            message += `${index + 1}️⃣ ${displayName}${tableLabel}\n`;
         });
         message += `\nResponde con el número.`;
 
         await sendTelegramMessage(message);
-        return null; // Necesita aclaración
+        return { contactId: null, matches }; // Necesita aclaración
     }
 
     /**
@@ -156,23 +173,24 @@ export class EntityResolverService {
         response: string,
         originalEntity: string,
         matches: any[]
-    ): Promise<string | null> {
+    ): Promise<{ contactId: string | null, matches?: any[] }> {
         const trimmed = response.trim();
 
         // Si es un número, seleccionar de la lista
         const num = parseInt(trimmed);
         if (!isNaN(num) && num > 0 && num <= matches.length) {
-            return matches[num - 1].id;
+            return { contactId: matches[num - 1].id };
         }
 
         // Si dice "1" cuando no hay matches (crear contacto)
         if (trimmed === '1' && matches.length === 0) {
-            return await this.createProvisionalContact(originalEntity);
+            const id = await this.createProvisionalContact(originalEntity);
+            return { contactId: id };
         }
 
         // Si dice "3" (ignorar)
         if (trimmed === '3') {
-            return null;
+            return { contactId: null };
         }
 
         // Si da más información, buscar de nuevo

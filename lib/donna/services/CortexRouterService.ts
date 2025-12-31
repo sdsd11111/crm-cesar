@@ -54,8 +54,40 @@ export class CortexRouterService {
         source: 'cesar' | 'client';
         contactId?: string;
         chatId?: string; // Nuevo: Para gestión de estado
-    }) {
+    }): Promise<any> {
         console.log(`🧠 Cortex Router processing input from: ${input.source}`);
+
+        // PASO 0: Cargar Contexto
+        const context = await this.getContext(input.chatId);
+        let { contactId, pendingClarification } = context;
+
+        // PASO 0.5: Manejar Clarificación Pendiente (si el input es 1, 2, 3)
+        if (pendingClarification && ['1', '2', '3'].includes(input.text.trim())) {
+            const { entityResolver } = await import('./EntityResolverService');
+            const result = await entityResolver.handleClarificationResponse(
+                input.text,
+                pendingClarification.entityName,
+                pendingClarification.matches || []
+            );
+
+            if (result.contactId) {
+                // Si se resolvió, continuar con la intención original
+                await this.sendTelegramMessage(`✅ Entendido. Procedo con lo anterior...`);
+                const originalResult = await this.processInput({
+                    ...input,
+                    text: pendingClarification.originalText,
+                    contactId: result.contactId
+                });
+                // Limpiar clarificación
+                await this.saveContext(input.chatId, { contactId: result.contactId });
+                return originalResult;
+            } else {
+                // Si canceló o ignoró
+                await this.saveContext(input.chatId, { contactId });
+                await this.sendTelegramMessage(`👌 Tarea cancelada.`);
+                return { status: 'cancelled' };
+            }
+        }
 
         let textToAnalyze = input.text;
 
@@ -164,16 +196,33 @@ export class CortexRouterService {
                 // Estrategia para OTROS (Tareas, Compromisos, etc.)
                 else {
                     // Aquí SÍ necesitamos resolverlo estrictamente
-                    const resolvedContactId = await entityResolver.resolve(
+                    // Si el intent es SEND_WHATSAPP, restringimos a 'contacts'
+                    // Pero espera, el routing a SEND_WHATSAPP ocurre abajo (después del switch).
+                    // El intent se decide ARRIBA (Parsed).
+                    // PERO el "Resolver" corre ANTES del switch.
+                    // Necesitamos pasar el allowedTables basado en `parsed.intent`.
+
+                    const allowedTables = parsed.intent === 'SEND_WHATSAPP' ? ['contacts'] : undefined;
+
+                    const { contactId: resolvedContactId, matches } = await entityResolver.resolve(
                         rawName,
-                        this.sendTelegramMessage.bind(this)
+                        this.sendTelegramMessage.bind(this),
+                        allowedTables
                     );
 
                     if (resolvedContactId) {
                         input.contactId = resolvedContactId;
                     } else {
-                        // Si resolve retorna null, ya envió el mensaje de aclaración.
-                        // Debemos detener el flujo.
+                        // Guardar estado de clarificación para la siguiente respuesta
+                        await this.saveContext(input.chatId, {
+                            contactId,
+                            pendingClarification: {
+                                type: 'entity',
+                                entityName: rawName,
+                                originalText: textToAnalyze,
+                                matches: matches
+                            }
+                        });
                         return {
                             status: 'needs_clarification',
                             message: 'Esperando aclaración de entidad'

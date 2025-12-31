@@ -1,6 +1,9 @@
 import { db } from './lib/db';
 import { contacts } from './lib/db/schema';
 import { eq } from 'drizzle-orm';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
 
 async function seed() {
     const starContacts = [

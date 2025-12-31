@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
 
 export async function POST(req: NextRequest) {
     try {
@@ -11,25 +12,39 @@ export async function POST(req: NextRequest) {
 
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         const chatId = process.env.TELEGRAM_CHAT_ID;
-
-        if (!botToken || !chatId) {
-            console.warn('⚠️ Telegram credentials not configured');
-            return NextResponse.json({ error: 'Telegram not configured' }, { status: 500 });
-        }
+        const waReminderNumber = process.env.WHATSAPP_REMINDER_NUMBER || '0963410409'; // Default to user's number
 
         const messageText = `⏰ *RECORDATORIO DONNA*\n\n📝 *Nota:* ${note}\n👤 *Cliente:* ${leadName || 'Sin Nombre'}\n🆔 *ID:* ${leadId || 'N/A'}\n\n_Este lead permanece en tu cola para hoy._`;
 
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: messageText,
-                parse_mode: 'Markdown'
-            }),
+        // 1. Send to Telegram
+        if (botToken && chatId) {
+            try {
+                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: messageText,
+                        parse_mode: 'Markdown'
+                    }),
+                });
+            } catch (e) {
+                console.error('⚠️ Telegram Reminder Error:', e);
+            }
+        }
+
+        // 2. Send to WhatsApp (Meta API)
+        const waResult = await whatsappService.sendMessage(waReminderNumber, messageText.replace(/\*/g, '*'), {
+            type: 'donna_reminder',
+            leadId,
+            leadName
         });
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            whatsapp: waResult.success,
+            telegram: !!(botToken && chatId)
+        });
     } catch (error) {
         console.error('Error sending Donna reminder:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

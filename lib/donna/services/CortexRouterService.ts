@@ -87,8 +87,8 @@ export class CortexRouterService {
         const context = await this.getContext(input.chatId);
         let { contactId, pendingClarification } = context;
 
-        // PASO 0.5: Manejar Clarificación Pendiente (si el input es 1, 2, 3)
-        if (pendingClarification && ['1', '2', '3'].includes(input.text.trim())) {
+        // PASO 0.5: Manejar Clarificación Pendiente (si hay algo pendiente)
+        if (pendingClarification) {
             const { entityResolver } = await import('./EntityResolverService');
             const result = await entityResolver.handleClarificationResponse(
                 input.text,
@@ -98,20 +98,26 @@ export class CortexRouterService {
 
             if (result.contactId) {
                 // Si se resolvió, continuar con la intención original
-                await this.sendTelegramMessage(`✅ Entendido. Procedo con lo anterior...`);
-                const originalResult = await this.processInput({
+                await this.sendTelegramMessage(`✅ Perfecto. Procedo...`);
+
+                // Limpiar clarificación ANTES de re-procesar para evitar loops
+                await this.saveContext(input.chatId, { contactId: result.contactId });
+
+                return await this.processInput({
                     ...input,
                     text: pendingClarification.originalText,
                     contactId: result.contactId
                 });
-                // Limpiar clarificación
-                await this.saveContext(input.chatId, { contactId: result.contactId });
-                return originalResult;
             } else {
-                // Si canceló o ignoró
-                await this.saveContext(input.chatId, { contactId });
-                await this.sendTelegramMessage(`👌 Tarea cancelada.`);
-                return { status: 'cancelled' };
+                // Si no se resolvió pero era un mensaje corto, podría ser un "cancelar" etc.
+                const lower = input.text.toLowerCase();
+                if (lower.includes('cancel') || lower.includes('no') || lower.includes('olvida')) {
+                    await this.saveContext(input.chatId, { contactId });
+                    await this.sendTelegramMessage(`👌 Tarea cancelada.`);
+                    return { status: 'cancelled' };
+                }
+
+                // Si no fue una respuesta a la clarificación, el flujo sigue normal (ignora la clarificación anterior)
             }
         }
 

@@ -55,29 +55,44 @@ export class EntityResolverService {
         if (!cleanName) return [];
 
         try {
-            // Search in multiple tables based on allowedTables
-            const promises = [];
+            const searchInTables = async (term: string) => {
+                const promises = [];
+                if (allowedTables.includes('contacts')) {
+                    promises.push(db.select().from(contacts).where(or(ilike(contacts.contactName, `%${term}%`), ilike(contacts.businessName, `%${term}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'contacts' }))));
+                }
+                if (allowedTables.includes('leads')) {
+                    promises.push(db.select().from(leads).where(or(ilike(leads.contactName, `%${term}%`), ilike(leads.businessName, `%${term}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'leads' }))));
+                }
+                if (allowedTables.includes('clients')) {
+                    promises.push(db.select().from(clients).where(or(ilike(clients.contactName, `%${term}%`), ilike(clients.businessName, `%${term}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'clients' }))));
+                }
+                if (allowedTables.includes('prospects')) {
+                    promises.push(db.select().from(prospects).where(or(ilike(prospects.contactName, `%${term}%`), ilike(prospects.businessName, `%${term}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'prospects' }))));
+                }
+                return (await Promise.all(promises)).flat();
+            };
 
-            if (allowedTables.includes('contacts')) {
-                promises.push(db.select().from(contacts).where(or(ilike(contacts.contactName, `%${cleanName}%`), ilike(contacts.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'contacts' }))));
-            }
-            if (allowedTables.includes('leads')) {
-                promises.push(db.select().from(leads).where(or(ilike(leads.contactName, `%${cleanName}%`), ilike(leads.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'leads' }))));
-            }
-            if (allowedTables.includes('clients')) {
-                promises.push(db.select().from(clients).where(or(ilike(clients.contactName, `%${cleanName}%`), ilike(clients.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'clients' }))));
-            }
-            if (allowedTables.includes('prospects')) {
-                promises.push(db.select().from(prospects).where(or(ilike(prospects.contactName, `%${cleanName}%`), ilike(prospects.businessName, `%${cleanName}%`))).limit(3).then(res => res.map(m => ({ ...m, sourceTable: 'prospects' }))));
+            // 1. Full string match
+            let matches = await searchInTables(cleanName);
+
+            // 2. If no matches and name is multi-word, try individual parts (RECURSIVE-ish)
+            if (matches.length === 0 && cleanName.includes(' ')) {
+                const parts = cleanName.split(/\s+/).filter(p => p.length > 2);
+                if (parts.length > 0) {
+                    console.log(`🔍 No strict matches for "${cleanName}", trying partial: "${parts[0]}"`);
+                    matches = await searchInTables(parts[0]);
+                }
             }
 
-            const results = await Promise.all(promises);
+            // Unify and prioritize
+            const uniqueMatches = Array.from(new Map(matches.map(m => [m.id, m])).values());
 
-            // Combine and unify matches
-            const allMatches = results.flat();
-
-            // Remove duplicates by ID (if any contact exists in multiple tables with same ID)
-            const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values());
+            // Prioritize 'star' category
+            uniqueMatches.sort((a: any, b: any) => {
+                const aStar = (a.categoryTags || []).includes('star') ? 1 : 0;
+                const bStar = (b.categoryTags || []).includes('star') ? 1 : 0;
+                return bStar - aStar;
+            });
 
             console.log(`🔎 Found ${uniqueMatches.length} total matches for "${cleanName}" in [${allowedTables.join(', ')}]`);
             return uniqueMatches.slice(0, 5);
@@ -119,7 +134,7 @@ export class EntityResolverService {
             const tableLabel = contact.sourceTable === 'leads' ? ' (Lead)' : contact.sourceTable === 'clients' ? ' (Cliente)' : '';
             message += `${index + 1}️⃣ ${displayName}${tableLabel}\n`;
         });
-        message += `\nResponde con el número.`;
+        message += `\nResponde con el número o simplemente confirma si es el correcto.`;
 
         await sendTelegramMessage(message);
         return { contactId: null, matches }; // Necesita aclaración
@@ -175,26 +190,70 @@ export class EntityResolverService {
         matches: any[]
     ): Promise<{ contactId: string | null, matches?: any[] }> {
         const trimmed = response.trim();
-
-        // Si es un número, seleccionar de la lista
         const num = parseInt(trimmed);
+
+        // Si es un número válido de la lista
         if (!isNaN(num) && num > 0 && num <= matches.length) {
             return { contactId: matches[num - 1].id };
         }
 
-        // Si dice "1" cuando no hay matches (crear contacto)
-        if (trimmed === '1' && matches.length === 0) {
-            const id = await this.createProvisionalContact(originalEntity);
-            return { contactId: id };
+        // Si no es un número, preguntar a la IA qué quiso decir César
+        try {
+            const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [{
+                        role: 'system',
+                        content: `Eres un experto en interpretar respuestas de usuarios en un CRM conversacional.
+                        Donna preguntó: "No conozco a ${originalEntity}, ¿lo creo?" o mostró una lista de opciones.
+                        El usuario acaba de responder: "${response}".
+                        OPCIONES DISPONIBLES:
+                        1. Sí, crear contacto / Opción 1 / Confirmar / Afirmación
+                        2. No / Opción 2 / Más info / Negación de creación
+                        3. Cancelar / Opción 3 / Ignorar / Detener flujo
+
+                        Devuelve SOLO un número del 1 al 3 indicando qué opción eligió. Si no está claro, devuelve 0.`
+                    }],
+                    temperature: 0
+                })
+            });
+
+            const data = await aiResponse.json();
+            const choice = parseInt(data.choices[0].message.content);
+
+            console.log(`🤖 AI interpreted choice: ${choice} for response: "${response}"`);
+
+            if (choice === 1) {
+                if (matches.length === 0) {
+                    const id = await this.createProvisionalContact(originalEntity);
+                    return { contactId: id };
+                } else if (matches.length > 0) {
+                    // Si hay varios y solo dijo "si", tomamos el primero
+                    return { contactId: matches[0].id };
+                }
+            } else if (choice === 3) {
+                return { contactId: null };
+            }
+        } catch (e) {
+            console.error('Error in AI interpretation:', e);
         }
 
-        // Si dice "3" (ignorar)
+        // Si dice "3" (ignorar) explícitamente sin IA
         if (trimmed === '3') {
             return { contactId: null };
         }
 
-        // Si da más información, buscar de nuevo
-        return await this.resolve(response, () => { });
+        // Si da más información (quizás corrigió el nombre), intentar resolver de nuevo
+        if (trimmed.length > 3 && !['1', '2', '3', 'si', 'no', 'ok', 'dale'].includes(trimmed.toLowerCase())) {
+            return await this.resolve(response, () => { });
+        }
+
+        return { contactId: null };
     }
 }
 

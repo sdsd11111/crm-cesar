@@ -187,8 +187,9 @@ export class CortexRouterService {
 
             return { status: 'success', intent: parsed.intent, summary: parsed.summary, analysis: parsed.analysis };
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('❌ Cortex Router Error:', error);
+            await this.sendTelegramMessage(`❌ Donna tuvo un error procesando eso: ${error.message || 'Error desconocido'}`);
             return { status: 'error', error };
         }
     }
@@ -511,8 +512,37 @@ export class CortexRouterService {
                     );
                     break;
 
+                case 'SEND_WHATSAPP':
+                    // Enviar mensaje de WhatsApp directo
+                    if (contactId) {
+                        const [contact] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
+                        if (contact?.phone) {
+                            const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
+                            const waContent = parsed.analysis?.motive || parsed.summary;
+
+                            await this.sendTelegramMessage(`📨 Enviando WhatsApp a ${contact.contactName}...`);
+
+                            const res = await whatsappService.sendMessage(contact.phone, waContent, {
+                                type: 'manual_via_donna',
+                                source: 'telegram_voice'
+                            });
+
+                            if (res.success) {
+                                await this.sendTelegramMessage(`✅ WhatsApp enviado a ${contact.contactName} correctamente.`);
+                            } else {
+                                await this.sendTelegramMessage(`❌ Error enviando WhatsApp: ${res.error}`);
+                            }
+                        } else {
+                            await this.sendTelegramMessage(`⚠️ El contacto ${contact?.contactName || 'desconocido'} no tiene teléfono registrado.`);
+                        }
+                    } else {
+                        await this.sendTelegramMessage(`⚠️ No pude encontrar a quién enviarle el WhatsApp.`);
+                    }
+                    break;
+
                 default:
                     console.warn(`⚠️ Unknown intent: ${parsed.intent}`);
+                    await this.sendTelegramMessage(`🤔 Entiendo que quieres hacer algo relacionado con "${parsed.summary || 'esto'}", pero no estoy segura de cómo procesar esa intención todavía (${parsed.intent}).`);
             }
         } catch (error) {
             console.error('❌ Error routing to table:', error);

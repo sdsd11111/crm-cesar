@@ -77,7 +77,14 @@ Analizar el texto que César envía y determinar:
 - "Necesito que me avises 2 minutos antes" -> OPERATIVE_TASK
 - "Hacerme acuerdo pero avisa antes" -> OPERATIVE_TASK
 
-**Acción:** Cancelar recordatorios en tabla `reminders`.
+### 8. SEND_WHATSAPP
+**Cuándo:** César pide enviar un mensaje de WhatsApp a alguien.
+**Ejemplos:**
+- "Envía un whatsapp a Abel que me pase el logo"
+- "Mándale un mensaje a Claudio preguntando si recibió la propuesta"
+- "Escríbele por whatsapp a María que ya voy saliendo"
+
+**Acción:** Buscar contacto, enviar el mensaje vía WhatsAppService y confirmar por Telegram.
 
 ## Formato de Respuesta
 

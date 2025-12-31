@@ -93,7 +93,8 @@ export class CortexRouterService {
             const result = await entityResolver.handleClarificationResponse(
                 input.text,
                 pendingClarification.entityName,
-                pendingClarification.matches || []
+                pendingClarification.matches || [],
+                this.sendTelegramMessage.bind(this)
             );
 
             if (result.contactId) {

@@ -187,7 +187,8 @@ export class EntityResolverService {
     async handleClarificationResponse(
         response: string,
         originalEntity: string,
-        matches: any[]
+        matches: any[],
+        sendTelegramMessage: Function
     ): Promise<{ contactId: string | null, matches?: any[] }> {
         const trimmed = response.trim();
         const num = parseInt(trimmed);
@@ -250,7 +251,7 @@ export class EntityResolverService {
 
         // Si da más información (quizás corrigió el nombre), intentar resolver de nuevo
         if (trimmed.length > 3 && !['1', '2', '3', 'si', 'no', 'ok', 'dale'].includes(trimmed.toLowerCase())) {
-            return await this.resolve(response, () => { });
+            return await this.resolve(response, sendTelegramMessage);
         }
 
         return { contactId: null };

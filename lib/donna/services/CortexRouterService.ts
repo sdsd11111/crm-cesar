@@ -46,6 +46,32 @@ export class CortexRouterService {
         return this.calendarService;
     }
 
+    private async getContext(chatId?: string) {
+        if (!chatId) return {};
+        const state = await db.select().from(conversationStates).where(eq(conversationStates.key, chatId)).limit(1);
+        if (state.length > 0) {
+            try {
+                return JSON.parse(state[0].data as string);
+            } catch (e) {
+                console.error('Error parsing context:', e);
+            }
+        }
+        return {};
+    }
+
+    private async saveContext(chatId: string | undefined, data: any) {
+        if (!chatId) return;
+        const existing = await db.select().from(conversationStates).where(eq(conversationStates.key, chatId)).limit(1);
+
+        const jsonData = JSON.stringify(data);
+
+        if (existing.length > 0) {
+            await db.update(conversationStates).set({ data: jsonData, updatedAt: new Date() }).where(eq(conversationStates.key, chatId));
+        } else {
+            await db.insert(conversationStates).values({ key: chatId, data: jsonData });
+        }
+    }
+
     /**
      * Process a transcribed audio or note from Telegram
      */

@@ -30,6 +30,55 @@ interface UserPreferences {
     whatsappTestNumber: string;
 }
 
+interface LogEntry {
+    timestamp: string;
+    type: 'request' | 'response' | 'error';
+    service: 'whatsapp' | 'telegram';
+    message: string;
+    data?: any;
+}
+
+function LogConsole({ logs, onClear }: { logs: LogEntry[], onClear: () => void }) {
+    return (
+        <div className="mt-6 rounded-xl border border-gray-800 bg-black/50 overflow-hidden font-mono text-[10px] md:text-xs">
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-900/80 border-b border-gray-800">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-gray-400 font-bold uppercase tracking-wider">Consola de Conectividad</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={onClear} className="h-6 text-gray-500 hover:text-white hover:bg-gray-800">
+                    Limpiar
+                </Button>
+            </div>
+            <div className="p-4 max-h-[300px] overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-800">
+                {logs.length === 0 ? (
+                    <div className="text-gray-600 italic">Esperando actividad...</div>
+                ) : (
+                    logs.map((log, i) => (
+                        <div key={i} className={`border-l-2 pl-3 py-1 ${log.type === 'error' ? 'border-red-500 text-red-400 bg-red-500/5' :
+                            log.type === 'response' ? 'border-blue-500 text-blue-400 bg-blue-500/5' :
+                                'border-gray-700 text-gray-300'
+                            }`}>
+                            <div className="flex justify-between items-start">
+                                <span className="opacity-50">[{log.timestamp}]</span>
+                                <span className="px-1.5 py-0.5 rounded bg-gray-800 text-[10px] font-bold uppercase">
+                                    {log.service}
+                                </span>
+                            </div>
+                            <div className="mt-1 font-semibold">{log.message}</div>
+                            {log.data && (
+                                <pre className="mt-2 text-[10px] bg-black/30 p-2 rounded overflow-x-auto border border-gray-800/50">
+                                    {JSON.stringify(log.data, null, 2)}
+                                </pre>
+                            )}
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+}
+
 function ConnectionsConfig({ preferences, onPreferenceChange }: {
     preferences: UserPreferences,
     onPreferenceChange: (key: keyof UserPreferences, value: any) => void
@@ -37,6 +86,16 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
     const { toast } = useToast();
     const [loadingWA, setLoadingWA] = useState(false);
     const [loadingTG, setLoadingTG] = useState(false);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+
+    const addLog = (log: Omit<LogEntry, 'timestamp'>) => {
+        setLogs(prev => [{
+            ...log,
+            timestamp: new Date().toLocaleTimeString()
+        }, ...prev].slice(0, 50));
+    };
+
+    const clearLogs = () => setLogs([]);
 
     const testWhatsApp = async () => {
         if (!preferences.whatsappTestNumber) {
@@ -44,23 +103,56 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
             return;
         }
         setLoadingWA(true);
+        addLog({
+            service: 'whatsapp',
+            type: 'request',
+            message: `Iniciando test hacia ${preferences.whatsappTestNumber}...`,
+            data: {
+                target: preferences.whatsappTestNumber,
+                type: 'template',
+                template: 'jaspers_market_plain_text_v1'
+            }
+        });
+
         try {
             const res = await fetch('/api/whatsapp/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone: preferences.whatsappTestNumber,
-                    text: "🚀 *Test de Conexión Meta WhatsApp*\n\nSi recibes este mensaje, la configuración es correcta. ¡Donna está lista!",
+                    template: {
+                        name: "jaspers_market_plain_text_v1",
+                        language: { code: "en_US" }
+                    },
                     metadata: { type: 'test_connection' }
                 })
             });
             const data = await res.json();
+
             if (data.success) {
+                addLog({
+                    service: 'whatsapp',
+                    type: 'response',
+                    message: '✅ ¡Mensaje Enviado!',
+                    data: data.data
+                });
                 toast({ title: "WhatsApp Enviado", description: "Revisa tu teléfono." });
             } else {
+                addLog({
+                    service: 'whatsapp',
+                    type: 'error',
+                    message: '❌ Error en la API',
+                    data: data.details || data.error
+                });
                 toast({ title: "Error", description: data.error || "Falla en la API de Meta", variant: "destructive" });
             }
-        } catch (error) {
+        } catch (error: any) {
+            addLog({
+                service: 'whatsapp',
+                type: 'error',
+                message: '❌ Error de Conector',
+                data: { message: error.message }
+            });
             toast({ title: "Error", description: "No se pudo conectar con el servidor.", variant: "destructive" });
         } finally {
             setLoadingWA(false);
@@ -69,6 +161,12 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
 
     const testTelegram = async () => {
         setLoadingTG(true);
+        addLog({
+            service: 'telegram',
+            type: 'request',
+            message: 'Enviando notificación de prueba...'
+        });
+
         try {
             const res = await fetch('/api/telegram/test', {
                 method: 'POST',
@@ -76,11 +174,29 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
             });
             const data = await res.json();
             if (data.success) {
+                addLog({
+                    service: 'telegram',
+                    type: 'response',
+                    message: '✅ Telegram Enviado',
+                    data: { status: 'ok' }
+                });
                 toast({ title: "Telegram Enviado", description: "Revisa el chat del bot." });
             } else {
+                addLog({
+                    service: 'telegram',
+                    type: 'error',
+                    message: '❌ Error de Telegram',
+                    data: data.error
+                });
                 toast({ title: "Error", description: data.error, variant: "destructive" });
             }
-        } catch (error) {
+        } catch (error: any) {
+            addLog({
+                service: 'telegram',
+                type: 'error',
+                message: '❌ Error Crítico',
+                data: error.message
+            });
             toast({ title: "Error", description: "Error enviando a Telegram.", variant: "destructive" });
         } finally {
             setLoadingTG(false);
@@ -88,111 +204,106 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
     };
 
     return (
-        <Card className="bg-gray-900 border-gray-800">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <RefreshCw className="text-blue-500" size={20} />
-                    Pruebas de Conectividad
-                </CardTitle>
-                <CardDescription>
-                    Valida que las credenciales de Meta y Telegram en tu .env.local sean correctas.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Meta WhatsApp Test */}
-                    <div className="p-6 bg-[#075e54]/10 border border-[#075e54]/30 rounded-xl space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-[#25D366] rounded-lg">
-                                <MessageSquare className="text-white" size={24} />
+        <div className="space-y-6">
+            <Card className="bg-gray-900 border-gray-800">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <RefreshCw className="text-blue-500" size={20} />
+                        Pruebas de Conectividad
+                    </CardTitle>
+                    <CardDescription>
+                        Valida que las credenciales de Meta y Telegram en tu .env.local sean correctas.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Meta WhatsApp Test */}
+                        <div className="p-6 bg-[#075e54]/10 border border-[#075e54]/30 rounded-xl space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-[#25D366] rounded-lg">
+                                    <MessageSquare className="text-white" size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-white">Meta WhatsApp</h3>
+                                    <p className="text-xs text-gray-400">Canal oficial (Cloud API)</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-white">Meta WhatsApp</h3>
-                                <p className="text-xs text-gray-400">Canal oficial (Cloud API)</p>
-                            </div>
+                            <p className="text-sm text-gray-300">
+                                Prueba enviando la plantilla oficial de Meta <strong>Market Plain Text</strong>.
+                                <span className="text-[10px] block text-gray-500 mt-1">* Ideal para validar el número sin ventana de 24h.</span>
+                            </p>
+                            <Button
+                                className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white gap-2 font-bold"
+                                onClick={testWhatsApp}
+                                disabled={loadingWA}
+                            >
+                                {loadingWA ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                                Probar WhatsApp
+                            </Button>
                         </div>
-                        <p className="text-sm text-gray-300">
-                            Envía un mensaje de texto plano al número configurado abajo.
-                            <span className="text-xs block text-gray-500 mt-1">* Recuerda que debe haber una ventana activa de 24h para texto plano.</span>
-                        </p>
-                        <Button
-                            className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white gap-2 font-bold"
-                            onClick={testWhatsApp}
-                            disabled={loadingWA}
-                        >
-                            {loadingWA ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
-                            Probar WhatsApp
-                        </Button>
+
+                        {/* Telegram Test */}
+                        <div className="p-6 bg-[#0088cc]/10 border border-[#0088cc]/30 rounded-xl space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-[#0088cc] rounded-lg">
+                                    <Send className="text-white" size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-white">Telegram Bot</h3>
+                                    <p className="text-xs text-gray-400">Alertas de gestión interna</p>
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-300">
+                                Envía una notificación de prueba a tu canal o usuario de Telegram configurado.
+                            </p>
+                            <Button
+                                className="w-full bg-[#0088cc] hover:bg-[#0077b5] text-white gap-2 font-bold"
+                                onClick={testTelegram}
+                                disabled={loadingTG}
+                            >
+                                {loadingTG ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                                Probar Telegram
+                            </Button>
+                        </div>
                     </div>
 
-                    {/* Telegram Test */}
-                    <div className="p-6 bg-[#0088cc]/10 border border-[#0088cc]/30 rounded-xl space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-[#0088cc] rounded-lg">
-                                <Send className="text-white" size={24} />
+                    <Separator className="bg-gray-800" />
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-base flex items-center gap-2">
+                                    <AlertTriangle size={16} className="text-amber-500" />
+                                    Modo de Prueba (Goteo SEGURO)
+                                </Label>
+                                <p className="text-sm text-gray-400">
+                                    Las misiones de Donna se enviarán ÚNICAMENTE a este número.
+                                </p>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-white">Telegram Bot</h3>
-                                <p className="text-xs text-gray-400">Alertas de gestión interna</p>
-                            </div>
+                            <Switch
+                                checked={preferences.whatsappTestMode}
+                                onCheckedChange={(checked) => onPreferenceChange('whatsappTestMode', checked)}
+                            />
                         </div>
-                        <p className="text-sm text-gray-300">
-                            Envía una notificación de prueba a tu canal o usuario de Telegram configurado.
-                        </p>
-                        <Button
-                            className="w-full bg-[#0088cc] hover:bg-[#0077b5] text-white gap-2 font-bold"
-                            onClick={testTelegram}
-                            disabled={loadingTG}
-                        >
-                            {loadingTG ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
-                            Probar Telegram
-                        </Button>
-                    </div>
-                </div>
 
-                <Separator className="bg-gray-800" />
-
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                            <Label className="text-base flex items-center gap-2">
-                                <AlertTriangle size={16} className="text-amber-500" />
-                                Modo de Prueba (Goteo SEGURO)
-                            </Label>
-                            <p className="text-sm text-gray-400">
-                                Las misiones de Donna se enviarán ÚNICAMENTE a este número.
+                        <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
+                            <Label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Número de Destino para Pruebas</Label>
+                            <Input
+                                value={preferences.whatsappTestNumber}
+                                onChange={(e) => onPreferenceChange('whatsappTestNumber', e.target.value)}
+                                className="bg-gray-900 border-gray-700 text-white mt-2"
+                                placeholder="Ej: 5939..."
+                            />
+                            <p className="text-[10px] text-gray-500 mt-2">
+                                Ingresa el número con código de país (Ej: 593 para Ecuador).
                             </p>
                         </div>
-                        <Switch
-                            checked={preferences.whatsappTestMode}
-                            onCheckedChange={(checked) => onPreferenceChange('whatsappTestMode', checked)}
-                        />
                     </div>
+                </CardContent>
+            </Card>
 
-                    <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg">
-                        <Label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Número de Destino para Pruebas</Label>
-                        <Input
-                            value={preferences.whatsappTestNumber}
-                            onChange={(e) => onPreferenceChange('whatsappTestNumber', e.target.value)}
-                            className="bg-gray-900 border-gray-700 text-white mt-2"
-                            placeholder="Ej: 5939..."
-                        />
-                        <p className="text-[10px] text-gray-500 mt-2">
-                            Ingresa el número con código de país (Ej: 593 para Ecuador).
-                        </p>
-                    </div>
-
-                    <div className="p-4 bg-blue-900/10 border border-blue-900/30 rounded-lg mt-4">
-                        <h4 className="text-sm font-bold text-blue-400 flex items-center gap-2">
-                            <Bot size={16} /> Visualización de Mensajes
-                        </h4>
-                        <p className="text-xs text-gray-300 mt-1">
-                            ¡Buenas noticias! El Webhook de Meta ya está configurado. Todos los mensajes entrantes de tus clientes se guardan automáticamente en el historial de **Interacciones** (Clinical History) de cada contacto.
-                        </p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+            <LogConsole logs={logs} onClear={clearLogs} />
+        </div>
     );
 }
 

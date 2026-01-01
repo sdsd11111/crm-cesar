@@ -97,9 +97,17 @@ export class WhatsAppService {
             }
 
             console.log(`✅ Meta WhatsApp sent to ${cleanPhone} (ID: ${response.data.messages?.[0]?.id})`);
-            return { success: true, data: response.data };
+            return {
+                success: true,
+                data: response.data,
+                debug: {
+                    url,
+                    payload: { messaging_product: "whatsapp", to: cleanPhone, type: "text" }
+                }
+            };
         } catch (error: any) {
-            const errorMsg = error.response?.data?.error?.message || error.message;
+            const errorData = error.response?.data?.error || { message: error.message };
+            const errorMsg = errorData.message;
             console.error(`❌ Meta WhatsApp error:`, errorMsg);
 
             // 4. LOG FAILURE (Try-catch for local testing without DB)
@@ -111,13 +119,21 @@ export class WhatsAppService {
                     content: text,
                     status: 'failed',
                     errorMessage: errorMsg,
-                    metadata: metadata // Pass object directly for jsonb
+                    metadata: { ...metadata, error: errorData }
                 });
             } catch (e) {
                 console.warn('⚠️ Log skipped (DB not connected)');
             }
 
-            return { success: false, error: errorMsg };
+            return {
+                success: false,
+                error: errorMsg,
+                details: errorData,
+                debug: {
+                    url: `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`,
+                    phoneNumberId
+                }
+            };
         }
     }
 
@@ -144,11 +160,19 @@ export class WhatsAppService {
             }
 
             const response = await axios.post(url, payload, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
             });
             return { success: true, data: response.data };
         } catch (error: any) {
-            return { success: false, error: error.response?.data?.error?.message || error.message };
+            const errorData = error.response?.data?.error || { message: error.message };
+            return {
+                success: false,
+                error: errorData.message,
+                details: errorData
+            };
         }
     }
 }

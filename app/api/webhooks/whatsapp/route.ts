@@ -114,7 +114,6 @@ export async function POST(req: Request) {
                     const [newLead] = await db.insert(discoveryLeads).values({
                         nombreComercial: `WhatsApp Link (${from})`,
                         telefonoPrincipal: from,
-                        source: 'whatsapp_incoming',
                         columna1: 'no_contactado',
                         columna2: 'pendiente',
                         status: 'pending'

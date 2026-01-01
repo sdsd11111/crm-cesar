@@ -558,37 +558,37 @@ export default function ChatCenterPage() {
                                                         <AccordionItem value="id" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Identificación Legal</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="RUC" field="ruc" value={fullDetails.ruc} onChange={(v) => setEditedFields({ ...editedFields, ruc: v })} />
-                                                                <DetailField label="Nombre Comercial" field="nombreComercial" value={fullDetails.nombreComercial} onChange={(v) => setEditedFields({ ...editedFields, nombreComercial: v })} />
-                                                                <DetailField label="Razón Social" field="razonSocialPropietario" value={fullDetails.razonSocialPropietario} onChange={(v) => setEditedFields({ ...editedFields, razonSocialPropietario: v })} />
-                                                                <DetailField label="Representante" field="representanteLegal" value={fullDetails.representanteLegal} onChange={(v) => setEditedFields({ ...editedFields, representanteLegal: v })} />
+                                                                <DetailField label="RUC" field="ruc" value={fullDetails.ruc} onChange={(v: string) => setEditedFields({ ...editedFields, ruc: v })} />
+                                                                <DetailField label="Nombre Comercial" field="nombreComercial" value={fullDetails.nombreComercial} onChange={(v: string) => setEditedFields({ ...editedFields, nombreComercial: v })} />
+                                                                <DetailField label="Razón Social" field="razonSocialPropietario" value={fullDetails.razonSocialPropietario} onChange={(v: string) => setEditedFields({ ...editedFields, razonSocialPropietario: v })} />
+                                                                <DetailField label="Representante" field="representanteLegal" value={fullDetails.representanteLegal} onChange={(v: string) => setEditedFields({ ...editedFields, representanteLegal: v })} />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                         <AccordionItem value="loc" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Ubicación y Datos</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="Provincia" field="provincia" value={fullDetails.provincia} onChange={(v) => setEditedFields({ ...editedFields, provincia: v })} />
-                                                                <DetailField label="Cantón" field="canton" value={fullDetails.canton} onChange={(v) => setEditedFields({ ...editedFields, canton: v })} />
-                                                                <DetailField label="Dirección" field="direccion" value={fullDetails.direccion} onChange={(v) => setEditedFields({ ...editedFields, direccion: v })} />
+                                                                <DetailField label="Provincia" field="provincia" value={fullDetails.provincia} onChange={(v: string) => setEditedFields({ ...editedFields, provincia: v })} />
+                                                                <DetailField label="Cantón" field="canton" value={fullDetails.canton} onChange={(v: string) => setEditedFields({ ...editedFields, canton: v })} />
+                                                                <DetailField label="Dirección" field="direccion" value={fullDetails.direccion} onChange={(v: string) => setEditedFields({ ...editedFields, direccion: v })} />
                                                                 <DetailField label="Lat/Long" value={`${fullDetails.latitud || ''}, ${fullDetails.longitud || ''}`} readOnly />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                         <AccordionItem value="contact" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Contacto Directo</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="Teléfono" field="telefonoPrincipal" value={fullDetails.telefonoPrincipal} onChange={(v) => setEditedFields({ ...editedFields, telefonoPrincipal: v })} />
-                                                                <DetailField label="Email" field="correoElectronico" value={fullDetails.correoElectronico} onChange={(v) => setEditedFields({ ...editedFields, correoElectronico: v })} />
-                                                                <DetailField label="Web" field="direccionWeb" value={fullDetails.direccionWeb} onChange={(v) => setEditedFields({ ...editedFields, direccionWeb: v })} />
-                                                                <DetailField label="Persona Contacto" field="personaContacto" value={fullDetails.personaContacto} onChange={(v) => setEditedFields({ ...editedFields, personaContacto: v })} />
+                                                                <DetailField label="Teléfono" field="telefonoPrincipal" value={fullDetails.telefonoPrincipal} onChange={(v: string) => setEditedFields({ ...editedFields, telefonoPrincipal: v })} />
+                                                                <DetailField label="Email" field="correoElectronico" value={fullDetails.correoElectronico} onChange={(v: string) => setEditedFields({ ...editedFields, correoElectronico: v })} />
+                                                                <DetailField label="Web" field="direccionWeb" value={fullDetails.direccionWeb} onChange={(v: string) => setEditedFields({ ...editedFields, direccionWeb: v })} />
+                                                                <DetailField label="Persona Contacto" field="personaContacto" value={fullDetails.personaContacto} onChange={(v: string) => setEditedFields({ ...editedFields, personaContacto: v })} />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                         <AccordionItem value="ops" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Operativo y Capacidad</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="Trabajadores" field="totalTrabajadores" value={fullDetails.totalTrabajadores} type="number" onChange={(v) => setEditedFields({ ...editedFields, totalTrabajadores: parseInt(v) })} />
-                                                                <DetailField label="Habitaciones" field="totalHabitacionesTiendas" value={fullDetails.totalHabitacionesTiendas} type="number" onChange={(v) => setEditedFields({ ...editedFields, totalHabitacionesTiendas: parseInt(v) })} />
-                                                                <DetailField label="Camas" field="totalCamas" value={fullDetails.totalCamas} type="number" onChange={(v) => setEditedFields({ ...editedFields, totalCamas: parseInt(v) })} />
-                                                                <DetailField label="Mesas" field="totalMesas" value={fullDetails.totalMesas} type="number" onChange={(v) => setEditedFields({ ...editedFields, totalMesas: parseInt(v) })} />
+                                                                <DetailField label="Trabajadores" field="totalTrabajadores" value={fullDetails.totalTrabajadores} type="number" onChange={(v: string) => setEditedFields({ ...editedFields, totalTrabajadores: parseInt(v) })} />
+                                                                <DetailField label="Habitaciones" field="totalHabitacionesTiendas" value={fullDetails.totalHabitacionesTiendas} type="number" onChange={(v: string) => setEditedFields({ ...editedFields, totalHabitacionesTiendas: parseInt(v) })} />
+                                                                <DetailField label="Camas" field="totalCamas" value={fullDetails.totalCamas} type="number" onChange={(v: string) => setEditedFields({ ...editedFields, totalCamas: parseInt(v) })} />
+                                                                <DetailField label="Mesas" field="totalMesas" value={fullDetails.totalMesas} type="number" onChange={(v: string) => setEditedFields({ ...editedFields, totalMesas: parseInt(v) })} />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                     </>
@@ -597,25 +597,25 @@ export default function ChatCenterPage() {
                                                         <AccordionItem value="basic" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Información Básica</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="Empresa" field="businessName" value={fullDetails.businessName} onChange={(v) => setEditedFields({ ...editedFields, businessName: v })} />
-                                                                <DetailField label="Representante" field="contactName" value={fullDetails.contactName} onChange={(v) => setEditedFields({ ...editedFields, contactName: v })} />
-                                                                <DetailField label="Ciudad" field="city" value={fullDetails.city} onChange={(v) => setEditedFields({ ...editedFields, city: v })} />
-                                                                <DetailField label="Email" field="email" value={fullDetails.email} onChange={(v) => setEditedFields({ ...editedFields, email: v })} />
+                                                                <DetailField label="Empresa" field="businessName" value={fullDetails.businessName} onChange={(v: string) => setEditedFields({ ...editedFields, businessName: v })} />
+                                                                <DetailField label="Representante" field="contactName" value={fullDetails.contactName} onChange={(v: string) => setEditedFields({ ...editedFields, contactName: v })} />
+                                                                <DetailField label="Ciudad" field="city" value={fullDetails.city} onChange={(v: string) => setEditedFields({ ...editedFields, city: v })} />
+                                                                <DetailField label="Email" field="email" value={fullDetails.email} onChange={(v: string) => setEditedFields({ ...editedFields, email: v })} />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                         <AccordionItem value="strategic" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Perfil Estratégico</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="Dolores" field="pains" value={fullDetails.pains} area onChange={(v) => setEditedFields({ ...editedFields, pains: v })} />
-                                                                <DetailField label="Metas" field="goals" value={fullDetails.goals} area onChange={(v) => setEditedFields({ ...editedFields, goals: v })} />
-                                                                <DetailField label="Objeciones" field="objections" value={fullDetails.objections} area onChange={(v) => setEditedFields({ ...editedFields, objections: v })} />
+                                                                <DetailField label="Dolores" field="pains" value={fullDetails.pains} area onChange={(v: string) => setEditedFields({ ...editedFields, pains: v })} />
+                                                                <DetailField label="Metas" field="goals" value={fullDetails.goals} area onChange={(v: string) => setEditedFields({ ...editedFields, goals: v })} />
+                                                                <DetailField label="Objeciones" field="objections" value={fullDetails.objections} area onChange={(v: string) => setEditedFields({ ...editedFields, objections: v })} />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                         <AccordionItem value="swot" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Análisis FODA</AccordionTrigger>
                                                             <AccordionContent className="space-y-3 pt-1">
-                                                                <DetailField label="Fortalezas" field="strengths" value={fullDetails.strengths} area onChange={(v) => setEditedFields({ ...editedFields, strengths: v })} />
-                                                                <DetailField label="Oportunidades" field="opportunities" value={fullDetails.opportunities} area onChange={(v) => setEditedFields({ ...editedFields, opportunities: v })} />
+                                                                <DetailField label="Fortalezas" field="strengths" value={fullDetails.strengths} area onChange={(v: string) => setEditedFields({ ...editedFields, strengths: v })} />
+                                                                <DetailField label="Oportunidades" field="opportunities" value={fullDetails.opportunities} area onChange={(v: string) => setEditedFields({ ...editedFields, opportunities: v })} />
                                                             </AccordionContent>
                                                         </AccordionItem>
                                                     </>

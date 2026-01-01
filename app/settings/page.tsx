@@ -43,8 +43,8 @@ function LogConsole({ logs, onClear }: { logs: LogEntry[], onClear: () => void }
         <div className="mt-6 rounded-xl border border-gray-800 bg-black/50 overflow-hidden font-mono text-[10px] md:text-xs">
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900/80 border-b border-gray-800">
                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-gray-400 font-bold uppercase tracking-wider">Consola de Conectividad</span>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                    <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Cortex Connectivity Terminal</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={onClear} className="h-6 text-gray-500 hover:text-white hover:bg-gray-800">
                     Limpiar

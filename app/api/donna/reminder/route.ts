@@ -18,19 +18,8 @@ export async function POST(req: NextRequest) {
 
         // 1. Send to Telegram
         if (botToken && chatId) {
-            try {
-                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        text: messageText,
-                        parse_mode: 'Markdown'
-                    }),
-                });
-            } catch (e) {
-                console.error('⚠️ Telegram Reminder Error:', e);
-            }
+            const { telegramService } = await import('@/lib/telegram/TelegramService');
+            await telegramService.sendMessage(messageText);
         }
 
         // 2. Send to WhatsApp (Meta API)

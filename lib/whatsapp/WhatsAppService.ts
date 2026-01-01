@@ -11,19 +11,18 @@ export interface WhatsAppMessage {
 }
 
 export class WhatsAppService {
-    private accessToken: string;
-    private phoneNumberId: string;
-    private verifyToken: string;
-    private version: string = 'v21.0';
+    private version: string = 'v22.0';
 
     constructor() {
-        this.accessToken = process.env.META_WA_ACCESS_TOKEN || '';
-        this.phoneNumberId = process.env.META_WA_PHONE_NUMBER_ID || '';
-        this.verifyToken = process.env.META_WA_VERIFY_TOKEN || '';
+        console.log(`📡 WhatsAppService (Meta) Initialized`);
+    }
 
-        console.log(`📡 WhatsAppService (Meta) Initialized:`);
-        console.log(`   - Phone Number ID: ${this.phoneNumberId ? '***' + this.phoneNumberId.slice(-4) : 'MISSING ❌'}`);
-        console.log(`   - Access Token: ${this.accessToken ? '***' + this.accessToken.slice(-8) : 'MISSING ❌'}`);
+    private getCredentials() {
+        return {
+            accessToken: process.env.META_WA_ACCESS_TOKEN || '',
+            phoneNumberId: process.env.META_WA_PHONE_NUMBER_ID || '',
+            verifyToken: process.env.META_WA_VERIFY_TOKEN || ''
+        };
     }
 
     /**
@@ -33,8 +32,12 @@ export class WhatsAppService {
      * @param metadata Optional metadata for logging
      */
     async sendMessage(phone: string, text: string, metadata: any = {}): Promise<any> {
-        if (!this.accessToken || !this.phoneNumberId) {
+        const { accessToken, phoneNumberId } = this.getCredentials();
+
+        if (!accessToken || !phoneNumberId) {
             console.error('❌ WhatsAppService: Meta Credentials missing');
+            console.log('   - Access Token length:', accessToken.length);
+            console.log('   - Phone Number ID:', phoneNumberId);
             return { success: false, error: 'Config missing' };
         }
 
@@ -61,7 +64,7 @@ export class WhatsAppService {
             }
 
             // 2. Send via Meta API
-            const url = `https://graph.facebook.com/${this.version}/${this.phoneNumberId}/messages`;
+            const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
             const response = await axios.post(
                 url,
                 {
@@ -73,21 +76,25 @@ export class WhatsAppService {
                 },
                 {
                     headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
             );
 
-            // 3. LOG SUCCESS
-            await db.insert(whatsappLogs).values({
-                contactId: contact?.id || null,
-                trigger: metadata.type || 'system',
-                content: text,
-                status: 'sent',
-                approvedBy: metadata.approvedBy || 'system',
-                metadata: metadata // Pass object directly for jsonb
-            });
+            // 3. LOG SUCCESS (Try-catch for local testing without DB)
+            try {
+                await db.insert(whatsappLogs).values({
+                    contactId: contact?.id || null,
+                    trigger: metadata.type || 'system',
+                    content: text,
+                    status: 'sent',
+                    approvedBy: metadata.approvedBy || 'system',
+                    metadata: metadata // Pass object directly for jsonb
+                });
+            } catch (dbError) {
+                console.warn('⚠️ Log skipped (DB not connected)');
+            }
 
             console.log(`✅ Meta WhatsApp sent to ${cleanPhone} (ID: ${response.data.messages?.[0]?.id})`);
             return { success: true, data: response.data };
@@ -95,7 +102,7 @@ export class WhatsAppService {
             const errorMsg = error.response?.data?.error?.message || error.message;
             console.error(`❌ Meta WhatsApp error:`, errorMsg);
 
-            // 4. LOG FAILURE
+            // 4. LOG FAILURE (Try-catch for local testing without DB)
             try {
                 const [contact] = await db.select().from(contacts).where(eq(contacts.phone, phone)).limit(1);
                 await db.insert(whatsappLogs).values({
@@ -106,7 +113,9 @@ export class WhatsAppService {
                     errorMessage: errorMsg,
                     metadata: metadata // Pass object directly for jsonb
                 });
-            } catch (e) { /* silent fail */ }
+            } catch (e) {
+                console.warn('⚠️ Log skipped (DB not connected)');
+            }
 
             return { success: false, error: errorMsg };
         }
@@ -115,11 +124,12 @@ export class WhatsAppService {
     /**
      * Sends a template message (Required for starting conversations after 24h)
      */
-    async sendTemplate(phone: string, templateName: string, languageCode: string = 'es_ES'): Promise<any> {
+    async sendTemplate(phone: string, templateName: string, languageCode: string = 'es_ES', components: any[] = []): Promise<any> {
+        const { accessToken, phoneNumberId } = this.getCredentials();
         // Basic placeholder for marketing/utility templates
-        const url = `https://graph.facebook.com/${this.version}/${this.phoneNumberId}/messages`;
+        const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
         try {
-            const response = await axios.post(url, {
+            const payload: any = {
                 messaging_product: "whatsapp",
                 to: phone,
                 type: "template",
@@ -127,7 +137,15 @@ export class WhatsAppService {
                     name: templateName,
                     language: { code: languageCode }
                 }
-            }, { headers: { 'Authorization': `Bearer ${this.accessToken}` } });
+            };
+
+            if (components.length > 0) {
+                payload.template.components = components;
+            }
+
+            const response = await axios.post(url, payload, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
             return { success: true, data: response.data };
         } catch (error: any) {
             return { success: false, error: error.response?.data?.error?.message || error.message };

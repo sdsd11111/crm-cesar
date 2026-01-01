@@ -1,19 +1,18 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from '@/lib/db';
-import { conversationStates, loyaltyMissions, contacts, interactions, tasks, commitments, agents, events, reminders } from '@/lib/db/schema';
-import { eq, and, lte } from 'drizzle-orm';
+import { conversationStates, contacts, interactions, tasks, commitments, events, reminders } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { fromZonedTime } from 'date-fns-tz';
+import { getAIClient, getModelId } from '@/lib/ai/client';
 
 const TIMEZONE = 'America/Guayaquil';
 
 /**
  * Cortex Router: Intelligent Audio/Note Processing
- * Uses OpenAI/DeepSeek/Gemini to categorize inputs and route them to the correct tables.
+ * Uses DeepSeek R1 (Reasoning) via Central AI Client to categorize inputs.
  */
 export class CortexRouterService {
-    private ai: any;
     private promptTemplate: string;
     private calendarService: any; // Lazy load to avoid import errors if lib missing
 
@@ -21,21 +20,6 @@ export class CortexRouterService {
         // Load prompt from file
         const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'cortex_router.md');
         this.promptTemplate = fs.readFileSync(promptPath, 'utf-8');
-
-        // Initialize AI client - Usar OpenAI
-        const openaiKey = process.env.OPENAI_API_KEY;
-        const deepseekKey = process.env.DEEPSEEK_API_KEY;
-        const geminiKey = process.env.GOOGLE_API_KEY;
-
-        if (openaiKey) {
-            console.log('🤖 Using OpenAI as AI provider');
-            this.ai = { provider: 'openai', apiKey: openaiKey };
-        } else if (deepseekKey && false) { // Deshabilitado hasta agregar saldo
-            this.ai = { provider: 'deepseek', apiKey: deepseekKey };
-        } else {
-            console.log('🤖 Using Gemini as AI provider');
-            this.ai = new GoogleGenerativeAI(geminiKey || "");
-        }
     }
 
     private async getCalendarService() {
@@ -117,8 +101,6 @@ export class CortexRouterService {
                     await this.sendTelegramMessage(`👌 Tarea cancelada.`);
                     return { status: 'cancelled' };
                 }
-
-                // Si no fue una respuesta a la clarificación, el flujo sigue normal (ignora la clarificación anterior)
             }
         }
 
@@ -134,9 +116,6 @@ export class CortexRouterService {
                 // Si estábamos esperando una aclaración...
                 if (stateData.state === 'WAITING_CLARIFICATION' && stateData.original_text) {
                     console.log('🔄 Context restored! Merging previous request with new input.');
-
-                    // Sintetizar nuevo prompt combinando la solicitud original y la respuesta actual
-                    // "Agendar cita a las 5pm" + "Mañana" -> "Solicitud Original: Agendar cita a las 5pm. Aclaración del usuario: Mañana."
                     textToAnalyze = `Solicitud anterior incompleta: "${stateData.original_text}".\nEl usuario respondió a la pregunta "${stateData.question}": "${input.text}".\n\nInstrucción: Completa la solicitud original usando la nueva información.`;
 
                     // Borramos el estado para evitar loops infinitos (si falla de nuevo, se creará uno nuevo)
@@ -145,23 +124,39 @@ export class CortexRouterService {
             }
         }
 
-        // PASO 1 (NUEVO): Categorizar intención PRIMERO (Intent First)
+        // PASO 1 (NUEVO): Categorizar intención PRIMERO (Intent First) Usando REASONING MODEL
         const prompt = `${this.promptTemplate}\n\n---\n\nINPUT:\n${textToAnalyze}`;
 
         try {
-            let response;
-            if (this.ai.provider === 'openai') {
-                response = await this.callOpenAI(prompt);
-            } else if (this.ai.provider === 'deepseek') {
-                response = await this.callDeepSeek(prompt);
-            } else {
-                const model = this.ai.getGenerativeModel({ model: 'gemini-pro' });
-                const result = await model.generateContent(prompt);
-                response = result.response.text();
+            // USAR MODELO DE RAZONAMIENTO (AI STRATEGY MAP)
+            const aiClient = getAIClient('REASONING');
+            const modelId = getModelId('REASONING');
+
+            console.log(`🧠 Invoking Cortex Brain with model: ${modelId}`);
+
+            const response = await aiClient.chat.completions.create({
+                model: modelId, // deepseek-reasoner
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.3
+            });
+
+            const content = response.choices[0]?.message?.content || "{}";
+
+            // DeepSeek Reasoner a veces incluye <think>...</think>. Lo limpiamos si es necesario, 
+            // pero normalmente retorna el output final después del pensamiento. 
+            // Si el output es JSON, extraemos el bloque JSON.
+
+            const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
+            // Buscar el primer '{' y el último '}' por si hay texto alrededor (chain of thought output suelto)
+            const jsonStartIndex = cleaned.indexOf('{');
+            const jsonEndIndex = cleaned.lastIndexOf('}');
+
+            let finalJsonStr = cleaned;
+            if (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) {
+                finalJsonStr = cleaned.substring(jsonStartIndex, jsonEndIndex + 1);
             }
 
-            const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleaned);
+            const parsed = JSON.parse(finalJsonStr);
 
             // Si la confianza es baja, abortar
             if (parsed.confidence < 0.8 && parsed.uncertainty_message) {
@@ -169,9 +164,7 @@ export class CortexRouterService {
                 return { status: 'uncertain', message: parsed.uncertainty_message };
             }
 
-
             // PASO 1.5: HEURÍSTICA DE SEGURIDAD (Guardrails)
-            // Fix: GPT-4o-mini confunde "avísame antes" con "CANCEL_NOTIFICATION"
             if (parsed.intent === 'CANCEL_NOTIFICATION') {
                 const lowerText = textToAnalyze.toLowerCase();
                 const negativeKeywords = ['cancel', 'borr', 'elimi', 'deten', 'ya no', 'stop', 'olvida'];
@@ -180,19 +173,13 @@ export class CortexRouterService {
                 const hasNegative = negativeKeywords.some(w => lowerText.includes(w));
                 const hasPositive = positiveKeywords.some(w => lowerText.includes(w));
 
-                // Si NO hay palabras negativas explícitas, y SÍ hay palabras de recordatorio, asumimos que es una tarea.
                 if (!hasNegative && hasPositive) {
                     console.log('🛡️ Guardrail triggered: Switching CANCEL_NOTIFICATION -> OPERATIVE_TASK');
                     parsed.intent = 'OPERATIVE_TASK';
-                    // Re-analizar para asegurar que el summary/analysis tenga sentido es difícil sin re-prompting,
-                    // pero confiamos en que el LLM llenó los otros campos (analysis) aunque le dio la etiqueta mal.
-                    // Si analysis está vacío, lo llenamos por defecto.
                     if (!parsed.analysis) parsed.analysis = {};
                     if (!parsed.analysis.motive) parsed.analysis.motive = textToAnalyze;
 
-                    // Intentar extraer offsets si no existen
                     if (!parsed.analysis.reminder_offsets && (lowerText.includes('minutos') || lowerText.includes('antes'))) {
-                        // Extracción regex básica de emergencia para "5 minutos" o "2 min"
                         const matches = lowerText.match(/(\d+)\s*(min|m)/g);
                         if (matches) {
                             parsed.analysis.reminder_offsets = matches.map(m => parseInt(m.match(/\d+/)?.[0] || '0')).filter(n => n > 0);
@@ -201,42 +188,26 @@ export class CortexRouterService {
                 }
             }
 
-            // PASO 2: Resolver Entidades (Estrategia según Intención)
-            // Solo intentamos resolver si no tenemos ya un ID y la IA detectó un nombre
-            // PASO 2: Resolver Entidades (Estrategia según Intención)
-            // Solo intentamos resolver si no tenemos ya un ID y la IA detectó un nombre VÁLIDO
+            // PASO 2: Resolver Entidades
             const rawName = parsed.entities?.contact_name;
             const isInvalidName = !rawName || ['n/a', 'na', 'no aplica', 'unknown', 'nadie', 'null', 'none'].includes(rawName.toLowerCase());
 
             if (!input.contactId && !isInvalidName) {
                 const { entityResolver } = await import('./EntityResolverService');
 
-                // Estrategia para CREAR CONTACTO
                 if (parsed.intent === 'CREATE_CONTACT') {
-                    // Verificar si ya existe (solo warning)
                     const matches = await entityResolver.findContactByName(rawName);
                     if (matches.length > 0) {
-                        // Existe: avisar pero permitir crear si el usuario insiste (o asumir que es el mismo)
                         input.contactId = matches[0].id;
                         console.log(`⚠️ Contact ${rawName} already exists. Using ID: ${input.contactId}`);
                         await this.sendTelegramMessage(`ℹ️ El contacto ${rawName} ya existe. Lo usaré.`);
-                        parsed.intent = 'OPERATIVE_TASK'; // Fallback para no crear doble
+                        parsed.intent = 'OPERATIVE_TASK';
                     } else {
-                        // No existe: PERFECTO. No hacemos nada aquí, el case 'CREATE_CONTACT' lo creará.
                         console.log(`✅ New contact intended: ${rawName}`);
                     }
                 }
-                // Estrategia para OTROS (Tareas, Compromisos, etc.)
                 else {
-                    // Aquí SÍ necesitamos resolverlo estrictamente
-                    // Si el intent es SEND_WHATSAPP, restringimos a 'contacts'
-                    // Pero espera, el routing a SEND_WHATSAPP ocurre abajo (después del switch).
-                    // El intent se decide ARRIBA (Parsed).
-                    // PERO el "Resolver" corre ANTES del switch.
-                    // Necesitamos pasar el allowedTables basado en `parsed.intent`.
-
                     const allowedTables = parsed.intent === 'SEND_WHATSAPP' ? ['contacts'] : undefined;
-
                     const { contactId: resolvedContactId, matches } = await entityResolver.resolve(
                         rawName,
                         this.sendTelegramMessage.bind(this),
@@ -246,7 +217,6 @@ export class CortexRouterService {
                     if (resolvedContactId) {
                         input.contactId = resolvedContactId;
                     } else {
-                        // Guardar estado de clarificación para la siguiente respuesta
                         await this.saveContext(input.chatId, {
                             contactId,
                             pendingClarification: {
@@ -276,71 +246,12 @@ export class CortexRouterService {
         }
     }
 
-    private async callDeepSeek(prompt: string) {
-        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.ai.apiKey}`
-            },
-            body: JSON.stringify({
-                model: process.env.DEEPSEEK_MODEL || 'deepseek-reasoner',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.3
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`DeepSeek API Error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('🤖 DeepSeek Response:', JSON.stringify(data, null, 2));
-
-        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-            throw new Error('Invalid DeepSeek response format');
-        }
-
-        return data.choices[0].message.content;
-    }
-
-    private async callOpenAI(prompt: string) {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.ai.apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.3
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('🤖 OpenAI Response:', JSON.stringify(data, null, 2));
-
-        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-            throw new Error('Invalid OpenAI response format');
-        }
-
-        return data.choices[0].message.content;
-    }
-
     private async routeToTable(parsed: any, contactId: string | undefined, textToAnalyze: string, chatId?: string) {
         console.log(`📍 Routing to: ${parsed.action?.table || 'unknown'}`);
 
         try {
             switch (parsed.intent) {
                 case 'CREATE_CONTACT':
-                    // Crear contacto directamente con los datos extraídos
                     const newContact = await db.insert(contacts).values({
                         contactName: parsed.entities?.contact_name || null,
                         businessName: parsed.entities?.business_name || null,
@@ -353,7 +264,6 @@ export class CortexRouterService {
                     const createdContactId = newContact[0].id;
                     console.log(`✅ Contact created: ${createdContactId}`);
 
-                    // Initialize Agent and Trigger Planning
                     try {
                         const { agentService } = await import('@/lib/donna/services/AgentService');
                         await agentService.ensureAgent(createdContactId);
@@ -361,7 +271,6 @@ export class CortexRouterService {
                         console.error('⚠️ CortexRouter: Error initializing agent:', e);
                     }
 
-                    // Crear tarea de seguimiento
                     await db.insert(tasks).values({
                         title: `📝 Completar información de ${parsed.entities?.contact_name || parsed.entities?.business_name}`,
                         description: `Contacto creado por Donna. Revisar y completar datos faltantes.`,
@@ -371,7 +280,6 @@ export class CortexRouterService {
                         assignedTo: 'César',
                     });
 
-                    // Enviar confirmación por Telegram
                     await this.sendTelegramMessage(
                         `✅ Contacto creado exitosamente!\n\n` +
                         `👤 ${parsed.entities?.contact_name || 'Sin nombre'}\n` +
@@ -382,7 +290,6 @@ export class CortexRouterService {
                     break;
 
                 case 'OPERATIVE_TASK':
-                    // Guardar en tabla tasks
                     const newTask = await db.insert(tasks).values({
                         title: parsed.summary || 'Nueva tarea',
                         description: parsed.analysis ?
@@ -397,18 +304,11 @@ export class CortexRouterService {
                     const taskId = newTask[0].id;
                     console.log('✅ Task created successfully');
 
-                    // CREAR RECORDATORIOS (REMINDERS) SI HAY OFFSETS
-                    // Caso 1: Fecha/Hora absoluta ("mañana a las 3pm")
-                    // Caso 2: Tiempo relativo ("en 5 minutos")
-
                     let dueDate: Date | null = null;
-
                     if (parsed.analysis?.due_date && parsed.analysis?.due_time) {
-                        // Caso 1: Absoluto
                         const dueIso = `${parsed.analysis.due_date}T${parsed.analysis.due_time}:00-05:00`;
                         dueDate = new Date(dueIso);
                     } else if (textToAnalyze.match(/en\s+(\d+)\s*(min|minuto)/i)) {
-                        // Caso 2: Relativo - "en X minutos"
                         const match = textToAnalyze.match(/en\s+(\d+)\s*(min|minuto)/i);
                         const minutes = parseInt(match![1]);
                         dueDate = new Date(Date.now() + minutes * 60000);
@@ -417,7 +317,7 @@ export class CortexRouterService {
 
                     if (dueDate && parsed.analysis?.reminder_offsets) {
                         for (const offset of parsed.analysis.reminder_offsets) {
-                            const sendAt = new Date(dueDate.getTime() - offset * 60000); // offset in minutes
+                            const sendAt = new Date(dueDate.getTime() - offset * 60000);
                             await db.insert(reminders).values({
                                 taskId: taskId,
                                 title: `🔔 Recordatorio: ${parsed.summary}`,
@@ -430,7 +330,6 @@ export class CortexRouterService {
                         }
                     }
 
-                    // Enviar confirmación
                     await this.sendTelegramMessage(
                         `✅ Tarea creada\n\n` +
                         `📋 ${parsed.summary || 'Nueva tarea'}\n` +
@@ -439,9 +338,6 @@ export class CortexRouterService {
                     break;
 
                 case 'SCHEDULE_MEETING':
-                    // Agendar en Google Calendar (Solo Reuniones/Zoom)
-
-                    // 1. VALIDACIÓN ESTRICTA DE FECHA/HORA
                     if (!parsed.analysis?.due_date || !parsed.analysis?.due_time) {
                         console.log('⚠️ Missing date/time for meeting. Asking clarification.');
                         const question = `❓ Necesito más detalles para agendar la cita con ${parsed.entities?.contact_name || 'el contacto'}.\n\n` +
@@ -450,13 +346,12 @@ export class CortexRouterService {
 
                         await this.sendTelegramMessage(question);
 
-                        // GUARDAR ESTADO PARA CONTEXTO
                         if (chatId) {
                             await db.insert(conversationStates).values({
                                 key: chatId,
                                 data: JSON.stringify({
                                     state: 'WAITING_CLARIFICATION',
-                                    original_text: textToAnalyze, // Guardamos lo que estábamos procesando
+                                    original_text: textToAnalyze,
                                     question: '¿Qué día?'
                                 })
                             }).onConflictDoUpdate({
@@ -464,29 +359,21 @@ export class CortexRouterService {
                                 set: { data: JSON.stringify({ state: 'WAITING_CLARIFICATION', original_text: textToAnalyze, question: '¿Qué día?' }), updatedAt: new Date() }
                             });
                         }
-
-                        return; // Detener flujo y esperar input del usuario
+                        return;
                     }
 
-                    // 2. MANEJO ROBUTO DE ZONA HORARIA (America/Guayaquil)
-                    // parsed.analysis.due_date = "2024-12-27"
-                    // parsed.analysis.due_time = "17:00"
-                    const dateTimeStr = `${parsed.analysis.due_date} ${parsed.analysis.due_time}`; // "2024-12-27 17:00"
-                    // Interpretamos que esa hora ES en Guayaquil
+                    const dateTimeStr = `${parsed.analysis.due_date} ${parsed.analysis.due_time}`;
                     const startDate = fromZonedTime(dateTimeStr, TIMEZONE);
-
-                    // Fin = Inicio + 1 hora
                     const endDate = new Date(startDate.getTime() + 60 * 60000);
 
                     const calendar = await this.getCalendarService();
                     const event = await calendar.createEvent(
                         parsed.summary || 'Reunión CRM',
                         `Organizada por Donna para: ${parsed.analysis.target_audience || 'Cliente'}\nMotivo: ${parsed.analysis.motive || 'Reunión'}\nContacto: ${parsed.entities?.contact_name || 'N/A'}\nContexto: ${textToAnalyze}`,
-                        startDate.toISOString(), // createEvent espera ISO string
+                        startDate.toISOString(),
                         endDate.toISOString()
                     );
 
-                    // Insertar en eventos locales (Espejo)
                     await db.insert(events).values({
                         title: parsed.summary || 'Reunión Agendada',
                         description: `GCal Link: ${event.htmlLink}\nMeet: ${event.hangoutLink || 'N/A'}`,
@@ -506,18 +393,6 @@ export class CortexRouterService {
                     break;
 
                 case 'CANCEL_NOTIFICATION':
-                    // Cancelar recordatorios pendientes
-                    // (Logica simplificada: cancela todos los pendientes del usuario o intenta buscar por contexto reciente si tuviéramos ID)
-                    // Por ahora, cancela los recordatorios más próximos (próximas 2 horas) o TODOS?
-                    // El usuario dijo "Ya estoy en camino, cancela".
-
-                    // Update reminders set status = 'cancelled' where status = 'pending' and send_at < NOW() + 1 hour?
-                    // O mejor, marcamos como cancelados todos los recordatorios OPERATIVOS pendientes de hoy.
-
-                    // Importar desc y gt de drizzle-orm si faltan
-                    // const { gt, lt } = await import('drizzle-orm');
-
-                    // Implementación simple: Cancelar todo lo pendiente para hoy.
                     await db.update(reminders)
                         .set({ status: 'cancelled' })
                         .where(eq(reminders.status, 'pending'));
@@ -526,7 +401,6 @@ export class CortexRouterService {
                     break;
 
                 case 'MEMORY_CUE':
-                    // Guardar en tabla interactions como nota de memoria
                     if (contactId) {
                         await db.insert(interactions).values({
                             contactId: contactId,
@@ -534,8 +408,6 @@ export class CortexRouterService {
                             content: parsed.summary || '',
                         });
                         console.log('✅ Memory cue saved to interactions');
-
-                        // Enviar confirmación
                         await this.sendTelegramMessage(
                             `🧠 Nota guardada\n\n` +
                             `"${parsed.summary}"\n\n` +
@@ -550,7 +422,6 @@ export class CortexRouterService {
                     break;
 
                 case 'COMMITMENT':
-                    // Guardar en tabla commitments
                     if (contactId) {
                         await db.insert(commitments).values({
                             agentId: contactId,
@@ -562,8 +433,6 @@ export class CortexRouterService {
                             status: 'draft',
                         });
                         console.log('✅ Commitment created successfully');
-
-                        // Enviar confirmación
                         await this.sendTelegramMessage(
                             `🤝 Compromiso registrado\n\n` +
                             `"${parsed.summary}"\n\n` +
@@ -578,15 +447,12 @@ export class CortexRouterService {
                     break;
 
                 case 'STRATEGIC_NOTE':
-                    // Guardar como nota estratégica para Donna Macro
                     await db.insert(interactions).values({
                         contactId: contactId,
                         type: 'note',
                         content: parsed.summary || '',
                     });
                     console.log('✅ Strategic note saved');
-
-                    // Enviar confirmación
                     await this.sendTelegramMessage(
                         `💡 Insight estratégico guardado\n\n` +
                         `"${parsed.summary}"\n\n` +
@@ -595,7 +461,6 @@ export class CortexRouterService {
                     break;
 
                 case 'SEND_WHATSAPP':
-                    // Enviar mensaje de WhatsApp directo
                     if (contactId) {
                         const [contact] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (contact?.phone) {

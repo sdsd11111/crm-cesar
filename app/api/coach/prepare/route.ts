@@ -1,13 +1,9 @@
 
 import { db } from '@/lib/db';
-import { discoveryLeads, leads, clients, interactions } from '@/lib/db/schema';
+import { discoveryLeads, leads, interactions } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import OpenAI from 'openai';
-
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
+import { getAIClient, getModelId } from '@/lib/ai/client';
 
 // PROMPT MADRE (Regla 40/40/20 - Modo Minimalista)
 const MASTER_PROMPT = `
@@ -104,7 +100,7 @@ así no le quito más tiempo.
 Perfecto, ((NOMBRE)), voy directo.
 Ayudamos a hoteles como ((HOTEL))
 a captar más reservas directas desde Google,
-para depender menos de Booking
+a depender menos de Booking
 y reducir comisiones.
 Le voy a enviar ahora mismo un video de 2 minutos
 donde lo explico de forma clara.
@@ -205,35 +201,36 @@ export async function POST(req: Request) {
             ${contextData}
         `;
 
-        // 3. Generate with Fallback
-        const modelName = process.env.NEXT_PUBLIC_GEMINI_MODEL || "gemini-1.5-flash";
-        console.log(`🤖 LLM Request (${modelName}) for ${entityType} ${entityId}`);
+        // 3. Generate using DeepSeek Reasoning (Coach Estratega)
+        console.log(`🤖 Strategy Coach Request (DeepSeek) for ${entityType} ${entityId}`);
 
-        let text = "";
-        try {
-            const model = genAI.getGenerativeModel({ model: modelName });
-            const result = await model.generateContent(finalPrompt);
-            text = result.response.text();
-            console.log('✅ Gemini Response received');
-        } catch (geminiError: any) {
-            console.warn('⚠️ Gemini Failed, falling back to OpenAI:', geminiError.message);
+        const client = getAIClient('REASONING');
+        const model = getModelId('REASONING');
 
-            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            const completion = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: 'Eres un experto en estrategia comercial. Responde solo con JSON válido.' },
-                    { role: 'user', content: finalPrompt }
-                ],
-                response_format: { type: 'json_object' }
-            });
-            text = completion.choices[0].message.content || "{}";
-            console.log('✅ OpenAI Fallback Response received');
-        }
+        const completion = await client.chat.completions.create({
+            model: model,
+            messages: [
+                { role: 'user', content: finalPrompt }
+            ],
+            // DeepSeek doesn't support json_object mode in all endpoints, but we'll try to parse whatever comes out
+            // For reasoning model, we usually prompt for JSON and parse.
+        });
+
+        const text = completion.choices[0].message.content || "{}";
+        console.log('✅ DeepSeek Response received');
 
         // 4. Parse JSON
-        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const jsonResponse = JSON.parse(cleanedText);
+        // Find JSON block first
+        const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const jsonStartIndex = cleaned.indexOf('{');
+        const jsonEndIndex = cleaned.lastIndexOf('}');
+
+        let finalJsonStr = cleaned;
+        if (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) {
+            finalJsonStr = cleaned.substring(jsonStartIndex, jsonEndIndex + 1);
+        }
+
+        const jsonResponse = JSON.parse(finalJsonStr);
 
         return NextResponse.json(jsonResponse);
 

@@ -1,16 +1,7 @@
-import OpenAI from "openai";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { Lead } from "@/lib/types";
-
-const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.error("OPENAI_API_KEY is missing in environment variables.");
-    throw new Error("OPENAI_API_KEY is missing");
-  }
-  return new OpenAI({ apiKey });
-};
+import { getAIClient, getModelId } from "@/lib/ai/client";
 
 const getPromptContent = (promptName: string): string => {
   try {
@@ -92,8 +83,9 @@ export class QuotationGenerator {
     }
 
     try {
-      const response = await getOpenAIClient().chat.completions.create({
-        model: "gpt-4o",
+      // USE REASONING FOR FULL QUOTATIONS
+      const response = await getAIClient('REASONING').chat.completions.create({
+        model: getModelId('REASONING'),
         messages: [
           { role: "user", content: prompt },
         ],
@@ -131,8 +123,9 @@ export class QuotationGenerator {
     }
 
     try {
-      const response = await getOpenAIClient().chat.completions.create({
-        model: "gpt-4o",
+      // USE STANDARD FOR SHORT DESCRIPTIONS
+      const response = await getAIClient('STANDARD').chat.completions.create({
+        model: getModelId('STANDARD'),
         messages: [
           { role: "user", content: prompt },
         ],

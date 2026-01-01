@@ -1,5 +1,6 @@
 import { db, schema } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { GoogleCalendarService } from '@/lib/google/CalendarService';
 
 export async function GET() {
   try {
@@ -14,14 +15,35 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const { googleSync, ...eventData } = body;
+
+    // 1. Save to Local DB
     const newEvent = await db.insert(schema.events).values({
-        ...body,
-        startTime: new Date(body.startTime),
-        endTime: new Date(body.endTime)
+      ...eventData,
+      startTime: new Date(eventData.startTime),
+      endTime: new Date(eventData.endTime)
     }).returning();
+
+    // 2. Optional Google Calendar Sync
+    if (googleSync) {
+      try {
+        const calendar = new GoogleCalendarService();
+        await calendar.createEvent(
+          eventData.title,
+          eventData.description || 'Agendado desde CRM Objetivo',
+          new Date(eventData.startTime).toISOString(),
+          new Date(eventData.endTime).toISOString(),
+          eventData.attendees || [] // Expecting array of emails
+        );
+      } catch (calError) {
+        console.error('Error syncing with Google Calendar:', calError);
+        // We don't fail the whole request if only sync fails, but we could return a warning
+      }
+    }
+
     return NextResponse.json(newEvent[0]);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating event:', error);
-    return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create event', details: error.message }, { status: 500 });
   }
 }

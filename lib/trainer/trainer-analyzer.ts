@@ -1,4 +1,4 @@
-import { getOpenAIClient } from "@/lib/openai/client";
+import { getAIClient, getModelId } from "@/lib/ai/client";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -13,12 +13,13 @@ export class TrainerAnalyzer {
     }
 
     async analyzeCall(transcription: string) {
-        const client = getOpenAIClient();
+        const client = getAIClient('REASONING'); // Usamos DeepSeek para análisis profundo
+        const model = getModelId('REASONING');
 
         // 1. Agente 2: Metrics
         const metricsPrompt = `${this.getPrompt("metrics")}\n\nTRANSCRIPCIÓN:\n${transcription}`;
         const metricsRes = await client.chat.completions.create({
-            model: "gpt-4o",
+            model: model,
             messages: [{ role: "user", content: metricsPrompt }],
             response_format: { type: "json_object" },
         });
@@ -27,7 +28,7 @@ export class TrainerAnalyzer {
         // 2. Agente 3: Feedback
         const feedbackPrompt = `${this.getPrompt("feedback")}\n\nANÁLISIS PREVIO:\n${JSON.stringify(metricsData)}\n\nTRANSCRIPCIÓN:\n${transcription}`;
         const feedbackRes = await client.chat.completions.create({
-            model: "gpt-4o",
+            model: model,
             messages: [{ role: "user", content: feedbackPrompt }],
             response_format: { type: "json_object" },
         });

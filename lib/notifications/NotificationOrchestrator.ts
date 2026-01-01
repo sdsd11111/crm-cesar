@@ -2,7 +2,8 @@ import { db } from '@/lib/db';
 import { contacts, loyaltyMissions, whatsappLogs } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { planningEngine } from '@/lib/donna/services/PlanningEngine';
-import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
+import { whatsappManager } from '@/lib/whatsapp/WhatsAppManager';
+import { WHATSAPP_TEMPLATES } from '@/lib/whatsapp/templates';
 
 export class NotificationOrchestrator {
     /**
@@ -82,13 +83,10 @@ export class NotificationOrchestrator {
                     ? JSON.parse(mission.metadata)
                     : mission.metadata;
 
-                const message = this.buildMessage(contact, mission.content, metadata);
+                const { message, templateName, components } = this.preparePayload(contact, mission.content, metadata);
 
-                // Send WhatsApp
-                const response = await whatsappService.sendMessage(contact.phone, message, {
-                    ...metadata,
-                    missionId: mission.id
-                });
+                // Send via Smart Manager (Hybrid: Text or Template)
+                const response = await whatsappManager.smartSend(contact.id, message, templateName, components);
 
                 if (response.success) {
                     executionResults.success++;
@@ -109,23 +107,32 @@ export class NotificationOrchestrator {
     }
 
     /**
-     * Builds a message using "La Tribu" philosophy
+     * Prepares the payload for WhatsAppManager, deciding which template to use if needed.
      */
-    private buildMessage(contact: any, content: string, metadata: any): string {
+    private preparePayload(contact: any, content: string, metadata: any): { message: string, templateName?: string, components?: any[] } {
         const name = contact.contactName || contact.businessName || 'Estimado';
 
         switch (metadata.type) {
             case 'birthday':
-                return `¡Hola ${name}! 🦁 En La Tribu estamos de fiesta hoy porque es tu cumpleaños. Tu aporte a la manada es vital y te deseamos lo mejor en este nuevo ciclo. ¡Que sea un día espectacular! 🎉`;
+                return {
+                    message: `¡Hola ${name}! 🦁 En La Tribu estamos de fiesta hoy porque es tu cumpleaños. Tu aporte a la manada es vital y te deseamos lo mejor en este nuevo ciclo. ¡Que sea un día espectacular! 🎉`,
+                    templateName: WHATSAPP_TEMPLATES.BIRTHDAY.name,
+                    components: WHATSAPP_TEMPLATES.BIRTHDAY.buildComponents(name)
+                };
 
             case 'commitment_reminder':
-                return `Hola ${name}, te saluda Donna de Objetivo. 🛡️\n\nPasaba educadamente a recordarte sobre el compromiso: "${content}". Es clave para que sigamos avanzando con la fuerza de la tribu. ¿Lograste avanzar con esto?`;
-
-            case 'special_day':
-                return `¡Hola ${name}! 🦁 Hoy se celebra el Día del ${metadata.profession} y no quería dejar pasar la oportunidad de felicitarte. Profesionales como tú son los que fortalecen nuestra comunidad. ¡Felicidades!`;
+                return {
+                    message: `Hola ${name}, te saluda Donna de Objetivo. 🛡️\n\nPasaba educadamente a recordarte sobre el compromiso: "${content}". Es clave para que sigamos avanzando con la fuerza de la tribu. ¿Lograste avanzar con esto?`,
+                    templateName: WHATSAPP_TEMPLATES.COMMITMENT_REMINDER.name,
+                    components: WHATSAPP_TEMPLATES.COMMITMENT_REMINDER.buildComponents(name, content)
+                };
 
             default:
-                return `Hola ${name}, te saluda Donna. 🛡️\n\n${content}`;
+                return {
+                    message: `Hola ${name}, te saluda Donna. 🛡️\n\n${content}`,
+                    templateName: WHATSAPP_TEMPLATES.WELOCME_TRIBU.name, // Fallback template
+                    components: WHATSAPP_TEMPLATES.WELOCME_TRIBU.buildComponents(name)
+                };
         }
     }
 }

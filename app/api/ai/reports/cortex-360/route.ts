@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
-import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+import { getAIClient, getModelId } from '@/lib/ai/client';
 
 export async function POST(
     request: Request
@@ -64,7 +60,7 @@ export async function POST(
             .limit(5);
 
         // 3. Load prompt template
-        const promptPath = path.join(process.cwd(), 'lib', 'openai', 'prompts', 'prompt_cortex_360.md');
+        const promptPath = path.join(process.cwd(), 'lib', 'openai', 'prompts', 'prompt_cortex_360.md'); // Keep path for now if file exists there
         let promptTemplate = fs.readFileSync(promptPath, 'utf8');
 
         // 4. Fill placeholders
@@ -81,12 +77,16 @@ export async function POST(
             .replace('{{transactions}}', transactionsStr)
             .replace('{{contracts}}', contractsStr);
 
-        // 5. Stream from OpenAI
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+        // 5. Stream from AI (DeepSeek Reasoner)
+        const clientAI = getAIClient('REASONING');
+        const modelId = getModelId('REASONING');
+
+        console.log(`🧠 Cortex 360 Analysis using ${modelId}`);
+
+        const response = await clientAI.chat.completions.create({
+            model: modelId,
             messages: [
-                { role: 'system', content: 'Eres un consultor estratégico senior experto en CRM y crecimiento de negocios.' },
-                { role: 'user', content: promptTemplate }
+                { role: 'user', content: `Eres un consultor estratégico senior experto en CRM y crecimiento de negocios. Analiza lo siguiente:\n\n${promptTemplate}` }
             ],
             stream: true,
             temperature: 0.7,

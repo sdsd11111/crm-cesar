@@ -29,4 +29,11 @@ Este documento es la **fuente única de verdad** para cualquier instancia de Ant
 
 ## 5. Desarrollo Lean & DRY
 - **Componentes:** Si una lógica se usa en Lead y Cliente, **DEBE** ser un componente compartido en `components/shared/sales`. Prohibido el copy-paste de páginas completas.
-- **APIs:** Preferir rutas dinámicas que manejen el tipo de contacto en lugar de crear endpoints `api/leads` y `api/clients` idénticos.
+- **APIs:** Preferir rutas polimórficas (Ej: `/api/whatsapp/chats/[id]/details`) que manejen el `entityType` ('contact' o 'discovery') dinámicamente.
+- **Referencia UX:** La `app/whatsapp/page.tsx` es el estándar de oro para interfaces operativas de alta densidad.
+
+## 6. Consola de Operaciones 360° (UX Pro)
+- **Layout de 3 Columnas:** El centro operativo (WhatsApp) DEBE mantener una estructura de 3 niveles: Navegación (Izquierda), Conversación (Centro), e inteligencia de Negocio (Derecha).
+- **Ficha 360° Editable:** El panel derecho DEBE mostrar todos los campos de la DB mediante `Accordions` y permitir la edición in-situ sin navegación.
+- **Sincronización Obligatoria:** Todo agendamiento de eventos DEBE pasar por la sincronización de Google Calendar para centralizar la disponibilidad y generar links de Meet automáticamente.
+- **Propuestas IA:** La generación de estrategias debe compartir el contexto del `TrainerEngine` pero ejecutarse desde el panel de Seguimiento Pro.

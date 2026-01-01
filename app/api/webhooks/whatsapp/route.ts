@@ -109,7 +109,24 @@ export async function POST(req: Request) {
                         performedAt: new Date(),
                     });
                 } else {
-                    console.log(`ℹ️ Webhook Sync: Number ${from} not found in CRM.`);
+                    console.log(`ℹ️ Webhook Sync: Number ${from} not found. Creating Shadow Lead...`);
+                    // 3. AUTO-CREATE: NEW WHATSAPP LEAD
+                    const [newLead] = await db.insert(discoveryLeads).values({
+                        nombreComercial: `WhatsApp Link (${from})`,
+                        telefonoPrincipal: from,
+                        source: 'whatsapp_incoming',
+                        columna1: 'no_contactado',
+                        columna2: 'pendiente',
+                        status: 'pending'
+                    }).returning();
+
+                    await db.insert(interactions).values({
+                        discoveryLeadId: newLead.id,
+                        type: 'whatsapp',
+                        direction: 'inbound',
+                        content: text,
+                        performedAt: new Date(),
+                    });
                 }
             }
         }

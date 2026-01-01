@@ -170,7 +170,8 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
         try {
             const res = await fetch('/api/telegram/test', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: "🚀 *Test de Conexión Telegram*\n\nSi lees esto, el Bot está configurado correctamente." })
             });
             const data = await res.json();
             if (data.success) {

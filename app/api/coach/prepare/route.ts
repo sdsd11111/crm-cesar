@@ -191,11 +191,11 @@ export async function POST(req: Request) {
             ${contextData}
         `;
 
-        // 3. Generate using Balanced Model (Faster for templates)
-        console.log(`🤖 Strategy Coach Request (Fast/Balanced) for ${entityType} ${entityId}`);
+        // 3. Generate using Standard Model (Faster for templates)
+        console.log(`🤖 Strategy Coach Request (Fast/Standard) for ${entityType} ${entityId}`);
 
-        const client = getAIClient('BALANCED');
-        const model = getModelId('BALANCED');
+        const client = getAIClient('STANDARD');
+        const model = getModelId('STANDARD');
 
         const completion = await client.chat.completions.create({
             model: model,

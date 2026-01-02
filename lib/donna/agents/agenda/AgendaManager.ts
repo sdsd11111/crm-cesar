@@ -96,8 +96,32 @@ export class AgendaManager {
 
         // Construir Start/End Time
         const startDateTime = `${data.fecha}T${data.hora}:00-05:00`; // Asumiendo GMT-5
-        const startDate = new Date(startDateTime);
-        const endDate = new Date(startDate.getTime() + 60 * 60000); // 1 hora por defecto
+        let startDate = new Date(startDateTime);
+        let endDate = new Date(startDate.getTime() + 60 * 60000); // 1 hora por defecto
+
+        // 🕵️ SMART SCHEDULING: Verificar conflictos
+        const conflict = await this.checkConflict(startDate, endDate);
+        if (conflict) {
+            console.log(`⚠️ Conflict detected at ${format(startDate, 'HH:mm')}. Searching for next slot...`);
+            // Buscar siguiente hueco libre (simple: mirar cada 15 min por las próximas 2 horas)
+            let foundSlot = false;
+            for (let i = 1; i <= 8; i++) { // 8 * 15m = 2 horas
+                const nextStart = new Date(startDate.getTime() + 15 * 60000);
+                const nextEnd = new Date(nextStart.getTime() + 60 * 60000);
+                if (!(await this.checkConflict(nextStart, nextEnd))) {
+                    startDate = nextStart;
+                    endDate = nextEnd;
+                    foundSlot = true;
+                    break;
+                }
+                // Avanzar base para siguiente iteración
+                startDate = nextStart;
+            }
+
+            if (!foundSlot) {
+                return { reply: `❌ Está muy complicado tu día el ${data.fecha}. Intenté buscar hueco hasta 2 horas después de las ${data.hora} y todo está lleno.` };
+            }
+        }
 
         try {
             const event = await this.calendar.createEvent(
@@ -106,10 +130,35 @@ export class AgendaManager {
                 startDate.toISOString(),
                 endDate.toISOString()
             );
-            return { reply: `✅ Listo. Agendado: "${title}" para el ${data.fecha} a las ${data.hora}.\n🔗 Link: ${event.htmlLink}` };
+
+            const finalTime = format(startDate, 'HH:mm');
+            let replyMsg = `✅ Listo. Agendado: "${title}" para el ${data.fecha} a las ${finalTime}.`;
+            if (conflict) {
+                replyMsg = `⚠️ A las ${data.hora} estabas ocupado, así que busqué el siguiente hueco libre.\n` + replyMsg;
+            }
+            replyMsg += `\n🔗 Link: ${event.htmlLink}`;
+
+            return { reply: replyMsg };
         } catch (e) {
             console.error(e);
             return { reply: "❌ Hubo un error conectando con Google Calendar." };
+        }
+    }
+
+    /**
+     * Verifica si hay eventos que chocan en el rango dado
+     */
+    private async checkConflict(start: Date, end: Date): Promise<boolean> {
+        try {
+            // listEvents(timeMin, timeMax)
+            const events = await this.calendar.listEvents(
+                start.toISOString(),
+                end.toISOString()
+            );
+            return events && events.length > 0;
+        } catch (e) {
+            console.error('Error checking conflict:', e);
+            return false; // Asumir libre si falla para no bloquear
         }
     }
 

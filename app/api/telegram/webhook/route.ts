@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         const now = Math.floor(Date.now() / 1000);
         const age = now - messageDate;
 
-        if (age > 120) { // Si tiene más de 2 minutos
+        if (age > 600) { // Si tiene más de 10 minutos (Tolerancia aumentada por seguridad)
             console.warn(`⏳ Dropping old Telegram message (${age}s old). Stop retry storm.`);
             return NextResponse.json({ ok: true });
         }

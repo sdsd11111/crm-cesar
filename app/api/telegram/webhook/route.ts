@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AgendaManager } from '@/lib/donna/agents/agenda/AgendaManager';
-
-const agendaManager = new AgendaManager();
+import { cortexRouter } from '@/lib/donna/services/CortexRouterService';
 
 /**
  * Telegram Webhook Endpoint
@@ -51,14 +49,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ok: true });
         }
 
-        // 🧠 Proceso Aislado: Agenda Manager
-        // Si el texto es muy corto o saludo, podríamos ignorarlo, pero dejemos que el Router decida.
-        const result = await agendaManager.processInput(inputText, String(message.chat.id));
-
-        // Responder al usuario
-        if (result.reply) {
-            await sendTelegramMessage(result.reply, message.chat.id);
-        }
+        // 🧠 Cerebro Unificado: Cortex Router (Senior Edition)
+        const result = await cortexRouter.processInput({
+            text: inputText,
+            source: 'cesar', // Tratamos como el dueño por ahora
+            chatId: String(message.chat.id),
+            onReply: async (msg) => {
+                await sendTelegramMessage(msg, message.chat.id);
+            }
+        });
 
         return NextResponse.json({ ok: true });
     } catch (error) {

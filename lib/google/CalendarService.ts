@@ -19,12 +19,14 @@ export class GoogleCalendarService {
 
         if (credentialsVar) {
             try {
-                // If the variable is a JSON string, parse it
-                const credentials = JSON.parse(credentialsVar);
+                // Remove potential surrounding quotes from Vercel/Env variables
+                const cleanCredentials = credentialsVar.trim().replace(/^['"]|['"]$/g, '');
+                const credentials = JSON.parse(cleanCredentials);
                 authOptions.credentials = credentials;
                 console.log('🔐 [GoogleCalendarService] Using credentials from environment variable');
             } catch (e) {
                 console.error('❌ [GoogleCalendarService] Error parsing GOOGLE_CALENDAR_CREDENTIALS:', e);
+                // Fallback to local if env exists but is invalid (though in Vercel it will fail anyway)
                 authOptions.keyFile = KEY_FILE_PATH;
             }
         } else {

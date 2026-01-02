@@ -64,30 +64,38 @@ export function CalendarBookingButton() {
             */}
             <div
                 id="calendar-booking-target"
-                className="fixed right-0 top-1/2 -translate-y-1/2 z-[99999] transition-all duration-300 hover:mr-2"
-                style={{
-                    transform: 'translateY(-50%) rotate(-90deg)',
-                    transformOrigin: 'right bottom',
-                    marginBottom: '-100px', // Compensar la rotación
-                    marginRight: '-10px'
-                }}
+                className="fixed right-0 top-1/2 -translate-y-1/2 z-[99999]"
             />
 
             <style jsx global>{`
-                /* REGLAS BRUTALES PARA FORZAR EL DISEÑO DE GOOGLE */
                 #calendar-booking-target button {
-                    border-radius: 12px 12px 0 0 !important;
-                    padding: 12px 24px !important;
-                    font-weight: 900 !important;
-                    letter-spacing: 0.1em !important;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
-                    border: 1px solid rgba(255,255,255,0.2) !important;
+                    all: unset !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    writing-mode: vertical-rl !important;
+                    text-orientation: mixed !important;
                     background-color: #039BE5 !important;
-                    white-space: nowrap !important;
+                    color: white !important;
+                    padding: 30px 10px !important;
+                    border-radius: 16px 0 0 16px !important;
+                    font-weight: 900 !important;
+                    letter-spacing: 0.15em !important;
+                    text-transform: uppercase !important;
+                    cursor: pointer !important;
+                    transition: all 0.3s ease !important;
+                    box-shadow: -4px 0 20px rgba(0,0,0,0.3) !important;
+                    border: 1px solid rgba(255,255,255,0.2) !important;
+                    font-size: 11px !important;
+                    height: 160px !important;
                 }
                 #calendar-booking-target button:hover {
                     background-color: #0288d1 !important;
-                    padding-top: 16px !important;
+                    padding-right: 20px !important;
+                    box-shadow: -6px 0 25px rgba(3,155,229,0.5) !important;
+                }
+                #calendar-booking-target button:active {
+                    scale: 0.95;
                 }
             `}</style>
         </>

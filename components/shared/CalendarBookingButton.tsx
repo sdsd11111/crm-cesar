@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { Calendar, ChevronLeft } from 'lucide-react';
+import Script from 'next/script';
+import { Calendar } from 'lucide-react';
 
 export function CalendarBookingButton() {
     const pathname = usePathname();
     const [isVisible, setIsVisible] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
+    const hasInitialized = useRef(false);
 
     const calendarUrl = 'https://calendar.google.com/calendar/appointments/schedules/AcZssZ26I1xUXME05ewbX_aF1rah4KP__6M_4ggFuYF9PRDFS-QbZdI_ufh8igfJAKUopDDJ8iOl6W0b?gv=true';
 
@@ -15,19 +16,55 @@ export function CalendarBookingButton() {
     useEffect(() => {
         const allowedPaths = ['/trainer', '/leads', '/clients', '/whatsapp', '/discovery'];
         const isAllowed = allowedPaths.some(path => pathname.startsWith(path));
+        console.log('📅 [Calendar] Page:', pathname, 'Visible:', isAllowed);
         setIsVisible(isAllowed);
     }, [pathname]);
 
-    const handleOpenCalendar = () => {
-        // Opción 1: Abrir en pestaña nueva (la más fiable del mundo)
-        window.open(calendarUrl, '_blank');
+    // Initialize Google Script functionality
+    useEffect(() => {
+        if (!isVisible || hasInitialized.current) return;
 
-        // Opción 2: Intentar disparar el modal de Google si el script cargó por debajo
-        try {
-            const googleBtn = document.querySelector('#google-hidden-trigger button');
-            if (googleBtn) (googleBtn as HTMLElement).click();
-        } catch (e) {
-            console.warn("Google modal trigger failed, fallback to new tab used.");
+        const init = () => {
+            if (hasInitialized.current) return;
+
+            if (typeof window !== 'undefined' && (window as any).calendar?.schedulingButton) {
+                const target = document.getElementById('google-popup-hidden-v2');
+                if (target) {
+                    console.log('📅 [Calendar] Injecting hidden Google trigger...');
+                    (window as any).calendar.schedulingButton.load({
+                        url: calendarUrl,
+                        target,
+                        label: 'TRIGGER', // Needed for Google to create the element
+                    });
+                    hasInitialized.current = true;
+                }
+            }
+        };
+
+        const timer = setInterval(init, 1000);
+        return () => clearInterval(timer);
+    }, [isVisible]);
+
+    const handleOpenCalendar = () => {
+        // Try to trigger the official Google Modal (the best experience)
+        const googleBtn = document.querySelector('#google-popup-hidden-v2 button');
+
+        if (googleBtn) {
+            console.log('📅 [Calendar] Triggering Google Modal overlay');
+            (googleBtn as HTMLElement).click();
+        } else {
+            // Fallback: Centered Popup Window (not a new tab)
+            console.log('📅 [Calendar] Fallback to Window Popup');
+            const width = 850;
+            const height = 750;
+            const left = (window.innerWidth / 2) - (width / 2);
+            const top = (window.innerHeight / 2) - (height / 2);
+
+            window.open(
+                calendarUrl,
+                'ReservaObjetivo',
+                `width=${width},height=${height},top=${top},left=${left},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+            );
         }
     };
 
@@ -35,50 +72,33 @@ export function CalendarBookingButton() {
 
     return (
         <>
-            {/* Carga silenciosa del script de Google por si acaso funciona el modal */}
-            <script
+            {/* Load official Google CSS & Script */}
+            <link href="https://calendar.google.com/calendar/scheduling-button-script.css" rel="stylesheet" />
+            <Script
                 src="https://calendar.google.com/calendar/scheduling-button-script.js"
-                async
-                onLoad={() => {
-                    if ((window as any).calendar?.schedulingButton) {
-                        (window as any).calendar.schedulingButton.load({
-                            url: calendarUrl,
-                            color: '#039BE5',
-                            label: 'Cita',
-                            target: document.getElementById('google-hidden-trigger'),
-                        });
-                    }
-                }}
+                strategy="afterInteractive"
             />
-            <div id="google-hidden-trigger" className="hidden pointer-events-none opacity-0" />
 
-            {/* PESTAÑA LATERAL 100% REACT (VISIBLE SIEMPRE) */}
+            {/* Hidden target that will contain the Google logic */}
             <div
-                className="fixed right-0 top-1/2 -translate-y-1/2 z-[999999] flex items-center transition-all duration-300"
-                style={{ transform: `translateY(-50%) translateX(${isHovered ? '0' : '5px'})` }}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-            >
-                <button
-                    onClick={handleOpenCalendar}
-                    className="flex items-center gap-3 bg-[#039BE5] hover:bg-[#0288d1] text-white py-8 px-3 rounded-l-2xl shadow-[-5px_0_30px_rgba(0,0,0,0.5)] border-y border-l border-white/30 group active:scale-95 transition-all"
-                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                >
-                    <div className="flex flex-col items-center gap-4 rotate-180">
-                        <div className="p-1.5 bg-white/20 rounded-lg group-hover:bg-white/40 transition-colors">
-                            <Calendar className="h-5 w-5 -rotate-90" />
-                        </div>
-                        <span className="text-[11px] font-black uppercase tracking-[0.3em] whitespace-nowrap">
-                            Agendar Cita
-                        </span>
-                    </div>
-                </button>
+                id="google-popup-hidden-v2"
+                className="fixed -left-[2000px] pointer-events-none opacity-0 invisible overflow-hidden h-0 w-0"
+            />
 
-                {/* Indicador de flecha */}
-                <div className={`absolute left-0 -ml-2 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-                    <ChevronLeft className="h-6 w-6 text-[#039BE5] animate-pulse" />
+            {/* Premium Side Tab Button */}
+            <button
+                id="main-calendar-side-tab"
+                onClick={handleOpenCalendar}
+                className="fixed right-0 top-1/2 -translate-y-1/2 z-[999999] flex items-center justify-center bg-[#039BE5] hover:bg-[#0288d1] text-white py-10 px-3 rounded-l-2xl shadow-[-5px_0_30px_rgba(0,0,0,0.5)] border-y border-l border-white/40 group active:scale-95 transition-all"
+                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+            >
+                <div className="flex flex-col items-center gap-4 rotate-180">
+                    <Calendar className="h-6 w-6 -rotate-90 group-hover:scale-110 transition-transform" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.4em] whitespace-nowrap">
+                        Agendar Cita
+                    </span>
                 </div>
-            </div>
+            </button>
         </>
     );
 }

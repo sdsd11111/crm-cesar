@@ -12,15 +12,27 @@ export class GoogleCalendarService {
     private calendarId: string;
 
     constructor(calendarId: string = 'primary') {
-        // If using a service account with domain-wide delegation, you might need to impersonate a user.
-        // However, for simple sharing (User shares calendar with Service Account Email),
-        // we just use the Service Account Auth directly.
-
-        const auth = new google.auth.GoogleAuth({
-            keyFile: KEY_FILE_PATH,
+        const credentialsVar = process.env.GOOGLE_CALENDAR_CREDENTIALS;
+        let authOptions: any = {
             scopes: SCOPES,
-        });
+        };
 
+        if (credentialsVar) {
+            try {
+                // If the variable is a JSON string, parse it
+                const credentials = JSON.parse(credentialsVar);
+                authOptions.credentials = credentials;
+                console.log('🔐 [GoogleCalendarService] Using credentials from environment variable');
+            } catch (e) {
+                console.error('❌ [GoogleCalendarService] Error parsing GOOGLE_CALENDAR_CREDENTIALS:', e);
+                authOptions.keyFile = KEY_FILE_PATH;
+            }
+        } else {
+            console.log('📄 [GoogleCalendarService] Using credentials from local file:', KEY_FILE_PATH);
+            authOptions.keyFile = KEY_FILE_PATH;
+        }
+
+        const auth = new google.auth.GoogleAuth(authOptions);
         this.calendar = google.calendar({ version: 'v3', auth });
         this.calendarId = calendarId;
     }

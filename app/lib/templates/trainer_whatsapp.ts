@@ -1,25 +1,34 @@
 export const TRAINER_WHATSAPP_TEMPLATES = {
-    owner: (contactName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
-Tal como conversamos por teléfono, le comparto aquí la información.
+    owner: (contactName: string, businessName: string = '((HOTEL))') => `Hola ${contactName || '((NOMBRE))'}, un gusto saludarle 😊
+Tal como conversamos, le comparto la información de la reunión:
+((PEGAR LA INFORMACIÓN DEL AGENDAMIENTO))
 
-En el enlace encontrará un video corto donde explico, de forma clara y práctica, cómo algunos hoteles están captando huéspedes nacionales y extranjeros y aumentando sus reservas directas, aprovechando su reputación en Google.
+Importante:
+En Objetivo ayudamos a alojamientos como ${businessName}
+a no perder todas las comisiones que normalmente pagan a plataformas,
+captando más reservas directas desde Google.
 
-Revíselo con calma y, por favor, no dude en escribirme si le surge cualquier duda.
-Un saludo desde Loja,
-César Reyes
+Saludos,
+César Reyes`,
 
-👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
+    receptionist: (businessName: string = '((HOTEL))') => `Hola, buen día 😊
+Tal como conversamos por teléfono,
+en Objetivo ayudamos a alojamientos como ${businessName}
+a reducir las comisiones que pagan a plataformas,
+captando más reservas directas desde Google.
 
-    receptionist: () => `Hola, buen día 😊
-Tal como conversamos por teléfono, le comparto este video corto (2 minutos) donde explico cómo algunos hoteles en Ecuador están captando más reservas directas desde Google, reduciendo la dependencia de plataformas.
+Para que puedan revisar la propuesta,
+le dejo mi página web:
+👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video
 
-👉 Este mensaje puede reenviarlo directamente al propietario o a la persona encargada del hotel.
+Este mensaje puede reenviarlo directamente
+al propietario o a la persona encargada del hotel.
 
-Si lo consideran interesante, con gusto lo revisamos aplicado específicamente a su hotel.
+Si lo consideran interesante,
+con gusto lo revisamos aplicado específicamente a su hotel.
+
 Muchas gracias por su apoyo 🙏
-César Reyes
-
-👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`,
+César Reyes`,
 
     no_answer: (contactName: string, businessName: string) => `Hola ${contactName || '((NOMBRE))'}, buen día 😊
 Intenté contactarle hace un momento,

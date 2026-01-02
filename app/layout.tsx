@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   generator: "v0.app",
 }
 
+import { CalendarBookingButton } from "@/components/shared/CalendarBookingButton"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,6 +35,7 @@ export default function RootLayout({
       <body className="font-poppins bg-gray-900 text-white" suppressHydrationWarning>
         {children}
         <AIChatDrawer />
+        <CalendarBookingButton />
         <Toaster />
       </body>
     </html>

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cortexRouter } from '@/lib/donna/services/CortexRouterService';
+import { AgendaManager } from '@/lib/donna/agents/agenda/AgendaManager';
+
+const agendaManager = new AgendaManager();
 
 /**
  * Telegram Webhook Endpoint
@@ -16,28 +18,32 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ok: true });
         }
 
+        // 🛡️ FAST ACK & DROP: Detener tormenta de reintentos
+        const messageDate = message.date; // Unix timestamp
+        const now = Math.floor(Date.now() / 1000);
+        const age = now - messageDate;
+
+        if (age > 120) { // Si tiene más de 2 minutos
+            console.warn(`⏳ Dropping old Telegram message (${age}s old). Stop retry storm.`);
+            return NextResponse.json({ ok: true });
+        }
+
         // Extract text or voice message
         let inputText = '';
-        let source: 'cesar' | 'client' = 'cesar'; // Default to César
 
         if (message.text) {
             inputText = message.text;
         } else if (message.voice) {
             // Download and transcribe voice message
             const fileId = message.voice.file_id;
-            const duration = message.voice.duration;
-
-            console.log(`🎤 Received voice message (${duration}s)`);
-
-            // Send "processing" message to user
-            await sendTelegramMessage('🎤 Procesando audio...');
-
+            // Send "processing" message (Solo si es nuevo)
+            await sendTelegramMessage('🎤 Procesando audio...', message.chat.id);
             const transcription = await transcribeVoice(fileId);
             inputText = transcription;
 
             // Send transcription confirmation
             if (!transcription.startsWith('[Error')) {
-                await sendTelegramMessage(`📝 Transcripción: "${transcription}"`);
+                await sendTelegramMessage(`📝 Transcripción: "${transcription}"`, message.chat.id);
             }
         }
 
@@ -45,20 +51,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ok: true });
         }
 
-        // Process with Cortex Router
-        // Process with Cortex Router
-        const result = await cortexRouter.processInput({
-            text: inputText,
-            source,
-            chatId: message.chat?.id ? String(message.chat.id) : undefined
-        });
+        // 🧠 Proceso Aislado: Agenda Manager
+        // Si el texto es muy corto o saludo, podríamos ignorarlo, pero dejemos que el Router decida.
+        const result = await agendaManager.processInput(inputText, String(message.chat.id));
 
-        console.log('📥 Telegram message processed:', result);
+        // Responder al usuario
+        if (result.reply) {
+            await sendTelegramMessage(result.reply, message.chat.id);
+        }
 
-        return NextResponse.json({ ok: true, result });
+        return NextResponse.json({ ok: true });
     } catch (error) {
         console.error('❌ Telegram Webhook Error:', error);
-        return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+        return NextResponse.json({ ok: true }); // Siempre OK para que Telegram no reintente
     }
 }
 
@@ -140,12 +145,13 @@ async function transcribeVoice(fileId: string): Promise<string> {
     }
 }
 
-async function sendTelegramMessage(text: string): Promise<void> {
+async function sendTelegramMessage(text: string, chatId?: number | string): Promise<void> {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    // Si no pasan chatId, usamos el de env (fallback), pero idealmente debe venir del mensaje
+    const finalChatId = chatId || process.env.TELEGRAM_CHAT_ID;
 
-    if (!botToken || !chatId) {
-        console.warn('⚠️ Telegram credentials not configured');
+    if (!botToken || !finalChatId) {
+        console.warn('⚠️ Telegram credentials not configured or chatId missing');
         return;
     }
 
@@ -154,7 +160,7 @@ async function sendTelegramMessage(text: string): Promise<void> {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                chat_id: chatId,
+                chat_id: finalChatId,
                 text: text,
             }),
         });

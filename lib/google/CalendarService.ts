@@ -78,15 +78,16 @@ export class GoogleCalendarService {
         }
     }
 
-    async listEvents(maxResults: number = 10) {
-        const now = new Date();
+    async listEvents(timeMin?: string, timeMax?: string, maxResults: number = 10) {
+        const now = new Date().toISOString();
         const res = await this.calendar.events.list({
             calendarId: this.calendarId,
-            timeMin: now.toISOString(),
+            timeMin: timeMin || now,
+            timeMax: timeMax,
             maxResults,
             singleEvents: true,
             orderBy: 'startTime',
         });
-        return res.data.items;
+        return res.data.items || [];
     }
 }

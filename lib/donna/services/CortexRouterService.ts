@@ -128,16 +128,17 @@ export class CortexRouterService {
         const prompt = `${this.promptTemplate}\n\n---\n\nINPUT:\n${textToAnalyze}`;
 
         try {
-            // USAR MODELO DE RAZONAMIENTO (AI STRATEGY MAP)
-            const aiClient = getAIClient('REASONING');
-            const modelId = getModelId('REASONING');
+            // USAR MODELO ESTÁNDAR (GPT-4o) PARA VELOCIDAD EN TIEMPO REAL
+            // DeepSeek R1 (Reasoning) es demasiado lento para chats interactivos (timeouts).
+            const aiClient = getAIClient('STANDARD');
+            const modelId = getModelId('STANDARD');
 
             console.log(`🧠 Invoking Cortex Brain with model: ${modelId}`);
 
             const response = await aiClient.chat.completions.create({
-                model: modelId, // deepseek-reasoner
+                model: modelId,
                 messages: [{ role: 'user', content: prompt }],
-                temperature: 0.3
+                temperature: 0, // Deterministic for router
             });
 
             const content = response.choices[0]?.message?.content || "{}";

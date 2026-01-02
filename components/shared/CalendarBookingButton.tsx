@@ -19,10 +19,18 @@ export function CalendarBookingButton() {
     useEffect(() => {
         if (!isVisible) return;
 
+        let isInitialized = false;
+
         const initCalendar = () => {
+            if (isInitialized) return;
+
             if (typeof window !== 'undefined' && (window as any).calendar && (window as any).calendar.schedulingButton) {
                 const target = document.getElementById('calendar-booking-container');
-                if (target && target.innerHTML === '') {
+
+                // Extra check: only if it exists and is empty
+                if (target && target.children.length === 0) {
+                    console.log('📅 [CalendarBookingButton] Initializing...');
+                    isInitialized = true;
                     (window as any).calendar.schedulingButton.load({
                         url: 'https://calendar.google.com/calendar/appointments/schedules/AcZssZ26I1xUXME05ewbX_aF1rah4KP__6M_4ggFuYF9PRDFS-QbZdI_ufh8igfJAKUopDDJ8iOl6W0b?gv=true',
                         color: '#039BE5',
@@ -33,9 +41,20 @@ export function CalendarBookingButton() {
             }
         };
 
-        // Check every second if not initialized
-        const timer = setInterval(initCalendar, 1000);
-        return () => clearInterval(timer);
+        // Check every 500ms, but the flag prevents double work
+        const timer = setInterval(() => {
+            if (isInitialized) {
+                clearInterval(timer);
+                return;
+            }
+            initCalendar();
+        }, 500);
+
+        return () => {
+            clearInterval(timer);
+            const target = document.getElementById('calendar-booking-container');
+            if (target) target.innerHTML = '';
+        };
     }, [isVisible]);
 
     if (!isVisible) return null;

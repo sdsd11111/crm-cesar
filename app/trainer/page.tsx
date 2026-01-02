@@ -877,9 +877,9 @@ export default function TrainerPage() {
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
                                         { id: 'asesor', label: 'DUEÑO', icon: User },
+                                        { id: 'contencion', label: 'ENOJADO', icon: ShieldAlert },
                                         { id: 'consultor', label: 'RECEPCIÓN', icon: Building },
-                                        { id: 'vendedor', label: 'OCUPADO', icon: Zap },
-                                        { id: 'contencion', label: 'ENOJADO', icon: ShieldAlert }
+                                        { id: 'workshop', label: 'WORKSHOP', icon: Sparkles }
                                     ].map((mode) => (
                                         <button
                                             key={mode.id}
@@ -1227,46 +1227,8 @@ export default function TrainerPage() {
                                                     <BrainCircuit className="h-6 w-6 text-purple-400" />
                                                 </div>
                                                 <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">
-                                                    Genera una propuesta personalizada basada en la investigación del
+                                                    Genera una propuesta personalizada basada en la investigación del prospecto.
                                                 </p>
-                                                {/* MODES */}
-                                                <div className="grid grid-cols-4 gap-2">
-                                                    <Button
-                                                        variant={prepMode === 'asesor' ? 'default' : 'outline'}
-                                                        className={cn("flex flex-col items-center justify-center p-2 h-auto rounded-xl transition-all border-2", prepMode === 'asesor' ? "bg-blue-600 border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.3)]" : "hover:border-blue-200")}
-                                                        onClick={() => setPrepMode('asesor')}
-                                                    >
-                                                        <User className="h-5 w-5 mb-1" />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter">Dueño</span>
-                                                    </Button>
-
-                                                    <Button
-                                                        variant={prepMode === 'contencion' ? 'default' : 'outline'}
-                                                        className={cn("flex flex-col items-center justify-center p-2 h-auto rounded-xl transition-all border-2", prepMode === 'contencion' ? "bg-red-600 border-red-400 shadow-[0_0_15px_rgba(220,38,38,0.3)]" : "hover:border-red-200")}
-                                                        onClick={() => setPrepMode('contencion')}
-                                                    >
-                                                        <ShieldAlert className="h-5 w-5 mb-1" />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter">Enojado</span>
-                                                    </Button>
-
-                                                    <Button
-                                                        variant={prepMode === 'consultor' ? 'default' : 'outline'}
-                                                        className={cn("flex flex-col items-center justify-center p-2 h-auto rounded-xl transition-all border-2", prepMode === 'consultor' ? "bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(79,70,229,0.3)]" : "hover:border-indigo-200")}
-                                                        onClick={() => setPrepMode('consultor')}
-                                                    >
-                                                        <Building className="h-5 w-5 mb-1" />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter">Recepción</span>
-                                                    </Button>
-
-                                                    <Button
-                                                        variant={prepMode === 'workshop' ? 'default' : 'outline'}
-                                                        className={cn("flex flex-col items-center justify-center p-2 h-auto rounded-xl transition-all border-2", prepMode === 'workshop' ? "bg-amber-600 border-amber-400 shadow-[0_0_15px_rgba(217,119,6,0.3)]" : "hover:border-amber-200")}
-                                                        onClick={() => setPrepMode('workshop')}
-                                                    >
-                                                        <Sparkles className="h-5 w-5 mb-1" />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter">Workshop</span>
-                                                    </Button>
-                                                </div>
                                                 <Button
                                                     onClick={handleGenerateProposal}
                                                     disabled={isGeneratingProposal || !selectedLead}

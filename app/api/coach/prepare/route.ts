@@ -191,36 +191,36 @@ export async function POST(req: Request) {
             ${contextData}
         `;
 
-        // 3. Generate using DeepSeek Reasoning (Coach Estratega)
-        console.log(`🤖 Strategy Coach Request (DeepSeek) for ${entityType} ${entityId}`);
+        // 3. Generate using Balanced Model (Faster for templates)
+        console.log(`🤖 Strategy Coach Request (Fast/Balanced) for ${entityType} ${entityId}`);
 
-        const client = getAIClient('REASONING');
-        const model = getModelId('REASONING');
+        const client = getAIClient('BALANCED');
+        const model = getModelId('BALANCED');
 
         const completion = await client.chat.completions.create({
             model: model,
             messages: [
                 { role: 'user', content: finalPrompt }
             ],
-            // DeepSeek doesn't support json_object mode in all endpoints, but we'll try to parse whatever comes out
-            // For reasoning model, we usually prompt for JSON and parse.
+            response_format: { type: "json_object" }
         });
 
         const text = completion.choices[0].message.content || "{}";
-        console.log('✅ DeepSeek Response received');
+        console.log('✅ AI Response received');
 
         // 4. Parse JSON
-        // Find JSON block first
-        const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const jsonStartIndex = cleaned.indexOf('{');
-        const jsonEndIndex = cleaned.lastIndexOf('}');
-
-        let finalJsonStr = cleaned;
-        if (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) {
-            finalJsonStr = cleaned.substring(jsonStartIndex, jsonEndIndex + 1);
+        let jsonResponse;
+        try {
+            jsonResponse = JSON.parse(text);
+        } catch (e) {
+            console.warn('⚠️ JSON direct parse failed, trying extraction');
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) {
+                jsonResponse = JSON.parse(match[0]);
+            } else {
+                throw new Error('Could not parse AI response as JSON');
+            }
         }
-
-        const jsonResponse = JSON.parse(finalJsonStr);
 
         return NextResponse.json(jsonResponse);
 
@@ -229,7 +229,13 @@ export async function POST(req: Request) {
         return NextResponse.json(
             {
                 error: 'Failed to generate coach response',
-                details: error.message
+                details: error.message,
+                pitches: {
+                    asesor: "Error: No se pudo generar el pitch.",
+                    contencion: "Error: No se pudo generar el pitch.",
+                    consultor: "Error: No se pudo generar el pitch.",
+                    workshop: "Error: No se pudo generar el pitch."
+                }
             },
             { status: 500 }
         );

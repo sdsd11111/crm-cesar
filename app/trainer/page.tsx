@@ -515,12 +515,19 @@ export default function TrainerPage() {
                     entityType: selectedLead.source
                 })
             });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`API Error: ${res.status} - ${errorText}`);
+            }
+
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             setPrepResult(data);
             toast.success("Estrategia generada");
-        } catch (error) {
-            toast.error("Error generando estrategia");
+        } catch (error: any) {
+            console.error("Coach Prep Failure:", error);
+            toast.error(`Error generando estrategia: ${error.message}`);
         } finally {
             setIsPreparing(false);
         }
@@ -955,15 +962,17 @@ export default function TrainerPage() {
                                     {prepResult.disparadores?.map((d: any, i: number) => (
                                         <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
                                             <CardHeader className="p-3 pb-1">
-                                                <CardTitle className="text-[9px] uppercase font-black text-indigo-400 truncate">{d.titulo}</CardTitle>
+                                                <CardTitle className="text-[9px] uppercase font-black text-indigo-400 truncate">{d.titulo || 'MANTRA'}</CardTitle>
                                             </CardHeader>
                                             <CardContent className="p-3 pt-1">
                                                 <div className="flex flex-wrap gap-1">
-                                                    {d.keywords.map((kw: string, j: number) => (
+                                                    {Array.isArray(d.keywords) ? d.keywords.map((kw: string, j: number) => (
                                                         <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[8px] px-1 py-0">
                                                             {kw}
                                                         </Badge>
-                                                    ))}
+                                                    )) : (
+                                                        <span className="text-[8px] text-indigo-300/50 italic">Analizando...</span>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>

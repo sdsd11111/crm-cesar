@@ -119,7 +119,9 @@ Devuelve un JSON con esta estructura exacta:
     "whatsapp_dueño": "Hola ((NOMBRE))... como conversamos, ahorro 10-20%...",
     "whatsapp_recep": "Hola... como conversamos por tel, ayudamos a ((HOTEL))..."
   },
-  "disparadores": [ ... ]
+  "disparadores": [
+    { "titulo": "TÍTULO CORTO", "keywords": ["palabra1", "palabra2"] }
+  ]
 }
 `;
 

@@ -689,3 +689,16 @@ export const whatsappLogs = pgTable('whatsapp_logs', {
   metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+// ============================================
+// CHAT HISTORY (Long-term Memory & debugging)
+// ============================================
+export const donnaChatMessages = pgTable('donna_chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  chatId: text('chat_id').notNull(), // Telegram/Whatsapp ID
+  role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
+  content: text('content').notNull(),
+  platform: text('platform', { enum: ['telegram', 'whatsapp'] }).default('telegram'),
+  messageTimestamp: timestamp('message_timestamp').defaultNow().notNull(), // Unified Context Timestamp
+  metadata: jsonb('metadata').default({}), // For Intent, debugging info
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

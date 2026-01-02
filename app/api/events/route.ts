@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     // 2. Optional Google Calendar Sync
     if (googleSync) {
       try {
-        const calendar = new GoogleCalendarService();
+        const calendar = new GoogleCalendarService('objetivo.cesar@gmail.com');
         await calendar.createEvent(
           eventData.title,
           eventData.description || 'Agendado desde CRM Objetivo',

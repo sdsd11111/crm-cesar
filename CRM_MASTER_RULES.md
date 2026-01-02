@@ -37,3 +37,9 @@ Este documento es la **fuente única de verdad** para cualquier instancia de Ant
 - **Ficha 360° Editable:** El panel derecho DEBE mostrar todos los campos de la DB mediante `Accordions` y permitir la edición in-situ sin navegación.
 - **Sincronización Obligatoria:** Todo agendamiento de eventos DEBE pasar por la sincronización de Google Calendar para centralizar la disponibilidad y generar links de Meet automáticamente.
 - **Propuestas IA:** La generación de estrategias debe compartir el contexto del `TrainerEngine` pero ejecutarse desde el panel de Seguimiento Pro.
+
+## 7. Manejo Unificado de Tiempo (Zonas Horarias)
+- **Timezone de Operación:** El CRM opera estrictamente bajo `America/Guayaquil` (UTC-5).
+- **Consistencia de Datos:** Todas las fechas mostradas en UI, procesadas por IA (Donna) o filtradas en DB deben ser normalizadas a esta zona horaria usando `date-fns-tz`.
+- **Parsing de IA:** Los motores de procesamiento (Cortex, Planning) DEBEN recibir la fecha y hora actual de Ecuador en cada prompt para evitar desvíos temporales ("Ayer" vs "Hoy").
+- **Historial:** Al consultar historial conversacional, el filtro de "Mismo Día" debe calcularse basándose en el calendario de Ecuador, no en la zona horaria del servidor (que suele ser UTC).

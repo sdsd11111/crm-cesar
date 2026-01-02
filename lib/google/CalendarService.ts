@@ -42,20 +42,24 @@ export class GoogleCalendarService {
         attendees: string[] = [],
         timeZone: string = 'America/Guayaquil'
     ) {
+        const eventBody = {
+            summary,
+            description,
+            start: {
+                dateTime: startTime,
+                timeZone: timeZone,
+            },
+            end: {
+                dateTime: endTime,
+                timeZone: timeZone,
+            },
+            attendees: attendees.map((email) => ({ email })),
+        };
+
         try {
-            const event = {
-                summary,
-                description,
-                start: {
-                    dateTime: startTime,
-                    timeZone: timeZone,
-                },
-                end: {
-                    dateTime: endTime,
-                    timeZone: timeZone,
-                },
-                attendees: attendees.map((email) => ({ email })),
-                // Add Google Meet link automatically if conferenceDataVersion is 1
+            // Intento 1: Crear con Google Meet
+            const eventWithMeet = {
+                ...eventBody,
                 conferenceData: {
                     createRequest: {
                         requestId: Math.random().toString(36).substring(7),
@@ -66,13 +70,27 @@ export class GoogleCalendarService {
 
             const res = await this.calendar.events.insert({
                 calendarId: this.calendarId,
-                requestBody: event,
-                conferenceDataVersion: 1, // Request Meet link generation
+                requestBody: eventWithMeet,
+                conferenceDataVersion: 1,
             });
 
-            console.log('Event created: %s', res.data.htmlLink);
+            console.log('Event created with Meet: %s', res.data.htmlLink);
             return res.data;
-        } catch (error) {
+        } catch (error: any) {
+            // Si falla por configuración de conferencia (400), reintentar sin Meet
+            if (error.code === 400 || error.message?.includes('conference')) {
+                console.warn('⚠️ Falló creación con Meet, reintentando evento simple...', error.message);
+
+                const res = await this.calendar.events.insert({
+                    calendarId: this.calendarId,
+                    requestBody: eventBody,
+                    // Sin conferenceDataVersion
+                });
+
+                console.log('Event created (Simple): %s', res.data.htmlLink);
+                return res.data;
+            }
+
             console.error('Error creating event in Google Calendar:', error);
             throw error;
         }
@@ -89,5 +107,19 @@ export class GoogleCalendarService {
             orderBy: 'startTime',
         });
         return res.data.items || [];
+    }
+
+    async deleteEvent(eventId: string) {
+        try {
+            await this.calendar.events.delete({
+                calendarId: this.calendarId,
+                eventId: eventId,
+            });
+            console.log('Event deleted: %s', eventId);
+            return true;
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            throw error;
+        }
     }
 }

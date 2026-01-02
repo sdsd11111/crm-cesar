@@ -231,8 +231,6 @@ export default function DiscoveryPage() {
         clasificacion: [] as string[],
         columna1: [] as string[],
         columna2: [] as string[],
-        web: '',
-        email: '',
         search: '',
         status: [] as string[]
     });
@@ -296,8 +294,6 @@ export default function DiscoveryPage() {
             if (filters.status && filters.status.length > 0) params.append('status', filters.status.join(','));
             if (filters.columna1 && filters.columna1.length > 0) params.append('columna1', filters.columna1.join(','));
             if (filters.columna2 && filters.columna2.length > 0) params.append('columna2', filters.columna2.join(','));
-            if (filters.web) params.append('web', filters.web);
-            if (filters.email) params.append('email', filters.email);
             if (filters.search) params.append('search', filters.search);
             params.append('page', (pagination?.page || 1).toString());
             params.append('limit', (pagination?.limit || 50).toString());
@@ -396,8 +392,6 @@ export default function DiscoveryPage() {
             clasificacion: [],
             columna1: [],
             columna2: [],
-            web: '',
-            email: '',
             search: '',
             status: []
         });
@@ -419,8 +413,17 @@ export default function DiscoveryPage() {
 
     const activeFiltersCount = Object.entries(filters).filter(([key, value]) => {
         if (Array.isArray(value)) return value.length > 0;
-        return value !== '' && value !== 'all';
+        return value !== '';
     }).length;
+
+    const statusOptions = ["Pendiente", "Investigado", "No contestó", "Contestó / Interesado", "Contestó / No interesa hoy"];
+    const selectedStatusLabels = [
+        ...(filters.status.includes('pending') ? ["Pendiente"] : []),
+        ...(filters.status.includes('investigated') ? ["Investigado"] : []),
+        ...(filters.columna1.includes('no_contesto') ? ["No contestó"] : []),
+        ...(filters.columna1.includes('contesto_interesado') ? ["Contestó / Interesado"] : []),
+        ...(filters.columna1.includes('contesto_no_interesado') ? ["Contestó / No interesa hoy"] : []),
+    ];
 
     return (
         <DashboardLayout>
@@ -514,8 +517,7 @@ export default function DiscoveryPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Primera Fila: Filtros Principales */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
                             <div className="space-y-2">
                                 <Label>Búsqueda</Label>
                                 <div className="relative">
@@ -528,6 +530,23 @@ export default function DiscoveryPage() {
                                     />
                                 </div>
                             </div>
+                            <MultiSelectFilter
+                                title="Estado"
+                                options={statusOptions}
+                                selected={selectedStatusLabels}
+                                onChange={(vals) => {
+                                    const newStatus: string[] = [];
+                                    const newCol1: string[] = [];
+                                    vals.forEach(val => {
+                                        if (val === "Pendiente") newStatus.push("pending");
+                                        if (val === "Investigado") newStatus.push("investigated");
+                                        if (val === "No contestó") newCol1.push("no_contesto");
+                                        if (val === "Contestó / Interesado") newCol1.push("contesto_interesado");
+                                        if (val === "Contestó / No interesa hoy") newCol1.push("contesto_no_interesado");
+                                    });
+                                    setFilters({ ...filters, status: newStatus, columna1: newCol1 });
+                                }}
+                            />
                             <MultiSelectFilter
                                 title="Provincia"
                                 options={facetOptions.provinces}
@@ -557,44 +576,6 @@ export default function DiscoveryPage() {
                                 options={facetOptions.clasificaciones}
                                 selected={filters.clasificacion}
                                 onChange={(vals) => setFilters({ ...filters, clasificacion: vals })}
-                            />
-                            <div className="space-y-2">
-                                <Label>Web</Label>
-                                <Input
-                                    placeholder="URL web..."
-                                    value={filters.web}
-                                    onChange={(e) => setFilters({ ...filters, web: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Email</Label>
-                                <Input
-                                    placeholder="Correo..."
-                                    value={filters.email}
-                                    onChange={(e) => setFilters({ ...filters, email: e.target.value })}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Segunda Fila: Filtros de Estado y Acciones */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <MultiSelectFilter
-                                title="Estado"
-                                options={facetOptions.status || ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted']}
-                                selected={filters.status}
-                                onChange={(vals) => setFilters({ ...filters, status: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Etiqueta Contacto"
-                                options={facetOptions.columna1}
-                                selected={filters.columna1}
-                                onChange={(vals) => setFilters({ ...filters, columna1: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Acción Seguimiento"
-                                options={facetOptions.columna2}
-                                selected={filters.columna2}
-                                onChange={(vals) => setFilters({ ...filters, columna2: vals })}
                             />
                         </div>
                     </CardContent>

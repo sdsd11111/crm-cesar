@@ -181,9 +181,14 @@ export default function TrainerPage() {
     };
 
     const handleCallOutcomeChange = (val: string) => {
-        setCallOutcome(val);
-        if (val === 'contesto_interesado' && selectedLead?.source === 'discovery') {
+        if (val === 'convertir_a_lead') {
+            setCallOutcome('contesto_interesado');
             setCallAction('convertir_a_lead');
+        } else {
+            setCallOutcome(val);
+            if (val === 'contesto_interesado' && selectedLead?.source === 'discovery') {
+                setCallAction('convertir_a_lead');
+            }
         }
     };
 
@@ -597,7 +602,9 @@ export default function TrainerPage() {
                 body: JSON.stringify({
                     columna1: selectedLead.source === 'discovery' ? callOutcome : undefined,
                     columna2: selectedLead.source === 'discovery' ? callAction : undefined,
-                    status: selectedLead.source === 'lead' ? callOutcome : undefined
+                    status: selectedLead.source === 'discovery' && callAction === 'convertir_a_lead'
+                        ? 'converted'
+                        : (selectedLead.source === 'lead' ? callOutcome : undefined)
                 })
             });
 
@@ -636,6 +643,8 @@ export default function TrainerPage() {
                     businessType: selectedLead.businessType || selectedLead.actividadModalidad || "",
                     source: 'trainer_conversion',
                     status: 'nuevo',
+                    discoveryLeadId: selectedLead.id,
+                    researchData: selectedLead.researchData || selectedLead.googleInfo || "",
                     notes: `Lead convertido desde Trainer.\n\n📝 Notas Originales: ${callNotes}\n\n🧠 Análisis AI:\n- Personalidad: ${extracted?.personalityType || 'N/A'}\n- Estilo: ${extracted?.communicationStyle || 'N/A'}\n- Resumen: ${extracted?.summary || ''}\n\nOutcome: ${callOutcome}`,
                     pains: selectedLead.googleInfo ? `Review Data: ${selectedLead.googleInfo}` : "",
                 };
@@ -1170,6 +1179,7 @@ export default function TrainerPage() {
                                                     <SelectItem value="contesto_interesado">✅ Contestó / Interesado</SelectItem>
                                                     <SelectItem value="contesto_no_interesado">🤝 Contestó / No Interesa hoy</SelectItem>
                                                     <SelectItem value="no_contesto">❌ No contestó</SelectItem>
+                                                    <SelectItem value="convertir_a_lead" className="font-bold text-primary">🚀 Convertir a LEAD</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>

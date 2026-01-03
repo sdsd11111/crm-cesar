@@ -158,7 +158,8 @@ export async function POST(request: Request) {
       notes: body.notes,
       source: body.source || 'recorridos',
       status: body.status || 'sin_contacto',
-      outreach_status: 'new'
+      outreach_status: 'new',
+      discovery_lead_id: body.discoveryLeadId || null
     };
 
     // Remove undefined keys

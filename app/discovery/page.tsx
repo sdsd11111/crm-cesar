@@ -416,10 +416,11 @@ export default function DiscoveryPage() {
         return value !== '';
     }).length;
 
-    const statusOptions = ["Pendiente", "Investigado", "No contestó", "Contestó / Interesado", "Contestó / No interesa hoy"];
+    const statusOptions = ["Pendiente", "Investigado", "No contestó", "Contestó / Interesado", "Contestó / No interesa hoy", "Convertido"];
     const selectedStatusLabels = [
         ...(filters.status.includes('pending') ? ["Pendiente"] : []),
         ...(filters.status.includes('investigated') ? ["Investigado"] : []),
+        ...(filters.status.includes('converted') ? ["Convertido"] : []),
         ...(filters.columna1.includes('no_contesto') ? ["No contestó"] : []),
         ...(filters.columna1.includes('contesto_interesado') ? ["Contestó / Interesado"] : []),
         ...(filters.columna1.includes('contesto_no_interesado') ? ["Contestó / No interesa hoy"] : []),
@@ -540,6 +541,7 @@ export default function DiscoveryPage() {
                                     vals.forEach(val => {
                                         if (val === "Pendiente") newStatus.push("pending");
                                         if (val === "Investigado") newStatus.push("investigated");
+                                        if (val === "Convertido") newStatus.push("converted");
                                         if (val === "No contestó") newCol1.push("no_contesto");
                                         if (val === "Contestó / Interesado") newCol1.push("contesto_interesado");
                                         if (val === "Contestó / No interesa hoy") newCol1.push("contesto_no_interesado");

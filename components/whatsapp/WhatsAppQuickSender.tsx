@@ -1,0 +1,213 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter
+} from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { Loader2, Send, MessageSquare } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+// Templates básicos
+const TEMPLATES = [
+    { id: 'custom', label: 'Mensaje Personalizado', text: '' },
+    { id: 'receptionist', label: 'Filtro Recepción', text: 'Hola, soy asistente de César Reyes. Estamos actualizando nuestra base de datos...' },
+    { id: 'owner', label: 'Contacto Directo', text: 'Hola, un gusto saludarte. Te contacto directamente porque...' },
+    { id: 'promo', label: 'Promoción Vigente', text: 'Aprovecha nuestra oferta especial...' },
+    { id: 'no_answer', label: 'No Contestó', text: 'Hola, intenté llamarte pero no fue posible contactarnos...' }
+];
+
+interface WhatsAppFormProps {
+    phone?: string;
+    contactId?: string;
+    discoveryLeadId?: string;
+    onSuccess?: () => void;
+    className?: string;
+    initialMessage?: string;
+}
+
+export function WhatsAppForm({
+    phone,
+    contactId,
+    discoveryLeadId,
+    onSuccess,
+    className,
+    initialMessage = ''
+}: WhatsAppFormProps) {
+    const { toast } = useToast();
+    const [template, setTemplate] = useState('custom');
+    const [message, setMessage] = useState(initialMessage);
+    const [isSending, setIsSending] = useState(false);
+    const [destination, setDestination] = useState(phone || '');
+
+    // Allow overriding the phone if passed props change or user types
+    // But we need a local state if the user wants to edit it
+
+    const handleTemplateChange = (val: string) => {
+        setTemplate(val);
+        const selected = TEMPLATES.find(t => t.id === val);
+        if (selected && selected.id !== 'custom') {
+            setMessage(selected.text);
+        }
+    };
+
+    const handleSend = async () => {
+        if (!destination || !message.trim()) {
+            toast({ title: "Error", description: "Falta el número o el mensaje.", variant: "destructive" });
+            return;
+        }
+
+        setIsSending(true);
+        try {
+            const res = await fetch('/api/whatsapp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: destination,
+                    text: message,
+                    metadata: {
+                        contactId,
+                        discoveryLeadId,
+                        source: 'unified_component'
+                    }
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: "Enviado", description: "Mensaje de WhatsApp enviado correctamente." });
+                setMessage('');
+                if (onSuccess) onSuccess();
+            } else {
+                throw new Error(data.error || 'Error desconocido');
+            }
+        } catch (error: any) {
+            toast({ title: "Error al enviar", description: error.message, variant: "destructive" });
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <div className={cn("space-y-4", className)}>
+            <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-300">Número Destino</label>
+                <input
+                    type="text"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    className="w-full bg-gray-950/50 border border-gray-700 rounded-md h-9 px-3 text-xs font-mono text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#25D366]"
+                    placeholder="Ej: 593999999999"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <label className="text-xs font-medium text-gray-300">Plantilla Rápida</label>
+                    <Select value={template} onValueChange={handleTemplateChange}>
+                        <SelectTrigger className="w-[180px] bg-gray-900 border-gray-700 text-xs h-7">
+                            <SelectValue placeholder="Seleccionar..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700">
+                            {TEMPLATES.map(t => (
+                                <SelectItem key={t.id} value={t.id} className="text-xs focus:bg-gray-700">
+                                    {t.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <Textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Escribe tu mensaje aquí..."
+                    className="bg-gray-950/50 border-gray-700 min-h-[120px] text-sm resize-none focus-visible:ring-[#25D366]"
+                />
+            </div>
+
+            <Button
+                onClick={handleSend}
+                disabled={isSending || !message.trim() || !destination}
+                className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold h-10 shadow-lg shadow-green-900/20"
+            >
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                ENVIAR WHATSAPP
+            </Button>
+        </div>
+    );
+}
+
+interface WhatsAppQuickSenderProps {
+    phone?: string;
+    contactId?: string;
+    discoveryLeadId?: string;
+    contactName?: string;
+    defaultOpen?: boolean;
+    trigger?: React.ReactNode;
+    onSuccess?: () => void;
+    className?: string;
+}
+
+export function WhatsAppQuickSender({
+    phone,
+    contactId,
+    discoveryLeadId,
+    contactName = "Contacto",
+    defaultOpen = false,
+    trigger,
+    onSuccess,
+    className
+}: WhatsAppQuickSenderProps) {
+    const [open, setOpen] = useState(defaultOpen);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                {trigger || (
+                    <Button variant="outline" size="sm" className={cn("gap-2", className)}>
+                        <MessageSquare size={14} /> WhatsApp
+                    </Button>
+                )}
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-gray-100 border-gray-800">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <div className="p-1.5 bg-[#25D366] rounded-full">
+                            <MessageSquare className="h-4 w-4 text-white" />
+                        </div>
+                        Enviar WhatsApp a {contactName}
+                    </DialogTitle>
+                    <DialogDescription className="text-gray-400 text-xs">
+                        Gestión rápida enviada desde el CRM.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <WhatsAppForm
+                    phone={phone}
+                    contactId={contactId}
+                    discoveryLeadId={discoveryLeadId}
+                    onSuccess={() => {
+                        setOpen(false);
+                        if (onSuccess) onSuccess();
+                    }}
+                />
+            </DialogContent>
+        </Dialog>
+    );
+}

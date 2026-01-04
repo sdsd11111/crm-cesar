@@ -60,6 +60,7 @@ import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
 import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp';
 import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
+import { WhatsAppForm } from '@/components/whatsapp/WhatsAppQuickSender';
 
 // Dynamic PDF Download Component
 const PDFDownloadLink = dynamic(() => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink), {
@@ -1110,52 +1111,19 @@ export default function TrainerPage() {
                                 <Card className="border-green-500/30 bg-green-500/5 shadow-xl">
                                     <CardHeader className="pb-2 border-b border-green-500/10 flex flex-row items-center justify-between py-4 px-5">
                                         <CardTitle className="text-xs uppercase tracking-widest text-green-500 font-bold flex items-center gap-2">
-                                            Seguimiento
+                                            <MessageSquare className="h-4 w-4" /> Gestión WhatsApp
                                         </CardTitle>
-                                        <div className="flex gap-1">
-                                            <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 cursor-pointer hover:bg-green-500/10" onClick={() => handleTemplateChange('owner')}>Dueño</Badge>
-                                            <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 cursor-pointer hover:bg-green-500/10" onClick={() => handleTemplateChange('receptionist')}>Recepción</Badge>
-                                            <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 cursor-pointer hover:bg-green-500/10" onClick={() => handleTemplateChange('no_answer')}>No Cont.</Badge>
-                                        </div>
                                     </CardHeader>
-                                    <CardContent className="p-5 pt-4 space-y-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground flex justify-between">Número Destino</Label>
-                                            <Input
-                                                value={waNumber}
-                                                onChange={(e) => setWaNumber(e.target.value)}
-                                                className="bg-zinc-950/80 text-white border-border/50 h-9 font-mono"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Mensaje</Label>
-                                            <Textarea
-                                                value={waBody}
-                                                onChange={(e) => setWaBody(e.target.value)}
-                                                className="min-h-[220px] bg-zinc-950/80 text-white leading-relaxed text-sm transition-all border-border/50"
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button variant="outline" size="sm" className="h-6 text-[9px] px-2 bg-primary/5" onClick={() => {
-                                                const name = prompt("Nombre:", selectedLead.contactName || "");
-                                                if (name) setWaBody(prev => prev.replace(/\(\(NOMBRE\)\)/g, name));
-                                            }}>Variables: Nombre</Button>
-                                            <Button variant="outline" size="sm" className="h-6 text-[9px] px-2 bg-primary/5" onClick={() => {
-                                                const hotel = prompt("Hotel:", selectedLead.businessName || "");
-                                                if (hotel) setWaBody(prev => prev.replace(/\(\(HOTEL\)\)/g, hotel));
-                                            }}>Variables: Hotel</Button>
-                                        </div>
-
-                                        <Button
-                                            onClick={handleSendWhatsApp}
-                                            disabled={isSendingWa}
-                                            className="w-full bg-green-600 hover:bg-green-500 text-white font-bold h-12 shadow-lg shadow-green-500/20"
-                                        >
-                                            {isSendingWa ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
-                                            ENVIAR WHATSAPP
-                                        </Button>
+                                    <CardContent className="p-5 pt-4">
+                                        <WhatsAppForm
+                                            phone={waNumber || selectedLead?.phone1 || selectedLead?.telefonoPrincipal || selectedLead?.phone}
+                                            contactId={selectedLead?.source === 'contact' || selectedLead?.source === 'lead' ? selectedLead?.id : undefined}
+                                            discoveryLeadId={selectedLead?.source === 'discovery' ? selectedLead?.id : undefined}
+                                            initialMessage={waBody}
+                                            onSuccess={() => {
+                                                // Optional: refresh history or clear selection
+                                            }}
+                                        />
                                     </CardContent>
                                 </Card>
                             </TabsContent>

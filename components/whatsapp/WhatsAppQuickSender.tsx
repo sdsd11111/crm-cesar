@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -24,13 +24,19 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 // Templates básicos
-const TEMPLATES = [
+export const DEFAULT_TEMPLATES = [
     { id: 'custom', label: 'Mensaje Personalizado', text: '' },
     { id: 'receptionist', label: 'Filtro Recepción', text: 'Hola, soy asistente de César Reyes. Estamos actualizando nuestra base de datos...' },
     { id: 'owner', label: 'Contacto Directo', text: 'Hola, un gusto saludarte. Te contacto directamente porque...' },
     { id: 'promo', label: 'Promoción Vigente', text: 'Aprovecha nuestra oferta especial...' },
     { id: 'no_answer', label: 'No Contestó', text: 'Hola, intenté llamarte pero no fue posible contactarnos...' }
 ];
+
+export interface WhatsAppTemplate {
+    id: string;
+    label: string;
+    text: string;
+}
 
 interface WhatsAppFormProps {
     phone?: string;
@@ -39,6 +45,7 @@ interface WhatsAppFormProps {
     onSuccess?: () => void;
     className?: string;
     initialMessage?: string;
+    templates?: WhatsAppTemplate[];
 }
 
 export function WhatsAppForm({
@@ -47,7 +54,8 @@ export function WhatsAppForm({
     discoveryLeadId,
     onSuccess,
     className,
-    initialMessage = ''
+    initialMessage = '',
+    templates
 }: WhatsAppFormProps) {
     const { toast } = useToast();
     const [template, setTemplate] = useState('custom');
@@ -55,12 +63,17 @@ export function WhatsAppForm({
     const [isSending, setIsSending] = useState(false);
     const [destination, setDestination] = useState(phone || '');
 
-    // Allow overriding the phone if passed props change or user types
-    // But we need a local state if the user wants to edit it
+    // Allow overriding the phone if passed props change
+    useEffect(() => {
+        if (phone) setDestination(phone);
+    }, [phone]);
+
+    // Use passed templates or failback to default
+    const effectiveTemplates = templates && templates.length > 0 ? templates : DEFAULT_TEMPLATES;
 
     const handleTemplateChange = (val: string) => {
         setTemplate(val);
-        const selected = TEMPLATES.find(t => t.id === val);
+        const selected = effectiveTemplates.find(t => t.id === val);
         if (selected && selected.id !== 'custom') {
             setMessage(selected.text);
         }
@@ -124,7 +137,7 @@ export function WhatsAppForm({
                             <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-800 border-gray-700">
-                            {TEMPLATES.map(t => (
+                            {effectiveTemplates.map(t => (
                                 <SelectItem key={t.id} value={t.id} className="text-xs focus:bg-gray-700">
                                     {t.label}
                                 </SelectItem>
@@ -162,6 +175,7 @@ interface WhatsAppQuickSenderProps {
     trigger?: React.ReactNode;
     onSuccess?: () => void;
     className?: string;
+    templates?: WhatsAppTemplate[];
 }
 
 export function WhatsAppQuickSender({
@@ -172,7 +186,8 @@ export function WhatsAppQuickSender({
     defaultOpen = false,
     trigger,
     onSuccess,
-    className
+    className,
+    templates
 }: WhatsAppQuickSenderProps) {
     const [open, setOpen] = useState(defaultOpen);
 
@@ -206,6 +221,7 @@ export function WhatsAppQuickSender({
                         setOpen(false);
                         if (onSuccess) onSuccess();
                     }}
+                    templates={templates}
                 />
             </DialogContent>
         </Dialog>

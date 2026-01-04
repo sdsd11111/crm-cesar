@@ -55,6 +55,8 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar"
 
+import { NotificationsPopover } from "@/components/dashboard/notifications-popover"
+
 interface DashboardLayoutProps {
   children: ReactNode
 }
@@ -64,6 +66,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
   const [newLeadsCount, setNewLeadsCount] = React.useState(0)
 
+  // Restore sidebar badge logic
   React.useEffect(() => {
     const checkNewLeads = async () => {
       try {
@@ -168,13 +171,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               {navigation.find((item) => pathname.startsWith(item.href))?.name || "Dashboard"}
             </h1>
             <div className="relative ml-auto flex-1 md:grow-0">
-              {newLeadsCount > 0 && (
-                <Button variant="outline" size="icon" className="ml-auto" onClick={() => router.push("/leads")}>
-                  <Bell className="h-4 w-4" />
-                  <span className="sr-only">Toggle notifications</span>
-                  <Badge className="absolute -top-2 -right-2">{newLeadsCount}</Badge>
-                </Button>
-              )}
+              <div className="ml-auto w-fit">
+                <NotificationsPopover />
+              </div>
             </div>
           </header>
           <main className="flex-1 p-4 sm:px-6 sm:py-0">{children}</main>

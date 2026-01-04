@@ -1120,6 +1120,11 @@ export default function TrainerPage() {
                                             contactId={selectedLead?.source === 'contact' || selectedLead?.source === 'lead' ? selectedLead?.id : undefined}
                                             discoveryLeadId={selectedLead?.source === 'discovery' ? selectedLead?.id : undefined}
                                             initialMessage={waBody}
+                                            templates={[
+                                                { id: 'owner', label: 'Dueño', text: TRAINER_WHATSAPP_TEMPLATES.owner(selectedLead?.contactName, selectedLead?.businessName) },
+                                                { id: 'receptionist', label: 'Recepción', text: TRAINER_WHATSAPP_TEMPLATES.receptionist(selectedLead?.businessName) },
+                                                { id: 'no_answer', label: 'No Contestó', text: TRAINER_WHATSAPP_TEMPLATES.no_answer(selectedLead?.contactName, selectedLead?.businessName) }
+                                            ]}
                                             onSuccess={() => {
                                                 // Optional: refresh history or clear selection
                                             }}

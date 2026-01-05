@@ -29,6 +29,17 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
+        console.log('🏁 WEBHOOK ENTRY POINT - Pulse detected');
+        console.log('Raw Payload:', JSON.stringify(body, null, 2));
+
+        // Add to Temp Store as a "Pulse" even if not a message
+        waTempStore.addLog({
+            type: 'webhook_pulse',
+            direction: 'inbound',
+            content: `Pulse: ${body.object || 'unknown event'}`,
+            performedAt: new Date().toISOString(),
+            metadata: { raw: body }
+        });
 
         // Check if it's a WhatsApp Status Update
         if (body.entry?.[0]?.changes?.[0]?.value?.statuses) {

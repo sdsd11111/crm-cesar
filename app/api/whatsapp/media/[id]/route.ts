@@ -14,7 +14,7 @@ export async function GET(
             return new NextResponse('Media not found or expired', { status: 404 });
         }
 
-        return new NextResponse(media.buffer, {
+        return new NextResponse(new Uint8Array(media.buffer), {
             headers: {
                 'Content-Type': media.mimeType,
                 'Cache-Control': 'public, max-age=3600, s-maxage=3600'

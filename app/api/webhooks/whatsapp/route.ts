@@ -90,7 +90,7 @@ export async function POST(req: Request) {
                             status: 'sin_contacto',
                             outreachStatus: 'new'
                         }).returning();
-                        contactId = newContact?.[0]?.id || null;
+                        contactId = newContact?.id || null;
                     }
                 }
 

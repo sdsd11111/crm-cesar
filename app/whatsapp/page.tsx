@@ -25,7 +25,6 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
-    ChevronRight,
     Loader2 as Loader,
     Home
 } from 'lucide-react';

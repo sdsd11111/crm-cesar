@@ -87,11 +87,7 @@ export async function POST(req: Request) {
                         content: text,
                         direction: 'inbound',
                         performedAt: timestamp,
-                        createdAt: timestamp,
-                        metadata: {
-                            meta_id: message.id,
-                            raw_payload: message
-                        }
+                        createdAt: timestamp
                     });
                     console.log('✅ Interaction saved to DB');
                 } else {

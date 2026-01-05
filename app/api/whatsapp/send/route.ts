@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
+import { waTempStore } from '@/lib/whatsapp/temp-store';
 
 export async function POST(req: Request) {
     try {
@@ -20,6 +21,15 @@ export async function POST(req: Request) {
         } else {
             result = await whatsappService.sendMessage(phone, text, metadata || { type: 'chat_manual' }, media);
         }
+
+        // [BYPASS] Log to Temp Store
+        waTempStore.addLog({
+            type: 'whatsapp',
+            direction: 'outbound',
+            content: text || `[Template: ${template?.name}]` || '[Multimedia]',
+            performedAt: new Date().toISOString(),
+            metadata: { result, target: phone }
+        });
 
         return NextResponse.json(result);
     } catch (error: any) {

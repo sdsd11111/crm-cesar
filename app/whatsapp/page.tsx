@@ -114,9 +114,13 @@ export default function ChatCenterPage() {
             const data = await res.json();
             if (data.success) {
                 setChats(data.chats);
+                // Si hay un chat seleccionado, actualizar suss metadatos básicos por si cambiaron (unread, etc)
                 if (selectedChat) {
                     const updatedSelected = data.chats.find((c: any) => c.id === selectedChat.id);
-                    if (updatedSelected) setSelectedChat(updatedSelected);
+                    if (updatedSelected) {
+                        // Mantener los detalles completos si ya los tenemos
+                        setSelectedChat({ ...selectedChat, ...updatedSelected });
+                    }
                 }
             }
         } catch (error) {
@@ -197,9 +201,21 @@ export default function ChatCenterPage() {
             if (res.success) setIsMetaConfigured(res.isConfigured);
         });
 
-        const interval = setInterval(fetchChats, 10000);
-        return () => clearInterval(interval);
-    }, []); // Changed dependency to empty array
+        // Intervalo para la lista de chats
+        const chatListInterval = setInterval(fetchChats, 10000);
+
+        // Intervalo para los mensajes del chat activo
+        const messageInterval = setInterval(() => {
+            if (selectedChat?.id) {
+                fetchMessages(selectedChat.id);
+            }
+        }, 5000); // Cada 5 segundos refrescar mensajes si hay uno abierto
+
+        return () => {
+            clearInterval(chatListInterval);
+            clearInterval(messageInterval);
+        };
+    }, [selectedChat?.id]); // Refrescar intervalo si cambia el chat seleccionado
 
     const handleChatClick = (chat: any) => {
         setSelectedChat(chat);

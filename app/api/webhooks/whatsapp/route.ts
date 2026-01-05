@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { interactions, contacts, discoveryLeads } from '@/lib/db/schema';
 import { sql, eq } from 'drizzle-orm';
+import { waTempStore } from '@/lib/whatsapp/temp-store';
 
 // VERIFICATION (GET)
 export async function GET(req: Request) {
@@ -64,68 +65,81 @@ export async function POST(req: Request) {
 
                 console.log(`📩 [WEBHOOK] Incoming from ${from}: ${content}`);
 
-                // 2. Identify Sender (Robust Match)
-                let contactId = null;
-                let discoveryLeadId = null;
-
-                // Clean the 'from' number (Meta usually sends 5939... for Ecuador)
-                const cleanFrom = from.replace(/\D/g, '');
-                const last9 = cleanFrom.slice(-9);
-
-                // Try Exact Match first
-                const [exactContact] = await db.select().from(contacts)
-                    .where(eq(contacts.phone, from))
-                    .limit(1);
-
-                if (exactContact) {
-                    contactId = exactContact.id;
-                } else {
-                    // Try Suffix Match (%)
-                    const [foundContact] = await db.select().from(contacts)
-                        .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
-                        .limit(1);
-
-                    if (foundContact) {
-                        contactId = foundContact.id;
-                    } else {
-                        // Check Discovery Leads
-                        const [foundLead] = await db.select().from(discoveryLeads)
-                            .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
-                            .limit(1);
-
-                        if (foundLead) {
-                            discoveryLeadId = foundLead.id;
-                        } else {
-                            console.log(`👤 Webhook: Creating new Prospect for unknown number: ${from}`);
-                            const [newContact] = await db.insert(contacts).values({
-                                businessName: `WhatsApp ${from.slice(-4)}`,
-                                contactName: 'Nuevo Contacto (WhatsApp)',
-                                phone: from,
-                                entityType: 'prospect',
-                                source: 'whatsapp_inbound',
-                                status: 'sin_contacto',
-                                outreachStatus: 'new'
-                            }).returning();
-                            contactId = newContact?.id || null;
-                        }
-                    }
-                }
-
-                // 3. Save Interaction with Metadata for Multimedia
-                await db.insert(interactions).values({
-                    contactId: contactId,
-                    discoveryLeadId: discoveryLeadId,
+                // [BYPASS] Add to Temp Store immediately
+                waTempStore.addLog({
                     type: 'whatsapp',
-                    content: content,
                     direction: 'inbound',
-                    performedAt: timestamp,
-                    createdAt: timestamp,
+                    content: content,
+                    performedAt: timestamp.toISOString(),
                     metadata: {
                         raw: message,
                         media: mediaData ? { type: message.type, ...mediaData } : null
                     }
                 });
-                console.log('✅ Webhook: Interaction saved');
+
+                // 2. Identify Sender (Robust Match) - Wrapped in Try/Catch for DB independence
+                try {
+                    let contactId = null;
+                    let discoveryLeadId = null;
+
+                    const cleanFrom = from.replace(/\D/g, '');
+                    const last9 = cleanFrom.slice(-9);
+
+                    // Try Exact Match first
+                    const [exactContact] = await db.select().from(contacts)
+                        .where(eq(contacts.phone, from))
+                        .limit(1);
+
+                    if (exactContact) {
+                        contactId = exactContact.id;
+                    } else {
+                        const [foundContact] = await db.select().from(contacts)
+                            .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
+                            .limit(1);
+
+                        if (foundContact) {
+                            contactId = foundContact.id;
+                        } else {
+                            const [foundLead] = await db.select().from(discoveryLeads)
+                                .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
+                                .limit(1);
+
+                            if (foundLead) {
+                                discoveryLeadId = foundLead.id;
+                            } else {
+                                console.log(`👤 Webhook: Creating new Prospect for unknown number: ${from}`);
+                                const [newContact] = await db.insert(contacts).values({
+                                    businessName: `WhatsApp ${from.slice(-4)}`,
+                                    contactName: 'Nuevo Contacto (WhatsApp)',
+                                    phone: from,
+                                    entityType: 'prospect',
+                                    source: 'whatsapp_inbound',
+                                    status: 'sin_contacto',
+                                    outreachStatus: 'new'
+                                }).returning();
+                                contactId = newContact?.id || null;
+                            }
+                        }
+                    }
+
+                    // 3. Save Interaction
+                    await db.insert(interactions).values({
+                        contactId: contactId,
+                        discoveryLeadId: discoveryLeadId,
+                        type: 'whatsapp',
+                        content: content,
+                        direction: 'inbound',
+                        performedAt: timestamp,
+                        createdAt: timestamp,
+                        metadata: {
+                            raw: message,
+                            media: mediaData ? { type: message.type, ...mediaData } : null
+                        }
+                    });
+                    console.log('✅ Webhook: Interaction saved to DB');
+                } catch (dbError: any) {
+                    console.error('⚠️ Webhook DB Error (Ignored for Bypass):', dbError.message);
+                }
             }
             return NextResponse.json({ status: 'processed' });
         }

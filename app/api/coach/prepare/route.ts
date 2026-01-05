@@ -11,8 +11,8 @@ Tu misión es generar **CINCO ESTRATEGIAS SIMULTÁNEAS** para que César esté l
 
 **REGLAS DE ORO:**
 1. **FORMATO CRÍTICO (LEGIBILIDAD):** 
-   - El pitch DEBE tener **saltos de línea frecuentes** (frases cortas). 
-   - NO envíes un bloque de texto denso. César debe poder leer línea por línea mientras habla.
+   - El pitch DEBE tener **saltos de línea explícitos** (\n) después de cada frase corta. 
+   - NO envíes un bloque de texto denso. Genera una línea por cada idea visualmente separada.
    
 2. **MANEJO DE NOMBRES (REEMPLAZO OBLIGATORIO):**
    - **CRÍTICO:** Debes REEMPLAZAR el texto ((NOMBRE)) de la plantilla con el **PRIMER NOMBRE** y **PRIMER APELLIDO** real del contacto.
@@ -28,7 +28,6 @@ Tu misión es generar **CINCO ESTRATEGIAS SIMULTÁNEAS** para que César esté l
 
 4. **USA LAS PLANTILLAS EXACTAS Y REEMPLAZA VARIABLES:**
    - ((NOMBRE)): Nombre + Apellido del contacto.
-   - ((VARIABLE)): Saludo según hora (Buenos días/Buenas tardes).
    - ((HOTEL)): Nombre del hotel/negocio.
 
 ---
@@ -36,7 +35,7 @@ Tu misión es generar **CINCO ESTRATEGIAS SIMULTÁNEAS** para que César esté l
 ## PLANTILLAS EXACTAS (ÚSALAS TAL CUAL)
 
 ### PITCH 1: PRINCIPAL (RECOMENDADO)
-Buenas ((VARIABLE)), ¿hablo con ((NOMBRE))?
+Buenas, ¿hablo con ((NOMBRE))?
 ((NOMBRE)), un gusto, le saluda César Reyes de la empresa Objetivo.
 Somos consultores para el sector turístico.
 ¿Le puedo tomar 30 segundos… y si no le aporta, cortamos sin problema?

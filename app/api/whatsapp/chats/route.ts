@@ -15,6 +15,7 @@ export async function GET() {
             direction: interactions.direction,
             performedAt: interactions.performedAt,
             type: interactions.type,
+            metadata: interactions.metadata,
         })
             .from(interactions)
             .orderBy(desc(interactions.performedAt))
@@ -87,6 +88,7 @@ export async function GET() {
                 status: status,
                 time: inter.performedAt,
                 messageType: inter.type,
+                metadata: inter.metadata,
                 unread: inter.direction === 'inbound'
             });
         }

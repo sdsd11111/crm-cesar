@@ -45,6 +45,9 @@ export async function POST(req: Request) {
                 const from = message.from;
                 const timestamp = new Date();
 
+                // Log the full body for debugging in production logs
+                console.log(`[WA_WEBHOOK_PAYLOAD]: ${JSON.stringify(body)}`);
+
                 let content = '';
                 let mediaData = null;
 
@@ -61,36 +64,50 @@ export async function POST(req: Request) {
 
                 console.log(`📩 [WEBHOOK] Incoming from ${from}: ${content}`);
 
-                // 2. Identify Sender (Flexible Suffix Match)
+                // 2. Identify Sender (Robust Match)
                 let contactId = null;
                 let discoveryLeadId = null;
-                const last9 = from.slice(-9);
 
-                const [foundContact] = await db.select().from(contacts)
-                    .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
+                // Clean the 'from' number (Meta usually sends 5939... for Ecuador)
+                const cleanFrom = from.replace(/\D/g, '');
+                const last9 = cleanFrom.slice(-9);
+
+                // Try Exact Match first
+                const [exactContact] = await db.select().from(contacts)
+                    .where(eq(contacts.phone, from))
                     .limit(1);
 
-                if (foundContact) {
-                    contactId = foundContact.id;
+                if (exactContact) {
+                    contactId = exactContact.id;
                 } else {
-                    const [foundLead] = await db.select().from(discoveryLeads)
-                        .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
+                    // Try Suffix Match (%)
+                    const [foundContact] = await db.select().from(contacts)
+                        .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
                         .limit(1);
 
-                    if (foundLead) {
-                        discoveryLeadId = foundLead.id;
+                    if (foundContact) {
+                        contactId = foundContact.id;
                     } else {
-                        console.log(`👤 Webhook: Creating new Prospect for unknown number: ${from}`);
-                        const [newContact] = await db.insert(contacts).values({
-                            businessName: `WhatsApp ${from.slice(-4)}`,
-                            contactName: 'Nuevo Contacto (WhatsApp)',
-                            phone: from,
-                            entityType: 'prospect',
-                            source: 'whatsapp_inbound',
-                            status: 'sin_contacto',
-                            outreachStatus: 'new'
-                        }).returning();
-                        contactId = newContact?.id || null;
+                        // Check Discovery Leads
+                        const [foundLead] = await db.select().from(discoveryLeads)
+                            .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
+                            .limit(1);
+
+                        if (foundLead) {
+                            discoveryLeadId = foundLead.id;
+                        } else {
+                            console.log(`👤 Webhook: Creating new Prospect for unknown number: ${from}`);
+                            const [newContact] = await db.insert(contacts).values({
+                                businessName: `WhatsApp ${from.slice(-4)}`,
+                                contactName: 'Nuevo Contacto (WhatsApp)',
+                                phone: from,
+                                entityType: 'prospect',
+                                source: 'whatsapp_inbound',
+                                status: 'sin_contacto',
+                                outreachStatus: 'new'
+                            }).returning();
+                            contactId = newContact?.id || null;
+                        }
                     }
                 }
 

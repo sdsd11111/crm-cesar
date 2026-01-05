@@ -19,7 +19,12 @@ async function test() {
 
         if (lastInters.length > 0) {
             console.log('✅ Mensajes recientes encontrados:');
-            lastInters.forEach(i => console.log(`- [${i.direction}] ${i.content} (${i.performedAt})`));
+            lastInters.forEach(i => {
+                console.log(`- [${i.direction}] ${i.content} (${i.performedAt})`);
+                if (i.metadata) {
+                    console.log(`  Metadata: ${JSON.stringify(i.metadata).slice(0, 100)}...`);
+                }
+            });
         } else {
             console.log('❌ No se encontraron mensajes de WhatsApp en la base de datos.');
         }

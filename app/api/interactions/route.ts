@@ -53,6 +53,7 @@ export async function GET(req: Request) {
       contactId: i.contact_id,
       discoveryLeadId: i.discovery_lead_id,
       performedAt: i.performed_at,
+      metadata: i.metadata,
       createdAt: i.created_at
     }));
 

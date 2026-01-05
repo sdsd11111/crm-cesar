@@ -65,21 +65,31 @@ export async function POST(req: Request) {
                     contactId = foundContact.id;
                 } else {
                     // Try finding in Discovery Leads
-                    // Note: In a real app we might need better phone normalization
                     const [foundLead] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.telefonoPrincipal, from)).limit(1);
                     if (foundLead) {
                         discoveryLeadId = foundLead.id;
+                    } else {
+                        // 1.c Auto-create Prospect (Ghost Contact)
+                        // This ensures the user SEES the message in the inbox
+                        console.log(`👤 Creating new Prospect for unknown WhatsApp: ${from}`);
+                        const [newContact] = await db.insert(contacts).values({
+                            businessName: `WhatsApp ${from.slice(-4)}`,
+                            contactName: 'Desconocido (WhatsApp)',
+                            phone: from,
+                            entityType: 'prospect',
+                            source: 'whatsapp_inbound',
+                            status: 'sin_contacto',
+                            outreachStatus: 'new'
+                        }).returning(); // Drizzle returning() to get ID
+
+                        if (newContact) {
+                            contactId = newContact.id;
+                        }
                     }
-                    // If not found, we could optionally create a new Lead, but for now we skip or log as unknown? 
-                    // Let's create a "Ghost" lead logic later. For now, if not found, we can't attach it easily. 
-                    // BUT for the user to "see" it, we need to attach it to *something*.
-                    // Optimization: For now, if we can't find it, we won't insert the interaction to avoid FK errors,
-                    // unless we allow nulls. The interactions schema *likely* allows nulls? 
-                    // Checking previous route: it groups by contactId OR discoveryLeadId.
                 }
 
+                // 2. Save Interaction (Now guaranteed to have an ID)
                 if (contactId || discoveryLeadId) {
-                    // 2. Save Interaction
                     await db.insert(interactions).values({
                         contactId: contactId,
                         discoveryLeadId: discoveryLeadId,
@@ -90,8 +100,6 @@ export async function POST(req: Request) {
                         createdAt: timestamp
                     });
                     console.log('✅ Interaction saved to DB');
-                } else {
-                    console.log('⚠️ Sender not found in DB. Message skipped (Feature: Auto-create lead pending)');
                 }
             }
             return NextResponse.json({ status: 'processed' });

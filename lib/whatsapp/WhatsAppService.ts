@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { db } from '../db';
-import { contacts, whatsappLogs } from '../db/schema';
+import { contacts, whatsappLogs, discoveryLeads, interactions } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
 export interface WhatsAppMessage {
@@ -85,18 +85,43 @@ export class WhatsAppService {
                 }
             );
 
-            // 3. LOG SUCCESS (Try-catch for local testing without DB)
+            // 3. LOG SUCCESS (DB Interactions & Logs)
             try {
+                // Determine IDs
+                let contactId = contact?.id || null;
+                let discoveryLeadId = null;
+
+                if (!contactId) {
+                    // Try finding in Discovery Leads if not a contact
+                    const [lead] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.telefonoPrincipal, phone)).limit(1); // Use original phone or clean? Usually original in DB might vary. Let's try clean first if possible, but DB data varies. 
+                    // Better to rely on what we have. The webhook does a simple match.
+                    if (lead) discoveryLeadId = lead.id;
+                }
+
+                // A. Insert into Interactions (Main visible history)
+                if (contactId || discoveryLeadId) {
+                    await db.insert(interactions).values({
+                        contactId: contactId,
+                        discoveryLeadId: discoveryLeadId,
+                        type: 'whatsapp',
+                        content: text,
+                        direction: 'outbound',
+                        performedAt: new Date(),
+                        createdAt: new Date()
+                    });
+                }
+
+                // B. Insert into WhatsApp Logs (Audit)
                 await db.insert(whatsappLogs).values({
-                    contactId: contact?.id || null,
+                    contactId: contactId,
                     trigger: metadata.type || 'system',
                     content: text,
                     status: 'sent',
                     approvedBy: metadata.approvedBy || 'system',
-                    metadata: metadata // Pass object directly for jsonb
+                    metadata: metadata
                 });
             } catch (dbError) {
-                console.warn('⚠️ Log skipped (DB not connected)');
+                console.warn('⚠️ Log/Interaction skipped (DB error)', dbError);
             }
 
             console.log(`✅ Meta WhatsApp sent to ${cleanPhone} (ID: ${response.data.messages?.[0]?.id})`);

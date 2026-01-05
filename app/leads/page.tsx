@@ -151,6 +151,22 @@ export default function LeadsPage() {
     }
   }
 
+  const handleLeadDrop = async (leadId: string) => {
+    if (!confirm("¿Confirmas que este lead se ha CAÍDO? Se removerá del tablero y pasará a prospectos no interesados.")) return;
+
+    try {
+      const response = await fetch(`/api/leads/${leadId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setLeads(prev => prev.filter(l => l.id !== leadId));
+      } else {
+        alert("Error al descartar lead");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error de conexión");
+    }
+  }
+
   const getPhaseText = (phase: number) => {
     switch (phase) {
       case 1:
@@ -220,6 +236,7 @@ export default function LeadsPage() {
               onLeadMove={handleLeadMove}
               onLeadClick={(lead) => router.push(`/leads/${lead.id}`)}
               onLeadConvert={handleConvertToClient}
+              onLeadDrop={handleLeadDrop}
             />
           ))}
         </div>
@@ -255,8 +272,11 @@ export default function LeadsPage() {
                             <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'tercer_contacto')}>
                               Mover a 3er Contacto
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleConvertToClient(lead)} className="text-green-600">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleConvertToClient(lead) }} className="text-green-600">
                               Convertir a Cliente
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleLeadDrop(lead.id) }} className="text-red-500 focus:text-red-500">
+                              Lead Caído (Borrar)
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -434,12 +454,14 @@ function KanbanColumn({
   onLeadMove,
   onLeadClick,
   onLeadConvert,
+  onLeadDrop,
 }: {
   title: string
   leads: Lead[]
   onLeadMove: (leadId: string, newStatus: string) => void
   onLeadClick: (lead: Lead) => void
   onLeadConvert: (lead: Lead) => void
+  onLeadDrop: (leadId: string) => void
 }) {
   return (
     <div className='bg-muted/30 rounded-lg p-4 min-h-[600px]'>
@@ -455,6 +477,7 @@ function KanbanColumn({
             onMove={onLeadMove}
             onClick={() => onLeadClick(lead)}
             onConvert={() => onLeadConvert(lead)}
+            onDrop={() => onLeadDrop(lead.id)}
           />
         ))}
         {leads.length === 0 && (
@@ -473,11 +496,13 @@ function LeadCard({
   onMove,
   onClick,
   onConvert,
+  onDrop,
 }: {
   lead: Lead
   onMove: (leadId: string, newStatus: string) => void
   onClick: () => void
   onConvert: () => void
+  onDrop: () => void
 }) {
   return (
     <Card className='cursor-pointer hover:shadow-md transition-shadow h-[110px] flex flex-col justify-between group relative overflow-hidden bg-gray-900 border border-gray-800 hover:border-gray-700'>
@@ -503,6 +528,9 @@ function LeadCard({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert(); }} className="focus:bg-gray-800 focus:text-white text-green-500 hover:text-green-400">
               Convertir a Cliente
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDrop(); }} className="focus:bg-red-900/20 focus:text-red-400 text-red-500 hover:text-red-400">
+              Lead Caído (Borrar)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

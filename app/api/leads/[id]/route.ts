@@ -235,6 +235,54 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 }
 
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    }
+  )
+
+  const { id } = params;
+
+  try {
+    // Soft delete: Demote to prospect and mark as not interested
+    // We add a note to track why it was dropped
+
+    // First fetch current notes to append
+    const { data: current } = await supabase.from('contacts').select('notes').eq('id', id).single();
+    const newNote = `\n[${new Date().toLocaleDateString()}] Lead marcado como CAÍDO (No interesado).`;
+    const finalNotes = (current?.notes || '') + newNote;
+
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        entity_type: 'prospect',
+        outreach_status: 'not_interested',
+        status: 'sin_contacto', // Reset lead status so it doesn't show in kanban if query is loose
+        notes: finalNotes
+      })
+      .eq('id', id)
+      .eq('entity_type', 'lead');
+
+    if (error) {
+      console.error("Error dropping lead:", error);
+      return NextResponse.json({ error: "Failed to drop lead" }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Lead dropped successfully" }, { status: 200 });
+  } catch (error) {
+    console.error("Error in DELETE /api/leads/[id]:", error);
+    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
+  }
+}
+
 // Keep PUT for backward compatibility if needed, aliasing PATCH logic or requiring full update
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   return PATCH(request, { params });

@@ -1,138 +1,113 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { interactions, contacts, discoveryLeads } from '@/lib/db/schema';
-import { like } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
-/**
- * Endpoint for Evolution API Webhooks.
- * This ensures that EVERY message (sent or received) is logged in the CRM interactions history.
- */
-/**
- * GET - Meta Webhook Verification (Handshake)
- */
+// VERIFICATION (GET)
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get('hub.mode');
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    const verifyToken = process.env.META_WA_VERIFY_TOKEN || '';
+    const VERIFY_TOKEN = process.env.META_WA_VERIFY_TOKEN;
 
     if (mode && token) {
-        if (mode === 'subscribe' && token === verifyToken) {
-            console.log('✅ Webhook Verified by Meta');
-            return new Response(challenge, { status: 200 });
+        if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+            console.log('✅ WEBHOOK_VERIFIED (Active Route)');
+            return new NextResponse(challenge, { status: 200 });
         } else {
-            console.warn('❌ Webhook Verification Failed: Token mismatch');
-            return new Response('Forbidden', { status: 403 });
+            console.warn('❌ WEBHOOK_VERIFICATION_FAILED: Token Mismatch');
+            return new NextResponse('Forbidden', { status: 403 });
         }
     }
-    return new Response('Bad Request', { status: 400 });
+    return new NextResponse('Bad Request', { status: 400 });
 }
 
-/**
- * POST - Receive messages from Meta Cloud API
- */
+// INCOMING MESSAGES (POST)
 export async function POST(req: Request) {
     try {
         const body = await req.json();
 
-        // Check if it's a WhatsApp message event
-        if (body.object === 'whatsapp_business_account') {
-            const entry = body.entry?.[0];
-            const change = entry?.changes?.[0];
-            const value = change?.value;
-            const messages = value?.messages;
-
-            if (!messages || messages.length === 0) {
-                return NextResponse.json({ success: true, reason: 'No messages' });
-            }
-
-            const msg = messages[0];
-            const from = msg.from; // Phone number (sender)
-            const msgId = msg.id;
-
-            // Extract text based on type
-            let text = '';
-            if (msg.type === 'text') {
-                text = msg.text?.body || '';
-            } else if (msg.type === 'image') {
-                text = `📸 Imagen: ${msg.image?.caption || 'Sin leyenda'}`;
-            } else if (msg.type === 'button') {
-                text = `🔘 Botón: ${msg.button?.text}`;
-            } else {
-                text = `[Mensaje tipo ${msg.type}]`;
-            }
-
-            if (!text) return NextResponse.json({ success: true, reason: 'Empty body' });
-
-            console.log(`📩 [Meta Webhook] New message from ${from}: "${text}"`);
-
-            // Phone extraction - Meta usually gives international format (e.g. 593982...)
-            const last9 = from.slice(-9);
-
-            // 1. MATCH CONTACT (CRM Master Table)
-            const [contact] = await db.select().from(contacts)
-                .where(like(contacts.phone, `%${last9}`))
-                .limit(1);
-
-            if (contact) {
-                console.log(`✅ Webhook Sync: Linked to Contact [${contact.id}] ${contact.contactName}`);
-                await db.insert(interactions).values({
-                    contactId: contact.id,
-                    type: 'whatsapp',
-                    direction: 'inbound',
-                    content: text,
-                    performedAt: new Date(),
-                });
-
-                // PROACTIVE BRAIN: Trigger Donna Planning
-                try {
-                    const { planningEngine } = await import('@/lib/donna/services/PlanningEngine');
-                    await planningEngine.generatePlanningForContact(contact.id);
-                } catch (e) {
-                    console.error('⚠️ Webhook: Planning Trigger Error:', e);
-                }
-            } else {
-                // 2. FALLBACK: MATCH DISCOVERY LEAD
-                const [discoveryLead] = await db.select().from(discoveryLeads)
-                    .where(like(discoveryLeads.telefonoPrincipal, `%${last9}`))
-                    .limit(1);
-
-                if (discoveryLead) {
-                    console.log(`✅ Webhook Sync: Linked to Discovery Lead [${discoveryLead.id}] ${discoveryLead.nombreComercial}`);
-                    await db.insert(interactions).values({
-                        discoveryLeadId: discoveryLead.id,
-                        type: 'whatsapp',
-                        direction: 'inbound',
-                        content: text,
-                        performedAt: new Date(),
-                    });
-                } else {
-                    console.log(`ℹ️ Webhook Sync: Number ${from} not found. Creating Shadow Lead...`);
-                    // 3. AUTO-CREATE: NEW WHATSAPP LEAD
-                    const [newLead] = await db.insert(discoveryLeads).values({
-                        nombreComercial: `WhatsApp Link (${from})`,
-                        telefonoPrincipal: from,
-                        columna1: 'no_contactado',
-                        columna2: 'pendiente',
-                        status: 'pending'
-                    }).returning();
-
-                    await db.insert(interactions).values({
-                        discoveryLeadId: newLead.id,
-                        type: 'whatsapp',
-                        direction: 'inbound',
-                        content: text,
-                        performedAt: new Date(),
-                    });
-                }
-            }
+        // Check if it's a WhatsApp Status Update (ignore for now to reduce noise)
+        if (body.entry?.[0]?.changes?.[0]?.value?.statuses) {
+            return NextResponse.json({ status: 'ignored_status_update' });
         }
 
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('❌ Meta Webhook Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        // Handle Messages
+        if (body.object) {
+            if (
+                body.entry &&
+                body.entry[0].changes &&
+                body.entry[0].changes[0] &&
+                body.entry[0].changes[0].value.messages &&
+                body.entry[0].changes[0].value.messages[0]
+            ) {
+                const message = body.entry[0].changes[0].value.messages[0];
+                const from = message.from; // Phone number
+                const text = message.text?.body || '[Multimedia/No text]';
+                // const type = message.type;
+                const timestamp = new Date();
+
+                console.log(`📩 [ACTIVE WEBHOOK] Incoming WhatsApp from ${from}: ${text}`);
+
+                // 1. Identify Sender (Contact or Discovery Lead)
+                let contactId = null;
+                let discoveryLeadId = null;
+
+                // Normalize phone (remove 593 or +) usually Meta sends raw country code
+                // Our DB stores simple numbers or with 593. Let's try exact match first
+
+                // Try finding in Contacts
+                const [foundContact] = await db.select().from(contacts).where(eq(contacts.phone, from)).limit(1);
+
+                if (foundContact) {
+                    contactId = foundContact.id;
+                } else {
+                    // Try finding in Discovery Leads
+                    const [foundLead] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.telefonoPrincipal, from)).limit(1);
+                    if (foundLead) {
+                        discoveryLeadId = foundLead.id;
+                    } else {
+                        // 1.c Auto-create Prospect (Ghost Contact)
+                        // This ensures the user SEES the message in the inbox
+                        console.log(`👤 Creating new Prospect for unknown WhatsApp: ${from}`);
+                        const [newContact] = await db.insert(contacts).values({
+                            businessName: `WhatsApp ${from.slice(-4)}`,
+                            contactName: 'Desconocido (WhatsApp)',
+                            phone: from,
+                            entityType: 'prospect',
+                            source: 'whatsapp_inbound',
+                            status: 'sin_contacto',
+                            outreachStatus: 'new'
+                        }).returning(); // Drizzle returning() to get ID
+
+                        if (newContact) {
+                            contactId = newContact.id;
+                        }
+                    }
+                }
+
+                // 2. Save Interaction (Now guaranteed to have an ID)
+                if (contactId || discoveryLeadId) {
+                    await db.insert(interactions).values({
+                        contactId: contactId,
+                        discoveryLeadId: discoveryLeadId,
+                        type: 'whatsapp',
+                        content: text,
+                        direction: 'inbound',
+                        performedAt: timestamp,
+                        createdAt: timestamp
+                    });
+                    console.log('✅ Interaction saved to DB');
+                }
+            }
+            return NextResponse.json({ status: 'processed' });
+        } else {
+            return new NextResponse('Not Found', { status: 404 });
+        }
+    } catch (error: any) {
+        console.error('❌ Error processing webhook:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

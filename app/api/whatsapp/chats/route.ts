@@ -66,12 +66,21 @@ export async function GET() {
             }
 
             let entityType = inter.contactId ? 'contact' : 'discovery';
+            let phone = '';
+            if (inter.contactId) {
+                const [c] = await db.select().from(contacts).where(eq(contacts.id, inter.contactId)).limit(1);
+                phone = c?.phone || '';
+            } else if (inter.discoveryLeadId) {
+                const [d] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, inter.discoveryLeadId)).limit(1);
+                phone = d?.telefonoPrincipal || '';
+            }
 
             uniqueChats.push({
                 id: key, // Use entityId as main id
                 entityId: key,
                 entityType: entityType,
                 contactName: details.name,
+                phone: phone, // CRITICAL: Added so the frontend can reply
                 city: details.city,
                 debts: details.debts,
                 lastMessage: inter.content || '',

@@ -26,7 +26,11 @@ import {
     ChevronLeft,
     ChevronRight,
     Loader2 as Loader,
-    Home
+    Home,
+    Paperclip,
+    Image as ImageIcon,
+    File,
+    PlayCircle
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getMetaStatus } from './actions';
@@ -87,6 +91,11 @@ export default function ChatCenterPage() {
     const [isFetchingMessages, setIsFetchingMessages] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [isSending, setIsSending] = useState(false);
+
+    // Multimedia State
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [pendingMedia, setPendingMedia] = useState<any>(null);
 
     // Form States (Right Panel)
     const [newTask, setNewTask] = useState({ title: '', priority: 'medium', dueDate: '' });
@@ -229,8 +238,61 @@ export default function ChatCenterPage() {
         }
     };
 
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Determine type based on extension/mime
+        let type = 'document';
+        if (file.type.startsWith('image/')) type = 'image';
+        else if (file.type.startsWith('video/')) type = 'video';
+        else if (file.type.startsWith('audio/')) type = 'audio';
+
+        formData.append('type', type);
+
+        try {
+            const res = await fetch('/api/whatsapp/media/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                setPendingMedia({
+                    id: data.mediaId,
+                    type,
+                    name: file.name
+                });
+                toast({ title: "Archivo listo", description: `${file.name} cargado correctamente.` });
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error: any) {
+            toast({ title: "Error de carga", description: error.message, variant: "destructive" });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleSendMessage = async () => {
-        if (!replyText.trim() || !selectedChat) return;
+        console.log('🚀 Sending message attempt:', { phone: selectedChat?.phone, text: replyText, media: pendingMedia });
+
+        if (!replyText.trim() && !pendingMedia) {
+            console.warn('⚠️ Missing text or media');
+            return;
+        }
+
+        if (!selectedChat || !selectedChat.phone) {
+            toast({
+                title: "Error de Envío",
+                description: "El contacto no tiene un número de teléfono válido.",
+                variant: "destructive"
+            });
+            return;
+        }
 
         setIsSending(true);
         try {
@@ -240,10 +302,16 @@ export default function ChatCenterPage() {
                 body: JSON.stringify({
                     phone: selectedChat.phone,
                     text: replyText,
+                    media: pendingMedia ? {
+                        type: pendingMedia.type,
+                        id: pendingMedia.id,
+                        caption: replyText,
+                        filename: pendingMedia.name
+                    } : undefined,
                     metadata: {
                         contactId: selectedChat.entityType === 'contact' ? selectedChat.id : null,
                         discoveryLeadId: selectedChat.entityType === 'discovery' ? selectedChat.id : null,
-                        source: 'chat_center_console' // Changed source
+                        source: 'chat_center_console'
                     }
                 })
             });
@@ -251,20 +319,14 @@ export default function ChatCenterPage() {
             const data = await res.json();
             if (data.success) {
                 setReplyText('');
-                fetchMessages(selectedChat.id); // Recargar mensajes para mostrar el enviado
-                toast({
-                    title: "Mensaje enviado",
-                    description: "El mensaje se envió correctamente vía WhatsApp."
-                });
+                setPendingMedia(null);
+                fetchMessages(selectedChat.id);
+                toast({ title: "Mensaje enviado" });
             } else {
                 throw new Error(data.error || 'Error al enviar');
             }
         } catch (error: any) {
-            toast({
-                title: "Error al enviar",
-                description: error.message,
-                variant: "destructive"
-            });
+            toast({ title: "Error al enviar", description: error.message, variant: "destructive" });
         } finally {
             setIsSending(false);
         }
@@ -475,10 +537,50 @@ export default function ChatCenterPage() {
                                             )}
                                             {messages.map((msg: any, idx: number) => {
                                                 const isOutbound = msg.direction === 'outbound';
+                                                const media = msg.metadata?.media;
+
                                                 return (
                                                     <div key={msg.id || idx} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                                                        <div className={`max-w-[75%] p-4 rounded-2xl text-sm shadow-sm transition-all hover:shadow-md ${isOutbound ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-800 text-gray-100 rounded-tl-none border border-gray-700'
-                                                            }`}>
+                                                        <div className={`max-w-[75%] p-3 rounded-2xl text-sm shadow-sm transition-all hover:shadow-md ${isOutbound ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-800 text-gray-100 rounded-tl-none border border-gray-700'}`}>
+
+                                                            {/* Multimedia Rendering */}
+                                                            {media && (
+                                                                <div className="mb-2 space-y-1">
+                                                                    {media.type === 'image' && (
+                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
+                                                                            <img
+                                                                                src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
+                                                                                alt="WhatsApp Image"
+                                                                                className="max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                onClick={() => window.open(media.id ? `/api/whatsapp/media/${media.id}` : media.url, '_blank')}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    {media.type === 'video' && (
+                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20 p-2 flex items-center gap-2">
+                                                                            <PlayCircle className="text-white/50" />
+                                                                            <span className="text-xs">Video de WhatsApp</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {media.type === 'audio' || media.type === 'voice' && (
+                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20 p-2 flex items-center gap-2">
+                                                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                                                                                <div className="w-1 h-3 bg-white/40 rounded-full animate-pulse" />
+                                                                                <div className="w-1 h-5 bg-white/60 rounded-full mx-0.5 animate-pulse" />
+                                                                                <div className="w-1 h-3 bg-white/40 rounded-full animate-pulse" />
+                                                                            </div>
+                                                                            <span className="text-[10px] opacity-70">Nota de voz</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {media.type === 'document' && (
+                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20 p-2 flex items-center gap-2">
+                                                                            <File size={16} className="text-blue-300" />
+                                                                            <span className="text-[10px] truncate max-w-[150px]">{media.filename || 'Documento'}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
                                                             <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                                                             <div className={`text-[9px] mt-2 opacity-60 flex items-center gap-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
                                                                 {new Date(msg.performedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -493,33 +595,52 @@ export default function ChatCenterPage() {
                                 </ScrollArea>
 
                                 <div className="p-4 border-t border-gray-800 bg-gray-900/30 backdrop-blur-sm">
-                                    <div className="max-w-3xl mx-auto flex items-end gap-3">
-                                        <div className="flex-1 relative group">
-                                            <Textarea
-                                                value={replyText}
-                                                onChange={(e) => setReplyText(e.target.value)}
-                                                placeholder="Escribe tu mensaje aquí..."
-                                                className="w-full bg-gray-800 border-gray-700 rounded-xl min-h-[50px] max-h-[150px] resize-none focus-visible:ring-blue-500 transition-all text-sm scrollbar-hide"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
-                                                        handleSendMessage();
-                                                    }
-                                                }}
-                                            />
-                                            <div className="absolute right-2 bottom-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-purple-400 hover:bg-purple-400/10" disabled={isGeneratingProposal}>
-                                                    <Bot size={14} />
+                                    <div className="max-w-3xl mx-auto flex flex-col gap-2">
+                                        {pendingMedia && (
+                                            <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 p-2 rounded-lg animate-in fade-in slide-in-from-bottom-2">
+                                                <div className="flex items-center gap-2">
+                                                    {pendingMedia.type === 'image' ? <ImageIcon size={14} className="text-blue-400" /> : <File size={14} className="text-blue-400" />}
+                                                    <span className="text-[10px] text-blue-300 font-medium truncate max-w-[200px]">{pendingMedia.name}</span>
+                                                </div>
+                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-500 hover:text-red-400" onClick={() => setPendingMedia(null)}>
+                                                    <X size={14} />
                                                 </Button>
                                             </div>
+                                        )}
+                                        <div className="flex items-end gap-3">
+                                            <div className="flex-1 relative group">
+                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                                                    <label className="cursor-pointer text-gray-400 hover:text-white transition-colors">
+                                                        {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Paperclip size={18} />}
+                                                        <input type="file" className="hidden" onChange={handleFileSelect} disabled={isUploading || isSending} />
+                                                    </label>
+                                                </div>
+                                                <Textarea
+                                                    value={replyText}
+                                                    onChange={(e) => setReplyText(e.target.value)}
+                                                    placeholder={pendingMedia ? "Añadir un comentario..." : "Escribe tu mensaje aquí..."}
+                                                    className="w-full bg-gray-800 border-gray-700 rounded-xl min-h-[50px] max-h-[150px] resize-none focus-visible:ring-blue-500 transition-all text-sm scrollbar-hide pl-10"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            handleSendMessage();
+                                                        }
+                                                    }}
+                                                />
+                                                <div className="absolute right-2 bottom-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-purple-400 hover:bg-purple-400/10" disabled={isGeneratingProposal}>
+                                                        <Bot size={14} />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <Button
+                                                onClick={handleSendMessage}
+                                                disabled={isSending || isUploading || (!replyText.trim() && !pendingMedia)}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white h-[50px] w-[50px] rounded-xl shrink-0 transition-all active:scale-95 flex items-center justify-center p-0"
+                                            >
+                                                {isSending ? <Loader2 className="animate-spin h-5 w-5" /> : <Send size={20} />}
+                                            </Button>
                                         </div>
-                                        <Button
-                                            onClick={handleSendMessage}
-                                            disabled={isSending || !replyText.trim()}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white h-[50px] w-[50px] rounded-xl shrink-0 transition-all active:scale-95 flex items-center justify-center p-0"
-                                        >
-                                            {isSending ? <Loader2 className="animate-spin h-5 w-5" /> : <Send size={20} />}
-                                        </Button>
                                     </div>
                                     <p className="text-[10px] text-gray-500 mt-2 text-center opacity-50">
                                         Empresa: {selectedChat.contactName} • Tel: {selectedChat.phone}

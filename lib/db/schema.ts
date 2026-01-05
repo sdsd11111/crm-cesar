@@ -357,6 +357,8 @@ export const interactions = pgTable('interactions', {
   performedBy: text('performed_by'), // User who did the interaction
   performedAt: timestamp('performed_at').defaultNow().notNull(),
 
+  metadata: jsonb('metadata').default({}), // ✅ ROBUST LOGGING: For raw payloads/extra info
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

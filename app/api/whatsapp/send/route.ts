@@ -3,10 +3,10 @@ import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
 
 export async function POST(req: Request) {
     try {
-        const { phone, text, template, metadata } = await req.json();
+        const { phone, text, template, metadata, media } = await req.json();
 
-        if (!phone || (!text && !template)) {
-            return NextResponse.json({ success: false, error: 'Phone and (text or template) are required' }, { status: 400 });
+        if (!phone || (!text && !template && !media)) {
+            return NextResponse.json({ success: false, error: 'Phone and (text or template or media) are required' }, { status: 400 });
         }
 
         let result;
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
                 template.components || []
             );
         } else {
-            result = await whatsappService.sendMessage(phone, text, metadata || { type: 'trainer_manual' });
+            result = await whatsappService.sendMessage(phone, text, metadata || { type: 'chat_manual' }, media);
         }
 
         return NextResponse.json(result);

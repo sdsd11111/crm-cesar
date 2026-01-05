@@ -1,20 +1,21 @@
 import axios from 'axios';
 import { db } from '../db';
 import { contacts, whatsappLogs, discoveryLeads, interactions } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
-export interface WhatsAppMessage {
-    number: string;
-    text: string;
-    delay?: number;
-    linkPreview?: boolean;
+export interface WhatsAppMedia {
+    type: 'image' | 'video' | 'audio' | 'document';
+    url?: string;
+    id?: string;
+    caption?: string;
+    filename?: string;
 }
 
 export class WhatsAppService {
-    private version: string = 'v22.0';
+    private version: string = 'v21.0';
 
     constructor() {
-        console.log(`📡 WhatsAppService (Meta) Initialized`);
+        console.log(`📡 WhatsAppService (Meta) Multimedia-Enabled Initialized`);
     }
 
     private getCredentials() {
@@ -26,36 +27,26 @@ export class WhatsAppService {
     }
 
     /**
-     * Sends a text message via Meta Cloud API 
-     * @param phone Phone number (E.164 format without +)
-     * @param text Message content
-     * @param metadata Optional metadata for logging
+     * Unified method for sending messages (Text or Multimedia)
      */
-    async sendMessage(phone: string, text: string, metadata: any = {}): Promise<any> {
+    async sendMessage(phone: string, text: string, metadata: any = {}, media?: WhatsAppMedia): Promise<any> {
         const { accessToken, phoneNumberId } = this.getCredentials();
 
         if (!accessToken || !phoneNumberId) {
             console.error('❌ WhatsAppService: Meta Credentials missing');
-            console.log('   - Access Token length:', accessToken.length);
-            console.log('   - Phone Number ID:', phoneNumberId);
             return { success: false, error: 'Config missing' };
         }
 
-        // Clean phone number (Meta requires internacional format without leading zeros or +)
-        let cleanPhone = phone.replace(/\D/g, '');
-        // For Ecuador, ensure it starts with 593
-        if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
-            cleanPhone = '593' + cleanPhone.slice(1);
-        } else if (cleanPhone.length === 9 && !cleanPhone.startsWith('593')) {
-            cleanPhone = '593' + cleanPhone;
-        }
-
         try {
-            // 1. Check for Opt-Out (Master Rules)
+            // 1. Clean phone number
+            const cleanPhone = phone.replace(/\D/g, '');
+            const last9 = cleanPhone.slice(-9);
+
+            // 2. Flexible Match for Contact/Opt-Out
             const [contact] = await db
                 .select()
                 .from(contacts)
-                .where(eq(contacts.phone, phone))
+                .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
                 .limit(1);
 
             if (contact?.whatsappOptOut) {
@@ -63,114 +54,168 @@ export class WhatsAppService {
                 return { success: false, error: 'Contact opted out' };
             }
 
-            // 2. Send via Meta API
-            const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
-            const response = await axios.post(
-                url,
-                {
-                    messaging_product: "whatsapp",
-                    recipient_type: "individual",
-                    to: cleanPhone,
-                    type: "text",
-                    text: {
-                        body: text,
-                        preview_url: true // Enable Link Previews (Show Featured Image)
-                    }
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
+            // 3. Build Meta Payload
+            let payload: any = {
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: cleanPhone
+            };
 
-            // 3. LOG SUCCESS (DB Interactions & Logs)
+            if (media) {
+                payload.type = media.type;
+                payload[media.type] = {
+                    ...(media.id ? { id: media.id } : { link: media.url }),
+                    ...(media.caption ? { caption: media.caption } : {}),
+                    ...(media.type === 'document' && media.filename ? { filename: media.filename } : {})
+                };
+            } else {
+                payload.type = "text";
+                payload.text = {
+                    body: text,
+                    preview_url: true
+                };
+            }
+
+            // 4. Send via Meta API
+            const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
+            const response = await axios.post(url, payload, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            // 5. LOG SUCCESS (DB Interactions & Logs)
             try {
-                // Determine IDs
                 let contactId = contact?.id || null;
                 let discoveryLeadId = null;
 
                 if (!contactId) {
-                    // Try finding in Discovery Leads if not a contact
-                    const [lead] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.telefonoPrincipal, phone)).limit(1); // Use original phone or clean? Usually original in DB might vary. Let's try clean first if possible, but DB data varies. 
-                    // Better to rely on what we have. The webhook does a simple match.
-                    if (lead) discoveryLeadId = lead.id;
+                    const [lead] = await db.select().from(discoveryLeads)
+                        .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
+                        .limit(1);
+
+                    if (lead) {
+                        discoveryLeadId = lead.id;
+                    } else {
+                        console.log(`👤 [Outbound] Creating Ghost Prospect for unknown number: ${cleanPhone}`);
+                        const [newContact] = await db.insert(contacts).values({
+                            businessName: `WhatsApp ${cleanPhone.slice(-4)}`,
+                            contactName: 'Nuevo Contacto (WhatsApp)',
+                            phone: cleanPhone,
+                            entityType: 'prospect',
+                            source: 'whatsapp_outbound',
+                            status: 'sin_contacto',
+                            outreachStatus: 'new'
+                        }).returning();
+                        contactId = newContact.id;
+                    }
                 }
 
-                // A. Insert into Interactions (Main visible history)
-                if (contactId || discoveryLeadId) {
-                    await db.insert(interactions).values({
-                        contactId: contactId,
-                        discoveryLeadId: discoveryLeadId,
-                        type: 'whatsapp',
-                        content: text,
-                        direction: 'outbound',
-                        performedAt: new Date(),
-                        createdAt: new Date()
-                    });
-                }
+                const logContent = media ? `[Multimedia: ${media.type}] ${media.caption || ''}` : text;
 
-                // B. Insert into WhatsApp Logs (Audit)
+                // A. Insert into Interactions (Audit)
+                await db.insert(interactions).values({
+                    contactId: contactId,
+                    discoveryLeadId: discoveryLeadId,
+                    type: 'whatsapp',
+                    content: logContent,
+                    direction: 'outbound',
+                    performedAt: new Date(),
+                    createdAt: new Date(),
+                    metadata: {
+                        source: metadata.source || 'system',
+                        data: response.data,
+                        media: media || null
+                    }
+                });
+
+                // B. Insert into WhatsApp Logs (Technical Audit)
                 await db.insert(whatsappLogs).values({
                     contactId: contactId,
                     trigger: metadata.type || 'system',
-                    content: text,
+                    content: logContent,
                     status: 'sent',
                     approvedBy: metadata.approvedBy || 'system',
-                    metadata: metadata
+                    metadata: { ...metadata, metaResponse: response.data }
                 });
             } catch (dbError) {
                 console.warn('⚠️ Log/Interaction skipped (DB error)', dbError);
             }
 
-            console.log(`✅ Meta WhatsApp sent to ${cleanPhone} (ID: ${response.data.messages?.[0]?.id})`);
-            return {
-                success: true,
-                data: response.data,
-                debug: {
-                    url,
-                    payload: { messaging_product: "whatsapp", to: cleanPhone, type: "text" }
-                }
-            };
+            return { success: true, data: response.data };
         } catch (error: any) {
             const errorData = error.response?.data?.error || { message: error.message };
-            const errorMsg = errorData.message;
-            console.error(`❌ Meta WhatsApp error:`, errorMsg);
-
-            // 4. LOG FAILURE (Try-catch for local testing without DB)
-            try {
-                const [contact] = await db.select().from(contacts).where(eq(contacts.phone, phone)).limit(1);
-                await db.insert(whatsappLogs).values({
-                    contactId: contact?.id || null,
-                    trigger: metadata.type || 'system',
-                    content: text,
-                    status: 'failed',
-                    errorMessage: errorMsg,
-                    metadata: { ...metadata, error: errorData }
-                });
-            } catch (e) {
-                console.warn('⚠️ Log skipped (DB not connected)');
-            }
-
-            return {
-                success: false,
-                error: errorMsg,
-                details: errorData,
-                debug: {
-                    url: `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`,
-                    phoneNumberId
-                }
-            };
+            console.error(`❌ Meta WhatsApp error:`, errorData.message);
+            return { success: false, error: errorData.message, details: errorData };
         }
     }
 
     /**
-     * Sends a template message (Required for starting conversations after 24h)
+     * Uploads media to Meta Cloud API to get a media_id
+     */
+    async uploadMedia(fileBuffer: Buffer, fileName: string, mimeType: string, type: string) {
+        const { accessToken, phoneNumberId } = this.getCredentials();
+        const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/media`;
+
+        try {
+            const formData = new FormData();
+            const blob = new Blob([fileBuffer], { type: mimeType });
+            formData.append('file', blob, fileName);
+            formData.append('messaging_product', 'whatsapp');
+            formData.append('type', type);
+
+            const response = await axios.post(url, formData, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+
+            return { success: true, mediaId: response.data.id };
+        } catch (error: any) {
+            console.error('❌ uploadMedia Error:', error.response?.data || error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Downloads media from Meta Cloud API
+     */
+    async getMedia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+        const { accessToken } = this.getCredentials();
+        try {
+            // 1. Get the media URL from the ID
+            const infoUrl = `https://graph.facebook.com/${this.version}/${mediaId}`;
+            const infoRes = await axios.get(infoUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            const mediaUrl = infoRes.data.url;
+            const mimeType = infoRes.data.mime_type;
+
+            if (!mediaUrl) return null;
+
+            // 2. Download the actual binary
+            const downloadRes = await axios.get(mediaUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                responseType: 'arraybuffer'
+            });
+
+            return {
+                buffer: Buffer.from(downloadRes.data),
+                mimeType: mimeType
+            };
+        } catch (error: any) {
+            console.error(`❌ getMedia Error (${mediaId}):`, error.response?.data || error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Sends a template message
      */
     async sendTemplate(phone: string, templateName: string, languageCode: string = 'es_ES', components: any[] = []): Promise<any> {
         const { accessToken, phoneNumberId } = this.getCredentials();
-        // Basic placeholder for marketing/utility templates
         const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
         try {
             const payload: any = {
@@ -182,10 +227,7 @@ export class WhatsAppService {
                     language: { code: languageCode }
                 }
             };
-
-            if (components.length > 0) {
-                payload.template.components = components;
-            }
+            if (components.length > 0) payload.template.components = components;
 
             const response = await axios.post(url, payload, {
                 headers: {
@@ -196,11 +238,7 @@ export class WhatsAppService {
             return { success: true, data: response.data };
         } catch (error: any) {
             const errorData = error.response?.data?.error || { message: error.message };
-            return {
-                success: false,
-                error: errorData.message,
-                details: errorData
-            };
+            return { success: false, error: errorData.message, details: errorData };
         }
     }
 }

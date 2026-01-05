@@ -25,8 +25,12 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
-    Loader2 as Loader
+    ChevronRight,
+    Loader2 as Loader,
+    Home
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { getMetaStatus } from './actions';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -65,11 +69,14 @@ const COLUMNS = [
     { id: 'done', title: 'Finalizados', icon: <CheckCircle2 className="text-green-500" size={18} />, description: 'Cerrados' }
 ];
 
+
 export default function ChatCenterPage() {
+    const router = useRouter();
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [chats, setChats] = useState<any[]>([]);
+    const [isMetaConfigured, setIsMetaConfigured] = useState(true); // Default to true to avoid flash
 
     // UI State
     const [selectedChat, setSelectedChat] = useState<any>(null);
@@ -177,6 +184,11 @@ export default function ChatCenterPage() {
 
     useEffect(() => {
         fetchChats();
+        // Check Meta Status on mount
+        getMetaStatus().then(res => {
+            if (res.success) setIsMetaConfigured(res.isConfigured);
+        });
+
         const interval = setInterval(fetchChats, 10000);
         return () => clearInterval(interval);
     }, []); // Changed dependency to empty array
@@ -344,6 +356,14 @@ export default function ChatCenterPage() {
             {/* Minimal Header */}
             <div className="p-3 border-b border-gray-800 flex items-center justify-between bg-gray-900/50 backdrop-blur-md z-20">
                 <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => router.push('/dashboard')}
+                    >
+                        <Home size={20} />
+                    </Button>
                     <div className="p-1.5 bg-[#25D366] rounded flex items-center justify-center">
                         <MessageSquare className="text-white" size={18} />
                     </div>
@@ -772,10 +792,10 @@ export default function ChatCenterPage() {
             </div>
 
             {/* Float sim warning */}
-            {!process.env.NEXT_PUBLIC_META_WA_PHONE_NUMBER_ID && (
+            {!isMetaConfigured && (
                 <div className="text-[10px] bg-amber-500/10 text-amber-500 border-t border-amber-500/30 p-1 px-4 flex justify-between">
                     <span>⚠️ Simulando Meta API</span>
-                    <span>Modo Pruebas Activado</span>
+                    <span>Modo Pruebas Activado (Faltan Credenciales)</span>
                 </div>
             )}
         </div>

@@ -72,7 +72,10 @@ export class WhatsAppService {
                     recipient_type: "individual",
                     to: cleanPhone,
                     type: "text",
-                    text: { body: text }
+                    text: {
+                        body: text,
+                        preview_url: true // Enable Link Previews (Show Featured Image)
+                    }
                 },
                 {
                     headers: {

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { interactions, contacts, discoveryLeads } from '@/lib/db/schema';
-import { sql, eq } from 'drizzle-orm';
-import { waTempStore } from '@/lib/whatsapp/temp-store';
+import { sql as drizzleSql, eq } from 'drizzle-orm';
+import postgres from 'postgres';
 
-// VERIFICATION (GET)
+const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get('hub.mode');
@@ -30,16 +30,16 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         console.log('🏁 WEBHOOK ENTRY POINT - Pulse detected');
-        console.log('Raw Payload:', JSON.stringify(body, null, 2));
 
-        // Add to Temp Store as a "Pulse" even if not a message
-        waTempStore.addLog({
-            type: 'webhook_pulse',
-            direction: 'inbound',
-            content: `Pulse: ${body.object || 'unknown event'}`,
-            performedAt: new Date().toISOString(),
-            metadata: { raw: body }
-        });
+        // Save Pulse to DB for cross-session visibility on Vercel
+        try {
+            await sql`
+                INSERT INTO interactions (type, direction, content, metadata, performed_at, created_at)
+                VALUES ('webhook_pulse', 'inbound', ${'Pulse: ' + (body.object || 'unknown event')}, ${JSON.stringify(body)}, NOW(), NOW())
+            `;
+        } catch (e) {
+            console.error('Pulse Save Error:', e);
+        }
 
         // Check if it's a WhatsApp Status Update
         if (body.entry?.[0]?.changes?.[0]?.value?.statuses) {
@@ -76,19 +76,7 @@ export async function POST(req: Request) {
 
                 console.log(`📩 [WEBHOOK] Incoming from ${from}: ${content}`);
 
-                // [BYPASS] Add to Temp Store immediately
-                waTempStore.addLog({
-                    type: 'whatsapp',
-                    direction: 'inbound',
-                    content: content,
-                    performedAt: timestamp.toISOString(),
-                    metadata: {
-                        raw: message,
-                        media: mediaData ? { type: message.type, ...mediaData } : null
-                    }
-                });
-
-                // 2. Identify Sender (Robust Match) - Wrapped in Try/Catch for DB independence
+                // 2. Identify Sender (Robust Match) - Wrapped in Try/Catch
                 try {
                     let contactId = null;
                     let discoveryLeadId = null;
@@ -105,14 +93,14 @@ export async function POST(req: Request) {
                         contactId = exactContact.id;
                     } else {
                         const [foundContact] = await db.select().from(contacts)
-                            .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
+                            .where(drizzleSql`${contacts.phone} LIKE ${'%' + last9}`)
                             .limit(1);
 
                         if (foundContact) {
                             contactId = foundContact.id;
                         } else {
                             const [foundLead] = await db.select().from(discoveryLeads)
-                                .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
+                                .where(drizzleSql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
                                 .limit(1);
 
                             if (foundLead) {
@@ -133,23 +121,22 @@ export async function POST(req: Request) {
                         }
                     }
 
-                    // 3. Save Interaction
-                    await db.insert(interactions).values({
-                        contactId: contactId,
-                        discoveryLeadId: discoveryLeadId,
-                        type: 'whatsapp',
-                        content: content,
-                        direction: 'inbound',
-                        performedAt: timestamp,
-                        createdAt: timestamp,
-                        metadata: {
-                            raw: message,
-                            media: mediaData ? { type: message.type, ...mediaData } : null
-                        }
-                    });
-                    console.log('✅ Webhook: Interaction saved to DB');
+                    // 3. Save Interaction - Using raw SQL for absolute reliability in diagnostics
+                    await sql`
+                        INSERT INTO interactions (
+                            type, direction, content, contact_id, discovery_lead_id, metadata, performed_at, created_at
+                        ) VALUES (
+                            'whatsapp', 'inbound', ${content}, ${contactId}, ${discoveryLeadId}, 
+                            ${JSON.stringify({
+                        raw: message,
+                        media: mediaData ? { type: message.type, ...mediaData } : null
+                    })}, 
+                            NOW(), NOW()
+                        )
+                    `;
+                    console.log('✅ Webhook: Interaction saved with Raw SQL');
                 } catch (dbError: any) {
-                    console.error('⚠️ Webhook DB Error (Ignored for Bypass):', dbError.message);
+                    console.error('⚠️ Webhook DB Error:', dbError.message);
                 }
             }
             return NextResponse.json({ status: 'processed' });

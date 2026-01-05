@@ -74,14 +74,14 @@ export default function WhatsAppTestPage() {
                 <div className="flex items-center justify-between border-b border-gray-800 pb-4">
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <Smartphone className="text-blue-500" />
-                            WhatsApp Bypass Mode (RAM)
+                            <Smartphone className="text-green-500" />
+                            WhatsApp Diagnostic (Supabase Direct)
                         </h1>
-                        <p className="text-blue-400 text-sm font-bold uppercase tracking-widest mt-1">⚠️ DIAGNÓSTICO SIN SUPABASE ACTIVADO</p>
-                        <p className="text-gray-500 text-[10px] mt-1 italic">Los mensajes se guardan solo en la memoria del servidor. Si el servidor se reinicia, se borran.</p>
+                        <p className="text-green-400 text-sm font-bold uppercase tracking-widest mt-1">✨ CONECTADO A BASE DE DATOS (PERSISTENTE)</p>
+                        <p className="text-gray-500 text-[10px] mt-1 italic">Los logs se guardan en Supabase usando SQL directo para saltar errores del ORM.</p>
                     </div>
-                    <Badge variant="outline" className="border-blue-500/50 text-blue-400 bg-blue-500/10 px-3 py-1">
-                        MODO BYPASS ACTIVO
+                    <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10 px-3 py-1">
+                        SISTEMA LIVE - SUPABASE
                     </Badge>
                 </div>
 
@@ -136,7 +136,7 @@ export default function WhatsAppTestPage() {
                         <CardHeader className="border-b border-gray-800 pb-2">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-sm font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                                    <Server size={16} /> Entrantes / Salientes (RAM)
+                                    <Server size={16} /> Logs de Supabase (50 últimos)
                                 </CardTitle>
                                 <div className="flex gap-2">
                                     <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500" onClick={fetchLogs}><RefreshCw size={14} /></Button>

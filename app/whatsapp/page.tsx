@@ -611,18 +611,20 @@ export default function ChatCenterPage() {
                                                                         </div>
                                                                     )}
                                                                     {(media.type === 'audio' || media.type === 'voice') && (
-                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 py-3 flex items-center gap-3 min-w-[200px]">
-                                                                            <div className="w-8 h-8 rounded-full bg-[#25D366]/20 flex items-center justify-center shrink-0">
-                                                                                <div className="w-1 h-3 bg-[#25D366] rounded-full animate-pulse" />
-                                                                                <div className="w-1 h-5 bg-[#25D366] rounded-full mx-0.5 animate-pulse" />
-                                                                                <div className="w-1 h-3 bg-[#25D366] rounded-full animate-pulse" />
-                                                                            </div>
-                                                                            <div className="flex-1 space-y-1">
-                                                                                <div className="h-1 bg-white/10 rounded-full w-full overflow-hidden">
-                                                                                    <div className="h-full bg-[#25D366] w-[40%]" />
+                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 py-3 flex flex-col gap-2 min-w-[240px]">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="w-10 h-10 rounded-full bg-[#25D366]/20 flex items-center justify-center shrink-0">
+                                                                                    <Mic size={20} className="text-[#25D366]" />
                                                                                 </div>
-                                                                                <span className="text-[9px] opacity-60">Mensaje de voz</span>
+                                                                                <div className="flex-1">
+                                                                                    <audio
+                                                                                        controls
+                                                                                        className="h-8 w-full brightness-90 contrast-125"
+                                                                                        src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
+                                                                                    />
+                                                                                </div>
                                                                             </div>
+                                                                            <span className="text-[9px] opacity-60 ml-1">Mensaje de voz</span>
                                                                         </div>
                                                                     )}
                                                                     {media.type === 'document' && (

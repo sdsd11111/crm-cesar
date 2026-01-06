@@ -91,6 +91,12 @@ export const contacts = pgTable('contacts', {
   investigacion: text('investigacion'), // Legacy field
   researchData: jsonb('research_data'), // NEW Consolidated Field
   source: text('source').default('recorridos'),
+  // Identity Merging & Omnichannel
+  clientId: uuid('client_id').references(() => clients.id), // ✅ THE LINK: Multiple contacts -> One Client
+  channelSource: text('channel_source').default('whatsapp'), // 'whatsapp', 'telegram'
+  lastActivityAt: timestamp('last_activity_at'), // For inbox sorting
+  unreadCount: integer('unread_count').default(0),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

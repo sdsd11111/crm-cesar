@@ -7,7 +7,8 @@ import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, FileText, Phone, MapPin, Calendar, User, UserCheck, Loader2, MoreVertical } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Eye, FileText, Phone, MapPin, Calendar, User, UserCheck, Loader2, MoreVertical, Search } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +72,7 @@ export default function LeadsPage() {
   const [isConverting, setIsConverting] = useState(false)
   const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     fetchLeads()
@@ -182,16 +184,22 @@ export default function LeadsPage() {
     }
   }
 
+  // Filter leads by search term
+  const filteredLeads = leads.filter(l =>
+    l.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    l.contactName.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   // Group leads by stage
   const leadsByStage = {
-    sin_contacto: leads.filter(l => l.status === 'sin_contacto'),
-    primer_contacto: leads.filter(l => l.status === 'primer_contacto'),
-    segundo_contacto: leads.filter(l => l.status === 'segundo_contacto'),
-    tercer_contacto: leads.filter(l => l.status === 'tercer_contacto'),
+    sin_contacto: filteredLeads.filter(l => l.status === 'sin_contacto'),
+    primer_contacto: filteredLeads.filter(l => l.status === 'primer_contacto'),
+    segundo_contacto: filteredLeads.filter(l => l.status === 'segundo_contacto'),
+    tercer_contacto: filteredLeads.filter(l => l.status === 'tercer_contacto'),
   }
 
   // Leads with other statuses (cotizado, convertido)
-  const otherLeads = leads.filter(l =>
+  const otherLeads = filteredLeads.filter(l =>
     !['sin_contacto', 'primer_contacto', 'segundo_contacto', 'tercer_contacto'].includes(l.status)
   )
 
@@ -216,6 +224,18 @@ export default function LeadsPage() {
           <Badge variant='secondary' className='text-lg px-4 py-2'>
             {leads.length} Leads Total
           </Badge>
+        </div>
+
+        <div className='flex gap-4'>
+          <div className='relative flex-1'>
+            <Search className='absolute left-3 top-3 h-4 w-4 text-muted-foreground' />
+            <Input
+              placeholder='Buscar por negocio o contacto...'
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className='pl-10'
+            />
+          </div>
         </div>
 
         <ConvertLeadDialog

@@ -2,10 +2,8 @@ import { google } from 'googleapis';
 import path from 'path';
 
 // Scopes required for the Google Calendar API
+// Scopes required for the Google Calendar API
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
-
-// Path to the service account key file
-const KEY_FILE_PATH = path.join(process.cwd(), 'google_credentials.json');
 
 export class GoogleCalendarService {
     private calendar;
@@ -26,12 +24,14 @@ export class GoogleCalendarService {
                 console.log('🔐 [GoogleCalendarService] Using credentials from environment variable');
             } catch (e) {
                 console.error('❌ [GoogleCalendarService] Error parsing GOOGLE_CALENDAR_CREDENTIALS:', e);
-                // Fallback to local if env exists but is invalid (though in Vercel it will fail anyway)
-                authOptions.keyFile = KEY_FILE_PATH;
+                // If Env var exists but is bad, we fail or fallback. 
+                // In production (Vercel), we DO NOT fallback to file if it was meant to be env var.
             }
         } else {
-            console.log('📄 [GoogleCalendarService] Using credentials from local file:', KEY_FILE_PATH);
-            authOptions.keyFile = KEY_FILE_PATH;
+            // ONLY check for file if Env var is missing
+            const keyFilePath = path.join(process.cwd(), 'google_credentials.json');
+            console.log('📄 [GoogleCalendarService] Using credentials from local file:', keyFilePath);
+            authOptions.keyFile = keyFilePath;
         }
 
         const auth = new google.auth.GoogleAuth(authOptions);

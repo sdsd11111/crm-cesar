@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
-import { conversationStates, contacts, interactions, tasks, commitments, events, reminders, donnaChatMessages } from '@/lib/db/schema';
+import { conversationStates, contacts, items, events, interactions, tasks, discoveryLeads, donnaChatMessages } from '@/lib/db/schema';
+import { messagingService } from '@/lib/messaging/MessagingService';
 import { eq, desc, and, gte, lte } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
@@ -15,12 +16,23 @@ const TIMEZONE = 'America/Guayaquil';
  * Implements "Senior Edition" logic with unified intents and same-day contextual memory.
  */
 export class CortexRouterService {
-    private promptTemplate: string;
+    private promptTemplate: string = '';
     private calendarService: any;
 
     constructor() {
-        const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'cortex_router.md');
-        this.promptTemplate = fs.readFileSync(promptPath, 'utf-8');
+    }
+
+    private getPromptTemplate(): string {
+        if (!this.promptTemplate) {
+            try {
+                const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'cortex_router.md');
+                this.promptTemplate = fs.readFileSync(promptPath, 'utf-8');
+            } catch (error) {
+                console.error('❌ Error loading Cortex Router prompt:', error);
+                return 'Eres un asistente útil.'; // Fallback
+            }
+        }
+        return this.promptTemplate;
     }
 
     private async getCalendarService() {
@@ -75,7 +87,7 @@ export class CortexRouterService {
 
         return history.reverse().map(msg => {
             const zonedMsgTime = toZonedTime(msg.messageTimestamp, TIMEZONE);
-            return `[${format(zonedMsgTime, 'HH:mm')}] ${msg.role === 'user' ? 'User' : 'Donna'}: ${msg.content}`;
+            return `[${format(zonedMsgTime, 'HH:mm')}] ${msg.role === 'user' ? 'User' : 'Donna'}: ${msg.content} `;
         }).join('\n');
     }
 
@@ -131,7 +143,7 @@ export class CortexRouterService {
         const nowZoned = toZonedTime(nowUTC, TIMEZONE);
 
         // 1. Prepare Prompt
-        let prompt = input.promptOverride || this.promptTemplate;
+        let prompt = input.promptOverride || this.getPromptTemplate();
 
         // Fetch Last Action Context
         const lastActionContext = context.lastAction || { intent: 'null', summary: 'null', timestamp: null };
@@ -410,8 +422,8 @@ export class CortexRouterService {
                     if (contactId && data.notes) {
                         const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (c?.phone) {
-                            const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
-                            await whatsappService.sendMessage(c.phone, data.notes, { type: 'manual_via_donna' });
+                            // Uses unified messaging service
+                            await messagingService.send(c.id, data.notes, { type: 'manual_via_donna' });
                             await this.sendTelegramMessage(`📨 WhatsApp enviado a ${c.contactName}.`, context);
                         }
                     }

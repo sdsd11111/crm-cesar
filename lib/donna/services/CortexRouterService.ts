@@ -168,8 +168,8 @@ export class CortexRouterService {
         prompt = prompt.replace('{{INPUT}}', input.text);
 
         try {
-            const aiClient = getAIClient('STANDARD');
-            const modelId = getModelId('STANDARD');
+            const aiClient = getAIClient('REASONING');
+            const modelId = getModelId('REASONING');
 
             const response = await aiClient.chat.completions.create({
                 model: modelId,

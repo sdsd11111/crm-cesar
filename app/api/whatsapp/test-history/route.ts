@@ -1,35 +1,54 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { db } from '@/lib/db';
+import { interactions, whatsappLogs } from '@/lib/db/schema';
+import { desc } from 'drizzle-orm';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        // Fetch from both potential diagnostic tables
-        const interactionLogs = await sql`
-            SELECT id, 'interaction' as origin, type, direction, content, created_at, metadata::text as meta_str 
-            FROM interactions 
-            ORDER BY created_at DESC 
-            LIMIT 30
-        `;
+        // Fetch from both tables using Drizzle
+        const interactionLogs = await db.select().from(interactions)
+            .orderBy(desc(interactions.createdAt))
+            .limit(30);
 
-        const waMsgLogs = await sql`
-            SELECT id, 'wa_msg' as origin, 'whatsapp' as type, 'outbound' as direction, content, created_at, metadata::text as meta_str 
-            FROM whatsapp_messages 
-            ORDER BY created_at DESC 
-            LIMIT 20
-        `;
+        const techLogs = await db.select().from(whatsappLogs)
+            .orderBy(desc(whatsappLogs.createdAt))
+            .limit(20);
 
-        // Combine and sort
-        const combined = [...interactionLogs, ...waMsgLogs].sort((a, b) =>
+        // Map them to a unified format for the diagnostic UI
+        const mappedInteractions = interactionLogs.map(log => ({
+            id: log.id,
+            origin: 'interaction',
+            type: log.type,
+            direction: log.direction,
+            content: log.content,
+            created_at: log.createdAt,
+            meta_str: JSON.stringify(log.metadata)
+        }));
+
+        const mappedTech = techLogs.map(log => ({
+            id: log.id,
+            origin: 'tech_log',
+            type: 'whatsapp',
+            direction: 'unknown',
+            content: `[${log.trigger}] ${log.content}`,
+            created_at: log.createdAt,
+            meta_str: JSON.stringify(log.metadata)
+        }));
+
+        // Combine and sort by date descending
+        const combined = [...mappedInteractions, ...mappedTech].sort((a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
 
         return NextResponse.json({ success: true, logs: combined });
     } catch (error: any) {
-        console.error('Diagnostic API Error:', error);
+        console.error('❌ Diagnostic History Error:', error.message);
         return NextResponse.json({
             success: false,
             error: error.message,
-            tip: "Check if whatsapp_messages table exists or column names are correct"
+            tip: "Asegúrate de que las tablas existan en Supabase."
         }, { status: 500 });
     }
 }

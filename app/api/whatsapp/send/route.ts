@@ -3,27 +3,25 @@ import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
 
 export async function POST(req: Request) {
     try {
-        const { phone, text, template, metadata, media } = await req.json();
+        const body = await req.json();
+        const { phone, text, metadata, media } = body;
 
-        if (!phone || (!text && !template && !media)) {
-            return NextResponse.json({ success: false, error: 'Phone and (text or template or media) are required' }, { status: 400 });
-        }
+        console.log(`📤 Sending message to ${phone}...`);
 
-        let result;
-        if (template) {
-            result = await whatsappService.sendTemplate(
-                phone,
-                template.name,
-                template.language?.code || 'es_ES',
-                template.components || []
-            );
+        const result = await whatsappService.sendMessage(phone, text, metadata, media);
+
+        if (result.success) {
+            return NextResponse.json({ success: true, data: result.data });
         } else {
-            result = await whatsappService.sendMessage(phone, text, metadata || { type: 'chat_manual' }, media);
+            console.error('❌ Send API Error:', result.error);
+            return NextResponse.json({
+                success: false,
+                error: result.error,
+                details: result.details
+            }, { status: 400 });
         }
-
-        return NextResponse.json(result);
     } catch (error: any) {
-        console.error('Error in WhatsApp Send API:', error);
-        return NextResponse.json({ success: false, error: error.message, details: error }, { status: 500 });
+        console.error('❌ Send API fatal error:', error.message);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

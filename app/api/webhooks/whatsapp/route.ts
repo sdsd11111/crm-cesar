@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { interactions, contacts, discoveryLeads } from '@/lib/db/schema';
-import { sql as drizzleSql, eq } from 'drizzle-orm';
-import postgres from 'postgres';
+import { interactions, contacts, discoveryLeads, whatsappLogs } from '@/lib/db/schema';
+import { sql, eq } from 'drizzle-orm';
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get('hub.mode');
@@ -29,14 +27,18 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        console.log('🏁 WEBHOOK ENTRY POINT - Pulse detected');
+        console.log('🏁 WEBHOOK ENTRY POINT - Processing with Drizzle');
 
-        // Save Pulse to DB for cross-session visibility on Vercel
+        // Guardar "Pulse" para visibilidad técnica (Audit)
         try {
-            await sql`
-                INSERT INTO interactions (type, direction, content, metadata, performed_at, created_at)
-                VALUES ('webhook_pulse', 'inbound', ${'Pulse: ' + (body.object || 'unknown event')}, ${JSON.stringify(body)}, NOW(), NOW())
-            `;
+            await db.insert(interactions).values({
+                type: 'whatsapp',
+                direction: 'inbound',
+                content: `Pulse: ${body.object || 'unknown event'}`,
+                metadata: { pulse: true, raw: body },
+                performedAt: new Date(),
+                createdAt: new Date()
+            });
         } catch (e) {
             console.error('Pulse Save Error:', e);
         }
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
 
                 console.log(`📩 [WEBHOOK] Incoming from ${from}: ${content}`);
 
-                // 2. Identify Sender (Robust Match) - Wrapped in Try/Catch
+                // 2. Identify Sender (Robust Match)
                 try {
                     let contactId = null;
                     let discoveryLeadId = null;
@@ -93,14 +95,14 @@ export async function POST(req: Request) {
                         contactId = exactContact.id;
                     } else {
                         const [foundContact] = await db.select().from(contacts)
-                            .where(drizzleSql`${contacts.phone} LIKE ${'%' + last9}`)
+                            .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
                             .limit(1);
 
                         if (foundContact) {
                             contactId = foundContact.id;
                         } else {
                             const [foundLead] = await db.select().from(discoveryLeads)
-                                .where(drizzleSql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
+                                .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
                                 .limit(1);
 
                             if (foundLead) {
@@ -121,20 +123,32 @@ export async function POST(req: Request) {
                         }
                     }
 
-                    // 3. Save Interaction - Using raw SQL for absolute reliability in diagnostics
-                    await sql`
-                        INSERT INTO interactions (
-                            type, direction, content, contact_id, discovery_lead_id, metadata, performed_at, created_at
-                        ) VALUES (
-                            'whatsapp', 'inbound', ${content}, ${contactId}, ${discoveryLeadId}, 
-                            ${JSON.stringify({
-                        raw: message,
-                        media: mediaData ? { type: message.type, ...mediaData } : null
-                    })}, 
-                            NOW(), NOW()
-                        )
-                    `;
-                    console.log('✅ Webhook: Interaction saved with Raw SQL');
+                    // 3. Save Interaction - Using Drizzle
+                    await db.insert(interactions).values({
+                        type: 'whatsapp',
+                        direction: 'inbound',
+                        content: content,
+                        contactId: contactId,
+                        discoveryLeadId: discoveryLeadId,
+                        metadata: {
+                            raw: message,
+                            phoneNumber: from, // SIEMPRE guardamos el número para poder identificarlo si no hay ID
+                            media: mediaData ? { type: message.type, ...mediaData } : null
+                        },
+                        performedAt: new Date(),
+                        createdAt: new Date()
+                    });
+
+                    // 4. Also Save to whatsapp_logs for Technical Audit
+                    await db.insert(whatsappLogs).values({
+                        contactId: contactId,
+                        trigger: 'webhook_inbound',
+                        content: content,
+                        status: 'sent',
+                        metadata: { raw: body, from }
+                    });
+
+                    console.log('✅ Webhook: Interaction and Log saved with Drizzle');
                 } catch (dbError: any) {
                     console.error('⚠️ Webhook DB Error:', dbError.message);
                 }

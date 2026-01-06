@@ -537,14 +537,19 @@ export default function ChatCenterPage() {
                     <div className="flex-1 flex flex-col bg-gray-950 border-r border-gray-800 animate-in slide-in-from-left-2 shadow-2xl z-10">
                         {selectedChat ? (
                             <>
-                                <ScrollArea className="flex-1 p-6 bg-dots-white/[0.02]">
+                                <ScrollArea className="flex-1 p-6 relative">
+                                    {/* Fondo estilo WhatsApp (Sutil) */}
+                                    <div className="absolute inset-0 bg-[#0b141a] opacity-95 -z-10" />
+                                    <div className="absolute inset-0 bg-repeat opacity-[0.03] pointer-events-none -z-10"
+                                        style={{ backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')" }} />
+
                                     {isFetchingMessages ? (
                                         <div className="flex flex-col items-center justify-center h-full opacity-50 space-y-4">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-                                            <p className="text-sm">Recuperando cinta magnética...</p>
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#25D366]" />
+                                            <p className="text-sm font-medium tracking-wide">Sincronizando mensajes...</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-6 max-w-3xl mx-auto">
+                                        <div className="space-y-4 max-w-3xl mx-auto relative z-10">
                                             {messages.length === 0 && (
                                                 <div className="flex flex-col items-center justify-center py-20 opacity-20">
                                                     <MessageSquare size={48} />
@@ -556,14 +561,26 @@ export default function ChatCenterPage() {
                                                 const media = msg.metadata?.media;
 
                                                 return (
-                                                    <div key={msg.id || idx} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                                                        <div className={`max-w-[75%] p-3 rounded-2xl text-sm shadow-sm transition-all hover:shadow-md ${isOutbound ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-800 text-gray-100 rounded-tl-none border border-gray-700'}`}>
+                                                    <div key={msg.id || idx} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-1`}>
+                                                        <div className={cn(
+                                                            "relative max-w-[70%] p-2 px-3 rounded-lg text-[13px] shadow-lg",
+                                                            isOutbound
+                                                                ? "bg-[#005c4b] text-[#e9edef] rounded-tr-none"
+                                                                : "bg-[#202c33] text-[#e9edef] rounded-tl-none border border-white/5"
+                                                        )}>
+                                                            {/* Triángulo/Cola de la burbuja */}
+                                                            <div className={cn(
+                                                                "absolute top-0 w-0 h-0 border-t-[8px] border-t-transparent",
+                                                                isOutbound
+                                                                    ? "right-[-8px] border-l-[10px] border-l-[#005c4b]"
+                                                                    : "left-[-8px] border-r-[10px] border-r-[#202c33]"
+                                                            )} />
 
                                                             {/* Multimedia Rendering */}
                                                             {media && (
                                                                 <div className="mb-2 space-y-1">
                                                                     {media.type === 'image' && (
-                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20">
+                                                                        <div className="rounded-md overflow-hidden bg-black/20">
                                                                             <img
                                                                                 src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
                                                                                 alt="WhatsApp Image"
@@ -573,34 +590,45 @@ export default function ChatCenterPage() {
                                                                         </div>
                                                                     )}
                                                                     {media.type === 'video' && (
-                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20 p-2 flex items-center gap-2">
+                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 flex items-center gap-2">
                                                                             <PlayCircle className="text-white/50" />
-                                                                            <span className="text-xs">Video de WhatsApp</span>
+                                                                            <span className="text-[11px]">Video de WhatsApp</span>
                                                                         </div>
                                                                     )}
-                                                                    {media.type === 'audio' || media.type === 'voice' && (
-                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20 p-2 flex items-center gap-2">
-                                                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                                                                                <div className="w-1 h-3 bg-white/40 rounded-full animate-pulse" />
-                                                                                <div className="w-1 h-5 bg-white/60 rounded-full mx-0.5 animate-pulse" />
-                                                                                <div className="w-1 h-3 bg-white/40 rounded-full animate-pulse" />
+                                                                    {(media.type === 'audio' || media.type === 'voice') && (
+                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 py-3 flex items-center gap-3 min-w-[200px]">
+                                                                            <div className="w-8 h-8 rounded-full bg-[#25D366]/20 flex items-center justify-center shrink-0">
+                                                                                <div className="w-1 h-3 bg-[#25D366] rounded-full animate-pulse" />
+                                                                                <div className="w-1 h-5 bg-[#25D366] rounded-full mx-0.5 animate-pulse" />
+                                                                                <div className="w-1 h-3 bg-[#25D366] rounded-full animate-pulse" />
                                                                             </div>
-                                                                            <span className="text-[10px] opacity-70">Nota de voz</span>
+                                                                            <div className="flex-1 space-y-1">
+                                                                                <div className="h-1 bg-white/10 rounded-full w-full overflow-hidden">
+                                                                                    <div className="h-full bg-[#25D366] w-[40%]" />
+                                                                                </div>
+                                                                                <span className="text-[9px] opacity-60">Mensaje de voz</span>
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                     {media.type === 'document' && (
-                                                                        <div className="rounded-lg overflow-hidden border border-white/10 bg-black/20 p-2 flex items-center gap-2">
-                                                                            <File size={16} className="text-blue-300" />
-                                                                            <span className="text-[10px] truncate max-w-[150px]">{media.filename || 'Documento'}</span>
+                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 flex items-center gap-2 border border-white/5">
+                                                                            <File size={16} className="text-gray-400" />
+                                                                            <span className="text-[11px] truncate max-w-[150px]">{media.filename || 'Documento'}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             )}
 
-                                                            <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                                                            <div className={`text-[9px] mt-2 opacity-60 flex items-center gap-1 ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                                                                {new Date(msg.performedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                {isOutbound && <CheckCircle2 size={10} className={msg.status === 'read' ? 'text-blue-200' : ''} />}
+                                                            <p className="whitespace-pre-wrap leading-tight">{msg.content}</p>
+                                                            <div className={cn(
+                                                                "text-[10px] mt-1 opacity-50 flex items-center gap-1 justify-end"
+                                                            )}>
+                                                                <span>{new Date(msg.performedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                {isOutbound && (
+                                                                    <div className="flex -space-x-1">
+                                                                        <CheckCircle2 size={12} className={msg.status === 'read' ? 'text-[#53bdeb]' : 'text-gray-400'} />
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -943,31 +971,69 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
     return (
         <div
             onClick={() => onClick(chat)}
-            className={`group relative p-3 rounded-lg border bg-gray-900 transition-all cursor-pointer hover:border-gray-600 ${chat.unread ? 'border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.1)]' : 'border-gray-800'} ${isSelected ? 'ring-2 ring-blue-500 border-transparent scale-[0.98]' : ''}`}
+            className={cn(
+                "group relative p-3 rounded-lg border transition-all cursor-pointer hover:bg-gray-800/80 shadow-sm",
+                chat.unread ? 'bg-[#202c33] border-[#25D366]/40 shadow-[#25D366]/5' : 'bg-[#111b21] border-[#202c33]',
+                isSelected ? 'ring-2 ring-[#25D366] border-transparent scale-[0.98]' : '',
+                chat.isGhost ? 'border-dashed border-amber-500/30' : ''
+            )}
         >
-            <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2">
+            <div className="flex justify-between items-start mb-1">
+                <div className="flex items-center gap-3">
                     <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center border border-gray-600 overflow-hidden">
-                            {chat.avatar ? <img src={chat.avatar} alt="" className="w-full h-full object-cover" /> : <UserCircle size={24} className="text-gray-400" />}
+                        <div className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center border-2 overflow-hidden",
+                            chat.isGhost ? "bg-amber-500/10 border-amber-500/20" : "bg-gray-700 border-[#202c33]"
+                        )}>
+                            {chat.avatar ? (
+                                <img src={chat.avatar} alt="" className="w-full h-full object-cover" />
+                            ) : chat.isGhost ? (
+                                <Bot size={24} className="text-amber-500/50" />
+                            ) : (
+                                <UserCircle size={28} className="text-gray-400" />
+                            )}
                         </div>
                         {chat.unread && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-black" />
+                            <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#25D366] rounded-full border-2 border-[#111b21] flex items-center justify-center">
+                                <span className="text-[8px] text-white font-bold opacity-0">1</span>
+                            </div>
                         )}
                     </div>
                     <div className="overflow-hidden">
-                        <p className="font-bold text-sm truncate w-32">{chat.contactName}</p>
+                        <p className={cn(
+                            "font-bold text-[13px] truncate w-32",
+                            chat.isGhost ? "text-amber-400" : "text-[#e9edef]"
+                        )}>
+                            {chat.contactName}
+                        </p>
                         <div className="flex flex-col">
-                            <p className="text-[10px] text-gray-500 flex items-center gap-1"><MapPin size={10} /> {chat.city || 'Desconocida'}</p>
-                            <p className="text-[10px] text-gray-500 flex items-center gap-1"><Clock size={10} /> {formatTime(chat.time)}</p>
+                            <p className="text-[11px] text-[#8696a0] flex items-center gap-1 font-medium italic truncate">
+                                {chat.isGhost && <span className="text-amber-500/70 not-italic mr-1">(Ghost)</span>}
+                                {chat.lastMessage || 'Sin mensajes'}
+                            </p>
                         </div>
                     </div>
                 </div>
-                <Badge variant="outline" className={`text-[10px] p-0 px-2 h-5 flex items-center border-none opacity-60 ${chat.debts > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-gray-800 text-gray-500'}`}>
-                    {chat.debts > 0 ? `$${chat.debts}` : chat.entityType}
-                </Badge>
+                <div className="flex flex-col items-end gap-1">
+                    <span className={cn(
+                        "text-[10px] shrink-0 font-medium",
+                        chat.unread ? "text-[#25D366]" : "text-[#8696a0]"
+                    )}>
+                        {formatTime(chat.time)}
+                    </span>
+                    {chat.unread && <Badge className="bg-[#25D366] text-black h-4 px-1 text-[9px] font-extrabold rounded-full min-w-[16px] flex items-center justify-center">!</Badge>}
+                </div>
             </div>
-            <p className="text-xs text-gray-400 line-clamp-2 italic leading-relaxed">"{chat.lastMessage}"</p>
+            <div className="flex items-center gap-2 mt-2">
+                <p className="text-[10px] text-gray-500 flex items-center gap-1 uppercase tracking-tight font-bold">
+                    <MapPin size={10} /> {chat.city || 'Ubicación Desconocida'}
+                </p>
+                {chat.isGhost && (
+                    <Badge variant="outline" className="text-[8px] bg-amber-500/10 text-amber-500 border-amber-500/20 h-4">
+                        DESCONOCIDO
+                    </Badge>
+                )}
+            </div>
         </div>
     );
 }

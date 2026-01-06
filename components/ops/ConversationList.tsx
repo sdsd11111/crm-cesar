@@ -76,7 +76,7 @@ function ConversationItem({ conv, selectedId, onSelect }: { conv: Conversation, 
                     </Avatar>
                     <div className="font-semibold">{conv.contactName}</div>
                 </div>
-                {conv.lastActivityAt && (
+                {conv.lastActivityAt && !isNaN(new Date(conv.lastActivityAt).getTime()) && (
                     <span className="text-xs text-muted-foreground">
                         {format(new Date(conv.lastActivityAt), 'HH:mm', { locale: es })}
                     </span>

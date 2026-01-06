@@ -133,7 +133,9 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
                                     }`}>
                                     <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
                                     <div className={`text-[10px] mt-1 text-right ${isAssistant ? 'text-blue-100' : 'text-slate-400'}`}>
-                                        {format(new Date(msg.messageTimestamp), 'HH:mm', { locale: es })} • {msg.platform}
+                                        {msg.messageTimestamp && !isNaN(new Date(msg.messageTimestamp).getTime())
+                                            ? format(new Date(msg.messageTimestamp), 'HH:mm', { locale: es })
+                                            : ''} • {msg.platform}
                                     </div>
                                 </div>
                             </div>

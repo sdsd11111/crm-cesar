@@ -17,7 +17,12 @@ export function OpsBoard() {
         fetch('/api/conversations?limit=30')
             .then(res => res.json())
             .then(data => {
-                setConversations(data);
+                if (Array.isArray(data)) {
+                    setConversations(data);
+                } else {
+                    console.error("API returned invalid data format:", data);
+                    setConversations([]);
+                }
                 setLoading(false);
             })
             .catch(err => {

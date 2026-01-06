@@ -23,8 +23,9 @@ export async function GET() {
             type: log.type,
             direction: log.direction,
             content: log.content,
-            created_at: log.createdAt,
-            meta_str: JSON.stringify(log.metadata)
+            createdAt: log.createdAt,
+            performedAt: log.performedAt,
+            metadata: log.metadata
         }));
 
         const mappedTech = techLogs.map(log => ({
@@ -33,13 +34,13 @@ export async function GET() {
             type: 'whatsapp',
             direction: 'unknown',
             content: `[${log.trigger}] ${log.content}`,
-            created_at: log.createdAt,
-            meta_str: JSON.stringify(log.metadata)
+            createdAt: log.createdAt,
+            metadata: log.metadata
         }));
 
         // Combine and sort by date descending
         const combined = [...mappedInteractions, ...mappedTech].sort((a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
         return NextResponse.json({ success: true, logs: combined });

@@ -107,6 +107,17 @@ export default function ChatCenterPage() {
     const [isFetchingDetails, setIsFetchingDetails] = useState(false);
     const [isSavingDetails, setIsSavingDetails] = useState(false);
     const [editedFields, setEditedFields] = useState<any>({});
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    };
+
+    useEffect(() => {
+        if (messages.length > 0) {
+            scrollToBottom();
+        }
+    }, [messages]);
 
     const fetchChats = async () => {
         try {
@@ -130,23 +141,27 @@ export default function ChatCenterPage() {
         }
     };
 
-    const fetchMessages = async (chatId: string) => {
-        setIsFetchingMessages(true);
+    const fetchMessages = async (chatId: string, quiet = false) => {
+        if (!quiet) setIsFetchingMessages(true);
         try {
             const res = await fetch(`/api/whatsapp/chats/${chatId}`);
             const data = await res.json();
             if (data.success) {
-                setMessages(data.messages);
+                // Solo actualizar si hay cambios para evitar parpadeos innecesarios
+                setMessages(prev => {
+                    if (JSON.stringify(prev) === JSON.stringify(data.messages)) return prev;
+                    return data.messages;
+                });
             }
         } catch (error) {
             console.error('Error fetching messages:', error);
-            toast({
+            if (!quiet) toast({
                 title: "Error",
                 description: "No se pudo cargar el historial de mensajes.",
                 variant: "destructive"
             });
         } finally {
-            setIsFetchingMessages(false);
+            if (!quiet) setIsFetchingMessages(false);
         }
     };
 
@@ -207,9 +222,9 @@ export default function ChatCenterPage() {
         // Intervalo para los mensajes del chat activo
         const messageInterval = setInterval(() => {
             if (selectedChat?.id) {
-                fetchMessages(selectedChat.id);
+                fetchMessages(selectedChat.id, true); // true = quiet mode (no parpadeo)
             }
-        }, 5000); // Cada 5 segundos refrescar mensajes si hay uno abierto
+        }, 5000);
 
         return () => {
             clearInterval(chatListInterval);
@@ -537,7 +552,7 @@ export default function ChatCenterPage() {
                     <div className="flex-1 flex flex-col bg-gray-950 border-r border-gray-800 animate-in slide-in-from-left-2 shadow-2xl z-10">
                         {selectedChat ? (
                             <>
-                                <ScrollArea className="flex-1 p-6 relative">
+                                <ScrollArea className="flex-1 p-2 md:p-3 relative">
                                     {/* Fondo estilo WhatsApp (Sutil) */}
                                     <div className="absolute inset-0 bg-[#0b141a] opacity-95 -z-10" />
                                     <div className="absolute inset-0 bg-repeat opacity-[0.03] pointer-events-none -z-10"
@@ -546,14 +561,14 @@ export default function ChatCenterPage() {
                                     {isFetchingMessages ? (
                                         <div className="flex flex-col items-center justify-center h-full opacity-50 space-y-4">
                                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#25D366]" />
-                                            <p className="text-sm font-medium tracking-wide">Sincronizando mensajes...</p>
+                                            <p className="text-sm font-medium tracking-wide">Sincronizando...</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-4 max-w-3xl mx-auto relative z-10">
+                                        <div className="space-y-1.5 max-w-4xl mx-auto relative z-10">
                                             {messages.length === 0 && (
                                                 <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                                                    <MessageSquare size={48} />
-                                                    <p className="mt-2 text-xs">Sin mensajes previos</p>
+                                                    <MessageSquare size={40} />
+                                                    <p className="mt-2 text-xs">Sin mensajes</p>
                                                 </div>
                                             )}
                                             {messages.map((msg: any, idx: number) => {
@@ -561,19 +576,19 @@ export default function ChatCenterPage() {
                                                 const media = msg.metadata?.media;
 
                                                 return (
-                                                    <div key={msg.id || idx} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-1`}>
+                                                    <div key={msg.id || idx} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-0.5`}>
                                                         <div className={cn(
-                                                            "relative max-w-[70%] p-2 px-3 rounded-lg text-[13px] shadow-lg",
+                                                            "relative max-w-[85%] md:max-w-[70%] p-1.5 px-2.5 rounded-lg text-[13px] shadow-sm",
                                                             isOutbound
                                                                 ? "bg-[#005c4b] text-[#e9edef] rounded-tr-none"
                                                                 : "bg-[#202c33] text-[#e9edef] rounded-tl-none border border-white/5"
                                                         )}>
                                                             {/* Triángulo/Cola de la burbuja */}
                                                             <div className={cn(
-                                                                "absolute top-0 w-0 h-0 border-t-[8px] border-t-transparent",
+                                                                "absolute top-0 w-0 h-0 border-t-[6px] border-t-transparent",
                                                                 isOutbound
-                                                                    ? "right-[-8px] border-l-[10px] border-l-[#005c4b]"
-                                                                    : "left-[-8px] border-r-[10px] border-r-[#202c33]"
+                                                                    ? "right-[-6px] border-l-[8px] border-l-[#005c4b]"
+                                                                    : "left-[-6px] border-r-[8px] border-r-[#202c33]"
                                                             )} />
 
                                                             {/* Multimedia Rendering */}
@@ -619,14 +634,14 @@ export default function ChatCenterPage() {
                                                                 </div>
                                                             )}
 
-                                                            <p className="whitespace-pre-wrap leading-tight">{msg.content}</p>
+                                                            <p className="whitespace-pre-wrap leading-[1.3]">{msg.content}</p>
                                                             <div className={cn(
-                                                                "text-[10px] mt-1 opacity-50 flex items-center gap-1 justify-end"
+                                                                "text-[9px] mt-0.5 opacity-50 flex items-center gap-1 justify-end leading-none"
                                                             )}>
                                                                 <span>{new Date(msg.performedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                 {isOutbound && (
                                                                     <div className="flex -space-x-1">
-                                                                        <CheckCircle2 size={12} className={msg.status === 'read' ? 'text-[#53bdeb]' : 'text-gray-400'} />
+                                                                        <CheckCircle2 size={10} className={msg.status === 'read' ? 'text-[#53bdeb]' : 'text-gray-400'} />
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -634,6 +649,7 @@ export default function ChatCenterPage() {
                                                     </div>
                                                 );
                                             })}
+                                            <div ref={messagesEndRef} />
                                         </div>
                                     )}
                                 </ScrollArea>
@@ -972,17 +988,17 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
         <div
             onClick={() => onClick(chat)}
             className={cn(
-                "group relative p-3 rounded-lg border transition-all cursor-pointer hover:bg-gray-800/80 shadow-sm",
+                "group relative p-2 rounded-lg border transition-all cursor-pointer hover:bg-gray-800/80 shadow-sm",
                 chat.unread ? 'bg-[#202c33] border-[#25D366]/40 shadow-[#25D366]/5' : 'bg-[#111b21] border-[#202c33]',
                 isSelected ? 'ring-2 ring-[#25D366] border-transparent scale-[0.98]' : '',
                 chat.isGhost ? 'border-dashed border-amber-500/30' : ''
             )}
         >
-            <div className="flex justify-between items-start mb-1">
-                <div className="flex items-center gap-3">
+            <div className="flex justify-between items-start mb-0.5">
+                <div className="flex items-center gap-2">
                     <div className="relative">
                         <div className={cn(
-                            "w-12 h-12 rounded-full flex items-center justify-center border-2 overflow-hidden",
+                            "w-10 h-10 rounded-full flex items-center justify-center border-2 overflow-hidden",
                             chat.isGhost ? "bg-amber-500/10 border-amber-500/20" : "bg-gray-700 border-[#202c33]"
                         )}>
                             {chat.avatar ? (
@@ -1001,13 +1017,13 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
                     </div>
                     <div className="overflow-hidden">
                         <p className={cn(
-                            "font-bold text-[13px] truncate w-32",
+                            "font-bold text-[12px] truncate w-28",
                             chat.isGhost ? "text-amber-400" : "text-[#e9edef]"
                         )}>
                             {chat.contactName}
                         </p>
                         <div className="flex flex-col">
-                            <p className="text-[11px] text-[#8696a0] flex items-center gap-1 font-medium italic truncate">
+                            <p className="text-[10px] text-[#8696a0] flex items-center gap-1 font-medium italic truncate">
                                 {chat.isGhost && <span className="text-amber-500/70 not-italic mr-1">(Ghost)</span>}
                                 {chat.lastMessage || 'Sin mensajes'}
                             </p>
@@ -1041,8 +1057,8 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
 // Helper for editable fields in the Info tab
 function DetailField({ label, value, field, onChange, readOnly = false, type = "text", area = false }: any) {
     return (
-        <div className="space-y-1">
-            <Label className="text-[10px] text-gray-500 uppercase ml-1">{label}</Label>
+        <div className="space-y-0.5">
+            <Label className="text-[9px] text-gray-500 uppercase ml-1 tracking-tight">{label}</Label>
             {area ? (
                 <Textarea
                     value={value || ''}

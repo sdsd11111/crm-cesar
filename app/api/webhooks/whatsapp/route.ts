@@ -108,17 +108,7 @@ export async function POST(req: Request) {
                             if (foundLead) {
                                 discoveryLeadId = foundLead.id;
                             } else {
-                                console.log(`👤 Webhook: Creating new Prospect for unknown number: ${from}`);
-                                const [newContact] = await db.insert(contacts).values({
-                                    businessName: `WhatsApp ${from.slice(-4)}`,
-                                    contactName: 'Nuevo Contacto (WhatsApp)',
-                                    phone: from,
-                                    entityType: 'prospect',
-                                    source: 'whatsapp_inbound',
-                                    status: 'sin_contacto',
-                                    outreachStatus: 'new'
-                                }).returning();
-                                contactId = newContact?.id || null;
+                                console.log(`👤 Webhook: unknown number ${from} - identified as GHOST CHAT`);
                             }
                         }
                     }
@@ -133,6 +123,7 @@ export async function POST(req: Request) {
                         metadata: {
                             raw: message,
                             phoneNumber: from, // SIEMPRE guardamos el número para poder identificarlo si no hay ID
+                            isGhost: !contactId && !discoveryLeadId,
                             media: mediaData ? { type: message.type, ...mediaData } : null
                         },
                         performedAt: new Date(),
@@ -145,10 +136,10 @@ export async function POST(req: Request) {
                         trigger: 'webhook_inbound',
                         content: content,
                         status: 'sent',
-                        metadata: { raw: body, from }
+                        metadata: { raw: body, from, isGhost: !contactId && !discoveryLeadId }
                     });
 
-                    console.log('✅ Webhook: Interaction and Log saved with Drizzle');
+                    console.log('✅ Webhook: Interaction and Log saved (Ghost Mode Enabled)');
                 } catch (dbError: any) {
                     console.error('⚠️ Webhook DB Error:', dbError.message);
                 }

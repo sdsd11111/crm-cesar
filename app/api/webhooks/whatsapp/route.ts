@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { interactions, contacts, discoveryLeads, whatsappLogs } from '@/lib/db/schema';
 import { sql, eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get('hub.mode');

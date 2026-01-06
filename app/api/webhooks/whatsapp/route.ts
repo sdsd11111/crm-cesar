@@ -34,7 +34,7 @@ export async function POST(req: Request) {
             await db.insert(whatsappLogs).values({
                 trigger: 'webhook_raw_receive',
                 content: `Event: ${body.object || body.field || 'unknown'}`,
-                status: 'received',
+                status: 'processing',
                 metadata: { raw: body }
             });
         } catch (e) {

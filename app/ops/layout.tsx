@@ -1,30 +1,13 @@
 
 import React from 'react';
-import { AppSidebar } from '@/components/app-sidebar';
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Separator } from '@/components/ui/separator';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb';
+import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
     return (
-        <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
-                    <Separator orientation="vertical" className="mr-2 h-4" />
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>Centro de Operaciones</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
-                </header>
-                <div className="flex flex-1 flex-col gap-4 p-4 h-[calc(100vh-4rem)] overflow-hidden">
-                    {children}
-                </div>
-            </SidebarInset>
-        </SidebarProvider>
+        <DashboardLayout>
+            <div className="flex flex-1 flex-col gap-4 h-[calc(100vh-8rem)] overflow-hidden">
+                {children}
+            </div>
+        </DashboardLayout>
     );
 }

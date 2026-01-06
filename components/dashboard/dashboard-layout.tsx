@@ -87,6 +87,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navigation = [
     { name: "Dashboard", icon: BarChart3, href: "/dashboard" },
+    { name: "Operaciones", icon: MessageSquare, href: "/ops", badge: "New" },
     { name: "WhatsApp", icon: MessageSquare, href: "/whatsapp", badge: "App" }, // Added WhatsApp link
     { name: "Recorridos", icon: MapPin, href: "/recorridos" },
     { name: "Base de Datos", icon: Database, href: "/prospects" }, // Changed icon from Users to Database

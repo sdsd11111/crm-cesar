@@ -12,26 +12,6 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get('limit') || '50');
         const search = searchParams.get('search') || '';
 
-        // Query for conversations (Contacts with recent activity)
-        // We prioritize those with 'lastActivityAt'
-        let query = db.select()
-            .from(contacts)
-            .where(
-                or(
-                    // If search is present, filter by name/phone
-                    search ?
-                        or(
-                            sql`${contacts.contactName} ILIKE ${`%${search}%`}`,
-                            sql`${contacts.phone} ILIKE ${`%${search}%`}`
-                        ) : undefined
-                )
-            )
-            .orderBy(desc(contacts.lastActivityAt))
-            .limit(limit);
-
-        // Note: In Drizzle, conditional where clauses need careful handling or helper functions.
-        // For simplicity in this V1, let's just do basic select.
-
         const activeContacts = await db.query.contacts.findMany({
             where: (contacts, { ilike, or, and, isNotNull }) => {
                 const conditions = [isNotNull(contacts.lastActivityAt)];

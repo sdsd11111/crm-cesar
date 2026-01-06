@@ -30,7 +30,8 @@ import {
     Paperclip,
     Image as ImageIcon,
     File,
-    PlayCircle
+    PlayCircle,
+    Mic
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getMetaStatus } from './actions';

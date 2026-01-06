@@ -1,8 +1,8 @@
 
 import { IMessagingAdapter } from './interfaces';
 import { db } from '@/lib/db';
-import { contacts, clients, interactions, donnaChatMessages } from '@/lib/db/schema';
-import { eq, or, desc, sql } from 'drizzle-orm';
+import { contacts, clients, interactions, donnaChatMessages, contactChannels } from '@/lib/db/schema';
+import { eq, or, desc, sql, and } from 'drizzle-orm';
 
 import { WhatsAppAdapter } from './adapters/WhatsAppAdapter';
 import { TelegramAdapter } from './adapters/TelegramAdapter';
@@ -38,23 +38,32 @@ export class MessagingService {
             if (!contact) throw new Error('Contact not found');
 
             // Default to WhatsApp if not specified (legacy behavior)
-            const channel = contact.channelSource || 'whatsapp';
-            const adapter = this.adapters.get(channel);
+            const requestedChannel = contact.channelSource || 'whatsapp';
+            const adapter = this.adapters.get(requestedChannel);
 
-            if (!adapter) throw new Error(`No adapter found for channel: ${channel}`);
+            if (!adapter) throw new Error(`No adapter found for channel: ${requestedChannel}`);
 
-            // 2. Delegate to Adapter
-            // Prefer chat_id for Telegram, phone for WhatsApp
-            // We might need a schema update to store distinct IDs, but now we use 'phone' as generic identifier or 'chat_id' if stored in metadata?
-            // Pragma: For now, we assume 'phone' holds the identifier for WA, and we need a way for Telegram.
-            // Temporary Logic for Telegram Migration:
-            // If channel is telegram, we need the stored Chat ID. 
-            // We'll look it up in 'donnaChatMessages' distinct or add a column later.
-            // For now, let's assume contact.phone holds the ID if channel='telegram' OR look at interactions.
+            // 2. Resolve Destination Identifier via Contact Channels (The New Way)
+            // We search for a PRIMARY channel matching the requested platform
+            const [channelEntry] = await db.select()
+                .from(contactChannels)
+                .where(
+                    and(
+                        eq(contactChannels.contactId, contactId),
+                        eq(contactChannels.platform, requestedChannel),
+                        eq(contactChannels.isPrimary, true)
+                    )
+                )
+                .limit(1);
 
-            const destination = contact.phone; // This needs to be robust for Telegram Chat IDs
+            // Fallback: If no channel entry exists yet (migration gap), try legacy phone
+            const destination = channelEntry?.identifier || contact.phone;
 
-            const result = await adapter.sendMessage(destination!, text, metadata);
+            if (!destination) {
+                throw new Error(`No valid destination identifier found for contact ${contactId} on ${requestedChannel}`);
+            }
+
+            const result = await adapter.sendMessage(destination, text, metadata);
 
             // 3. Centralized Logging (The "Zero-Refactor" Tables)
             if (result.success) {
@@ -71,7 +80,7 @@ export class MessagingService {
                     chatId: destination!,
                     role: 'assistant',
                     content: text,
-                    platform: channel as any,
+                    platform: requestedChannel as any,
                     metadata: { ...metadata, adapterResponse: result.data }
                 });
             }

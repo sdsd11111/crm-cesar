@@ -1,4 +1,4 @@
-import { pgTable, text, integer, doublePrecision, timestamp, boolean, uuid, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, uuid, integer, jsonb, pgEnum, unique, index, doublePrecision } from 'drizzle-orm/pg-core';
 
 // ============================================
 // CONTACTS - Unified table for Prospects, Leads, and Clients
@@ -100,6 +100,27 @@ export const contacts = pgTable('contacts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Contact Channels table - The "Phone Book" for Identity Merging
+export const contactChannels = pgTable('contact_channels', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'cascade' }).notNull(),
+  platform: text('platform').notNull(), // 'whatsapp', 'telegram', 'instagram'
+  identifier: text('identifier').notNull(), // phone number, chat_id, handle
+  isPrimary: boolean('is_primary').default(false),
+  verified: boolean('verified').default(false), // e.g. OTP verified or trusted source
+
+  // Metadata for the specific channel (e.g. username, profile pic url specific to platform)
+  metadata: jsonb('metadata'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  // Ensure one identifier doesn't belong to multiple contacts on the same platform
+  unq: unique().on(t.platform, t.identifier),
+  // Index for fast lookups
+  identifierIdx: index('contact_channels_identifier_idx').on(t.identifier)
+}));
 
 // Prospects table - Imported database (cold contacts from CSV)
 export const prospects = pgTable('prospects', {

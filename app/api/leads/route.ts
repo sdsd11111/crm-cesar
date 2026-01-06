@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-
+import { db } from '@/lib/db';
+import { contacts, contactChannels } from '@/lib/db/schema';
+import { eq, or } from 'drizzle-orm';
 export async function GET() {
   const cookieStore = cookies()
   const supabase = createServerClient(
@@ -167,15 +169,79 @@ export async function POST(request: Request) {
       (supabaseBody as any)[key] === undefined && delete (supabaseBody as any)[key]
     );
 
-    const { data: newLead, error } = await supabase
-      .from('contacts')
-      .insert([{ ...supabaseBody, entity_type: 'lead' }])
-      .select()
-      .single();
+    // 1. Anti-Duplicate Check
+    let existingContact = null;
+    let contactId = null;
 
-    if (error) {
-      console.error("Error creating lead:", error);
-      return NextResponse.json({ error: "Failed to create lead: " + error.message, details: error }, { status: 500 });
+    // A. Check by Phone (via Channels)
+    if (body.phone) {
+      const [channel] = await db.select().from(contactChannels)
+        .where(or(
+          eq(contactChannels.identifier, body.phone),
+          eq(contactChannels.identifier, body.phone.replace(/\D/g, '')) // Try clean version
+        ))
+        .limit(1);
+
+      if (channel) {
+        contactId = channel.contactId;
+        console.log(`Lead Deduplication: Found existing contact via Phone ${body.phone}`);
+      }
+    }
+
+    // B. Check by Email (if no phone match)
+    if (!contactId && body.email) {
+      const [contact] = await db.select().from(contacts)
+        .where(eq(contacts.email, body.email))
+        .limit(1);
+
+      if (contact) {
+        contactId = contact.id;
+        console.log(`Lead Deduplication: Found existing contact via Email ${body.email}`);
+      }
+    }
+
+    let newLead;
+
+    if (contactId) {
+      // UPDATE EXISTING
+      // We merge provided fields but respect existing critical data
+      // For simplicity, we update most fields to reflect the value from the *latest* form submission
+
+      const [updatedLead] = await db.update(contacts)
+        .set({
+          ...supabaseBody, // Updates with new info from form
+          updatedAt: new Date(),
+          // If previous status was 'atendido', we might want to keep it or move to 'reattended'?
+          // For now, let's reset to 'sin_contacto' ONLY if the user explicitly wants that, 
+          // or we can add a note.
+          // Let's NOT override status if it's already advanced (e.g. 'converted')
+          // But for 'recorridos', usually means new interest.
+          status: 'sin_contacto' // Reset status to ensure visibility in inbox? Or maybe 'reactivated'?
+        } as any)
+        .where(eq(contacts.id, contactId))
+        .returning();
+
+      newLead = updatedLead;
+
+    } else {
+      // INSERT NEW
+      const [insertedLead] = await db.insert(contacts)
+        .values({ ...supabaseBody, entity_type: 'lead' } as any)
+        .returning();
+
+      newLead = insertedLead;
+      contactId = insertedLead.id;
+
+      // Create Channel Entry for the new phone
+      if (body.phone) {
+        await db.insert(contactChannels).values({
+          contactId: contactId,
+          platform: 'whatsapp', // Default assumption for form phones
+          identifier: body.phone,
+          isPrimary: true,
+          verified: false
+        });
+      }
     }
 
     // 2. Initialize Agent

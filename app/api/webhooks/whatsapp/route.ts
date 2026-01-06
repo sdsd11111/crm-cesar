@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { interactions, contacts, discoveryLeads, whatsappLogs } from '@/lib/db/schema';
-import { sql, eq } from 'drizzle-orm';
+import { interactions, contacts, discoveryLeads, whatsappLogs, contactChannels } from '@/lib/db/schema';
+import { sql, eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,28 +71,54 @@ export async function POST(req: Request) {
 
             console.log(`📩 [WEBHOOK_PARSE] From ${from}: ${content}`);
 
-            // 2. Identify Sender
+            // 2. Identify Sender (Omnichannel Identity Resolution)
             try {
                 let contactId = null;
                 let discoveryLeadId = null;
 
-                const cleanFrom = from.replace(/\D/g, '');
-                const last9 = cleanFrom.slice(-9);
-
-                const [exactContact] = await db.select().from(contacts)
-                    .where(eq(contacts.phone, from))
+                // A. Try Exact Match in Contact Channels (The "Phone Book")
+                // This is the fastest and most accurate method
+                const [channelMatch] = await db.select()
+                    .from(contactChannels)
+                    .where(
+                        and(
+                            eq(contactChannels.platform, 'whatsapp'),
+                            eq(contactChannels.identifier, from)
+                        )
+                    )
                     .limit(1);
 
-                if (exactContact) {
-                    contactId = exactContact.id;
+                if (channelMatch) {
+                    contactId = channelMatch.contactId;
+                    console.log(`✅ ID Resolved via Channels: ${contactId}`);
                 } else {
-                    const [foundContact] = await db.select().from(contacts)
+                    // B. Fallback: Legacy Partial Match (Auto-Healing)
+                    // If not in channels, check contacts table and MIGRATE IT if found
+                    const cleanFrom = from.replace(/\D/g, '');
+                    const last9 = cleanFrom.slice(-9);
+
+                    const [legacyContact] = await db.select().from(contacts)
                         .where(sql`${contacts.phone} LIKE ${'%' + last9}`)
                         .limit(1);
 
-                    if (foundContact) {
-                        contactId = foundContact.id;
+                    if (legacyContact) {
+                        contactId = legacyContact.id;
+                        console.log(`⚠️ Legacy Match Found. Auto-Healing Identity...`);
+
+                        // AUTO-HEAL: Create the channel entry so next time it hits step A
+                        try {
+                            await db.insert(contactChannels).values({
+                                contactId: legacyContact.id,
+                                platform: 'whatsapp',
+                                identifier: from,
+                                isPrimary: true,
+                                verified: true
+                            });
+                        } catch (migErr) {
+                            // Ignore unique constraint errors if race condition
+                        }
                     } else {
+                        // C. Check Discovery Leads (Pre-Contact)
                         const [foundLead] = await db.select().from(discoveryLeads)
                             .where(sql`${discoveryLeads.telefonoPrincipal} LIKE ${'%' + last9}`)
                             .limit(1);
@@ -100,7 +126,36 @@ export async function POST(req: Request) {
                         if (foundLead) {
                             discoveryLeadId = foundLead.id;
                         } else {
-                            console.log(`👤 Webhook: unknown number ${from} - GHOST CHAT`);
+                            console.log(`👤 Webhook: unknown number ${from} - Creating Temporary Visitor`);
+
+                            // D. CREATE TEMPORARY VISITOR (So it shows in Ops Board)
+                            // We need a contact record to attach messages to, otherwise the UI won't show the chat.
+                            // The UI will detect this name/phone pattern and show the "Unknown" badge + "Create Contact" button.
+                            try {
+                                const [newGhost] = await db.insert(contacts).values({
+                                    contactName: from, // Placeholder: Just the phone number
+                                    phone: from,
+                                    status: 'lead', // Generic status so it appears in inbox
+                                    source: 'whatsapp_inbound',
+                                    entity_type: 'lead',
+                                    createdAt: new Date(),
+                                    updatedAt: new Date(),
+                                    lastActivityAt: new Date()
+                                } as any).returning();
+
+                                contactId = newGhost.id;
+
+                                // Also add to channels for future stability
+                                await db.insert(contactChannels).values({
+                                    contactId: newGhost.id,
+                                    platform: 'whatsapp',
+                                    identifier: from,
+                                    isPrimary: true,
+                                    verified: false
+                                });
+                            } catch (createErr) {
+                                console.error('Error creating ghost contact:', createErr);
+                            }
                         }
                     }
                 }

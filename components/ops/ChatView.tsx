@@ -7,6 +7,7 @@ import { Send, Paperclip, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ClientLinkDialog } from './ClientLinkDialog';
+import { CreateContactDialog } from './CreateContactDialog';
 
 interface Message {
     id: string;
@@ -89,28 +90,31 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
         return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin" /></div>;
     }
 
-
-
-    // ...
+    // Helper to detect if name is just a phone number (Ghost Contact)
+    const isUnknownNumber = contactName.replace(/\D/g, '').length >= 7 && !contactName.match(/[a-zA-Z]/);
 
     return (
         <div className="flex flex-col h-full bg-background border rounded-md overflow-hidden">
             {/* Header */}
             <div className="bg-muted p-3 border-b flex justify-between items-center">
                 <div className="flex flex-col">
-                    <h3 className="font-semibold">{contactName}</h3>
-                    <span className="text-xs text-muted-foreground">Unified Channel View</span>
+                    <h3 className="font-semibold flex items-center gap-2">
+                        {contactName}
+                        {isUnknownNumber && <span className="text-[10px] bg-yellow-200 text-yellow-800 px-1 rounded">Desconocido</span>}
+                    </h3>
+                    <span className="text-xs text-muted-foreground">{isUnknownNumber ? 'Número no guardado' : 'Unified Channel View'}</span>
                 </div>
                 <div className="flex gap-2">
+                    {isUnknownNumber && (
+                        <CreateContactDialog contactId={contactId} phoneNumber={contactName} />
+                    )}
                     <ClientLinkDialog contactId={contactId} />
                 </div>
             </div>
 
-            {/* Messages Area */}
-            <ScrollArea className="flex-1 p-4 bg-slate-50 dark:bg-slate-900">
-                <div className="flex flex-col gap-4 pb-4">
-                    {messages.length === 0 && <div className="text-center text-muted-foreground mt-10">No hay mensajes recientes.</div>}
-
+            {/* Messages */}
+            <ScrollArea className="flex-1 p-4">
+                <div className="flex flex-col gap-4">
                     {messages.map((msg) => {
                         const isAssistant = msg.role === 'assistant';
                         const isSystem = msg.role === 'system';

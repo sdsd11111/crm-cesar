@@ -116,7 +116,8 @@ Devuelve un JSON con esta estructura exacta:
     "consultor": "Pitch Recepcionista...",
     "workshop": "Pitch Workshop...",
     "whatsapp_dueño": "Hola ((NOMBRE))... como conversamos, ahorro 10-20%...",
-    "whatsapp_recep": "Hola... como conversamos por tel, ayudamos a ((HOTEL))..."
+    "whatsapp_dueño": "Hola ((NOMBRE))... como conversamos, ahorro 10-20%...",
+    "whatsapp_recep": "Hola ((NOMBRE)), un gusto saludarle 😊\nTal como conversamos ayer le envio la información sobre nuestra empresa, la reunión por zoom o meeting es máximo de 20 a 30 minutos y el único objetivo es conocer sus necesidades para saber si nuestros servicios les pueden ayudar\n\nhttps://www.cesarreyesjaramillo.com/motor-reservas-hotel\n\nImportante:\nEn Objetivo nos enfocamos en: \n* Crear herramientas automatizadas para la gestión de su hostal.\n* Posicionarlos en búsquedas en Google.\n\nSaludos,\nCésar Reyes"
   },
   "disparadores": [
     { "titulo": "TÍTULO CORTO", "keywords": ["palabra1", "palabra2"] }

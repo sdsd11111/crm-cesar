@@ -26,11 +26,14 @@ export class GoogleCalendarService {
                 console.error('❌ [GoogleCalendarService] Error parsing GOOGLE_CALENDAR_CREDENTIALS:', e);
                 // If Env var exists but is bad, we fail or fallback. 
                 // In production (Vercel), we DO NOT fallback to file if it was meant to be env var.
+                console.error('⚠️ Critical: GOOGLE_CALENDAR_CREDENTIALS was present but invalid JSON.');
+                throw new Error('Google Calendar Credentials Env Var is invalid JSON');
             }
         } else {
-            // ONLY check for file if Env var is missing
+            // ONLY check for file if Env var is missing completely
+            // In Vercel, this should usually NOT happen if env is set in dashboard
             const keyFilePath = path.join(process.cwd(), 'google_credentials.json');
-            console.log('📄 [GoogleCalendarService] Using credentials from local file:', keyFilePath);
+            console.log('📄 [GoogleCalendarService] No Env Var found. Trying local file:', keyFilePath);
             authOptions.keyFile = keyFilePath;
         }
 

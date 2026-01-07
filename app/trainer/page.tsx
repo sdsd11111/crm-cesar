@@ -61,6 +61,15 @@ import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp
 import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { WhatsAppForm } from '@/components/whatsapp/WhatsAppQuickSender';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Dynamic PDF Download Component
 const PDFDownloadLink = dynamic(() => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink), {
@@ -103,6 +112,11 @@ export default function TrainerPage() {
     const [proposalVariables, setProposalVariables] = useState<any>(null);
     const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
     const [proposalContent, setProposalContent] = useState<string>('');
+
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState<any>({});
+    const [isUpdatingLead, setIsUpdatingLead] = useState(false);
 
     // Auto-populate WhatsApp and Call data from draft or defaults
     useEffect(() => {
@@ -149,6 +163,15 @@ export default function TrainerPage() {
         setCallNotes('');
         setProposalVariables(null);
         setProposalContent('');
+
+        // Prepare edit form data
+        setEditFormData({
+            businessName: selectedLead.businessName || selectedLead.nombre_comercial || '',
+            contactName: selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || selectedLead.razonSocialPropietario || '',
+            telefonoPrincipal: selectedLead.telefonoPrincipal || selectedLead.phone1 || selectedLead.phone || '',
+            correoElectronico: selectedLead.correoElectronico || selectedLead.email || '',
+            direccion: selectedLead.direccion || selectedLead.address || '',
+        });
     }, [selectedLead]);
 
     // AUTOSAVE Effect
@@ -737,6 +760,58 @@ export default function TrainerPage() {
         }
     };
 
+    const handleUpdateLead = async () => {
+        if (!selectedLead) return;
+        setIsUpdatingLead(true);
+        try {
+            const updateUrl = selectedLead.source === 'discovery'
+                ? `/api/discovery/${selectedLead.id}`
+                : `/api/leads/${selectedLead.id}`;
+
+            // Map fields back to specific API expectations if needed
+            const body: any = { ...editFormData };
+            if (selectedLead.source === 'lead') {
+                body.phone = editFormData.telefonoPrincipal;
+                body.email = editFormData.correoElectronico;
+                body.address = editFormData.direccion;
+            }
+
+            const res = await fetch(updateUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const updatedLead = {
+                    ...selectedLead,
+                    ...editFormData,
+                    // Handle field name differences
+                    telefonoPrincipal: editFormData.telefonoPrincipal,
+                    phone1: editFormData.telefonoPrincipal,
+                    phone: editFormData.telefonoPrincipal,
+                    personaContacto: editFormData.contactName,
+                    nombre_comercial: editFormData.businessName
+                };
+
+                setSelectedLead(updatedLead);
+                setLeadsList(prev => prev.map(l => l.id === selectedLead.id ? updatedLead : l));
+                setWaNumber(editFormData.telefonoPrincipal);
+
+                toast.success("Lead actualizado correctamente");
+                setIsEditModalOpen(false);
+            } else {
+                const error = await res.json();
+                throw new Error(error.error || "Error al actualizar");
+            }
+        } catch (error: any) {
+            toast.error("Error: " + error.message);
+        } finally {
+            setIsUpdatingLead(false);
+        }
+    };
+
     const handleGenerateProposal = async () => {
         if (!selectedLead) return;
         setIsGeneratingProposal(true);
@@ -835,6 +910,19 @@ export default function TrainerPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+
+                                {selectedLead && (
+                                    <div className="flex justify-end">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 text-[10px] font-bold text-primary hover:text-primary/80 hover:bg-primary/5"
+                                            onClick={() => setIsEditModalOpen(true)}
+                                        >
+                                            <PenTool className="h-3 w-3 mr-1" /> Editar Datos
+                                        </Button>
+                                    </div>
+                                )}
 
                                 {selectedLead && (
                                     <>
@@ -1291,6 +1379,73 @@ export default function TrainerPage() {
 
                 </div>
             </div>
-        </DashboardLayout>
+
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                <DialogContent className="sm:max-w-[425px] bg-slate-900 border-border/50 text-white">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <PenTool className="h-4 w-4 text-primary" /> Editar Prospecto
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-400">
+                            Corrige la información del prospecto. Los cambios se guardarán en Discovery.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="businessName" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Nombre Comercial</Label>
+                            <Input
+                                id="businessName"
+                                value={editFormData.businessName || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, businessName: e.target.value })}
+                                className="bg-slate-950 border-white/10"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="contactName" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Persona de Contacto</Label>
+                            <Input
+                                id="contactName"
+                                value={editFormData.contactName || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, contactName: e.target.value })}
+                                className="bg-slate-950 border-white/10"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Teléfono Principal</Label>
+                            <Input
+                                id="phone"
+                                value={editFormData.telefonoPrincipal || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, telefonoPrincipal: e.target.value })}
+                                className="bg-slate-950 border-white/10"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email</Label>
+                            <Input
+                                id="email"
+                                value={editFormData.correoElectronico || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, correoElectronico: e.target.value })}
+                                className="bg-slate-950 border-white/10"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="address" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dirección</Label>
+                            <Input
+                                id="address"
+                                value={editFormData.direccion || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, direccion: e.target.value })}
+                                className="bg-slate-950 border-white/10"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleUpdateLead} disabled={isUpdatingLead}>
+                            {isUpdatingLead ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                            Guardar Cambios
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </DashboardLayout >
     );
 }

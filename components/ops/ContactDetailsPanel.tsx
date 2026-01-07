@@ -45,8 +45,40 @@ export function ContactDetailsPanel({ contactId, contactName }: ContactDetailsPa
     const [editedFields, setEditedFields] = useState<any>({});
 
     // Quick Actions States
-    const [newTask, setNewTask] = useState({ title: '', dueDate: '' });
+    const [newTask, setNewTask] = useState({ title: '', dueDate: '', reminderAt: '' });
     const [newEvent, setNewEvent] = useState({ title: '', startTime: '' });
+    const [taskLoading, setTaskLoading] = useState(false);
+
+    const handleCreateTask = async () => {
+        if (!newTask.title) return;
+
+        if (!newTask.reminderAt) {
+            if (!confirm("⚠️ No has configurado un Recordatorio por Telegram para esta tarea. ¿Deseas crearla sin aviso?")) {
+                return;
+            }
+        }
+
+        setTaskLoading(true);
+        try {
+            const res = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...newTask,
+                    contactId: contactId,
+                    priority: 'medium'
+                })
+            });
+            if (res.ok) {
+                toast({ title: "Tarea creada", description: "Se ha agendado el recordatorio." });
+                setNewTask({ title: '', dueDate: '', reminderAt: '' });
+            }
+        } catch (error) {
+            console.error("Task creation error:", error);
+        } finally {
+            setTaskLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (!contactId) return;
@@ -228,16 +260,34 @@ export function ContactDetailsPanel({ contactId, contactName }: ContactDetailsPa
 
                     <div className="space-y-4 pt-4 border-t">
                         <h4 className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2">
-                            <ClipboardList size={12} /> Tarea Pendiente
+                            <ClipboardList size={12} className="text-blue-500" /> Tarea Rápida
                         </h4>
-                        <div className="flex gap-2">
+                        <div className="space-y-2">
                             <Input
-                                placeholder="Tarea..."
-                                className="h-8 text-xs"
+                                placeholder="¿Qué hay que hacer?"
+                                className="h-8 text-xs bg-muted/20 border-muted"
                                 value={newTask.title}
                                 onChange={e => setNewTask({ ...newTask, title: e.target.value })}
                             />
-                            <Button size="icon" className="h-8 w-8 shrink-0"><Plus size={14} /></Button>
+                            <div className="flex gap-2">
+                                <div className="flex-1 flex flex-col gap-1">
+                                    <Label className="text-[8px] text-blue-500 uppercase ml-1 font-bold">🔔 ¿Aviso por Telegram?</Label>
+                                    <Input
+                                        type="datetime-local"
+                                        className="h-8 text-[10px] bg-blue-500/5 border-blue-500/30 text-blue-500 focus:border-blue-500"
+                                        value={newTask.reminderAt}
+                                        onChange={e => setNewTask({ ...newTask, reminderAt: e.target.value })}
+                                    />
+                                </div>
+                                <Button
+                                    size="icon"
+                                    className="h-10 w-10 mt-4 shrink-0 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20"
+                                    onClick={handleCreateTask}
+                                    disabled={taskLoading || !newTask.title}
+                                >
+                                    {taskLoading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={16} />}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -29,7 +29,8 @@ export const DEFAULT_TEMPLATES = [
     { id: 'receptionist', label: 'Filtro Recepción', text: 'Hola, soy asistente de César Reyes. Estamos actualizando nuestra base de datos...' },
     { id: 'owner', label: 'Contacto Directo', text: 'Hola, un gusto saludarte. Te contacto directamente porque...' },
     { id: 'promo', label: 'Promoción Vigente', text: 'Aprovecha nuestra oferta especial...' },
-    { id: 'no_answer', label: 'No Contestó', text: 'Hola, intenté llamarte pero no fue posible contactarnos...' }
+    { id: 'no_answer', label: 'No Contestó', text: 'Buenos días ((NOMBRE)), Intenté contactarle hace un momento,\npero no logré comunicarme, somos una consultora especializada en el sector del turismo y le comparto concretamente como le podemos ayudar:\n\n- Que un turista encuentre fácilmente su propuesta digital del hotel, su sistema de reservas, la propuesta de habitaciones, servicios complementarios y galería de fotos.\n- Que su información salga en búsquedas en Google y por ChatGPT fácilmente a quien busque por ejemplo “hoteles cerca al cementerio”. (El 80% de los viajeros usan motores de búsqueda para planificar viajes).\n- Estrategias de posicionamiento web para que las aplique con su equipo de marketing o los ejecute usted mismo. (El 57% de reservas online vienen de búsquedas orgánicas en Google).\nSi le gustaría conocer cómo hacerlo, acá está cómo lo hacemos https://www.cesarreyesjaramillo.com/motor-reservas-hotel\n\n¿Agendamos los 20 minutos?' },
+    { id: 'info', label: 'Envío Información', text: '((NOMBRE)) como conversamos brevemente por teléfono, somos una consultora especializada en el sector del turismo y concretamente les ayudamos:\n\n- Que un turista encuentre fácilmente su propuesta digital del hotel, su sistema de reservas, la propuesta de habitaciones, servicios complementarios y galería de fotos.\n- Que su información salga en búsquedas en Google y por ChatGPT fácilmente a quien busque por ejemplo “hoteles cerca al cementerio”. (El 80% de los viajeros usan motores de búsqueda para planificar viajes).\n- Estrategias de posicionamiento web para que las aplique con su equipo de marketing o los ejecute usted mismo. (El 57% de reservas online vienen de búsquedas orgánicas en Google).\nSi le gustaría conocer cómo hacerlo, acá está cómo lo hacemos https://www.cesarreyesjaramillo.com/motor-reservas-hotel\n\n¿Agendamos los 20 minutos?' }
 ];
 
 export interface WhatsAppTemplate {
@@ -133,7 +134,7 @@ export function WhatsAppForm({
                 <div className="flex justify-between items-center">
                     <label className="text-xs font-medium text-gray-300">Plantilla Rápida</label>
                     <Select value={template} onValueChange={handleTemplateChange}>
-                        <SelectTrigger className="w-[180px] bg-gray-900 border-gray-700 text-xs h-7">
+                        <SelectTrigger className="w-[220px] bg-gray-900 border-gray-700 text-[10px] h-8 font-bold text-green-500 shadow-sm shadow-green-500/10">
                             <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-800 border-gray-700">

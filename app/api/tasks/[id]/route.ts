@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { tasks } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { tasks, reminders } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function PATCH(
     req: NextRequest,
@@ -24,6 +24,14 @@ export async function PATCH(
             .update(tasks)
             .set({ status, updatedAt: new Date() })
             .where(eq(tasks.id, id));
+
+        // If task is completed or cancelled, cancel pending reminders
+        if (status === 'done' || status === 'cancelled') {
+            await db
+                .update(reminders)
+                .set({ status: 'cancelled', updatedAt: new Date() })
+                .where(and(eq(reminders.taskId, id), eq(reminders.status, 'pending')));
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

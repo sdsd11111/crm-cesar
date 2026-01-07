@@ -346,6 +346,9 @@ export const tasks = pgTable('tasks', {
   relatedClientId: uuid('related_client_id').references(() => clients.id),
   relatedLeadId: uuid('related_lead_id').references(() => leads.id),
 
+  reminderAt: timestamp('reminder_at'),
+  reminderSent: boolean('reminder_sent').default(false),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

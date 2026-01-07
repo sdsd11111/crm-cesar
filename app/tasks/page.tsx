@@ -21,6 +21,7 @@ interface Task {
     status: 'todo' | 'in_progress' | 'done' | 'cancelled'
     priority: 'low' | 'medium' | 'high'
     dueDate?: string
+    reminderAt?: string
     assignedTo?: string
 }
 
@@ -34,6 +35,7 @@ export default function TasksPage() {
         description: '',
         priority: 'medium',
         dueDate: '',
+        reminderAt: '',
         status: 'todo'
     })
 
@@ -56,6 +58,14 @@ export default function TasksPage() {
     }
 
     const handleCreateTask = async () => {
+        if (!newTask.title) return;
+
+        if (!newTask.reminderAt) {
+            if (!confirm("⚠️ No has configurado un Recordatorio por Telegram para esta tarea. ¿Deseas crearla sin aviso?")) {
+                return;
+            }
+        }
+
         try {
             const response = await fetch('/api/tasks', {
                 method: 'POST',
@@ -72,6 +82,7 @@ export default function TasksPage() {
                 description: '',
                 priority: 'medium',
                 dueDate: '',
+                reminderAt: '',
                 status: 'todo'
             })
             fetchTasks()
@@ -204,9 +215,32 @@ export default function TasksPage() {
                                             className="col-span-3"
                                         />
                                     </div>
+                                    <div className="space-y-4 pt-4 border-t border-blue-500/20">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="p-1.5 bg-blue-500/10 rounded-full">
+                                                <Clock className="h-4 w-4 text-blue-500" />
+                                            </div>
+                                            <Label className="text-sm font-bold text-blue-500">¿Configurar Recordatorio por Telegram?</Label>
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="reminder" className="text-right text-[10px] uppercase font-bold text-muted-foreground leading-tight">Fecha y Hora</Label>
+                                            <Input
+                                                id="reminder"
+                                                type="datetime-local"
+                                                value={newTask.reminderAt}
+                                                onChange={(e) => setNewTask({ ...newTask, reminderAt: e.target.value })}
+                                                className="col-span-3 border-blue-500/30 bg-blue-500/5 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground ml-[25%] italic">
+                                            Recibirás una notificación en Telegram en la fecha programada.
+                                        </p>
+                                    </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button onClick={handleCreateTask}>Guardar Tarea</Button>
+                                    <Button onClick={handleCreateTask} className="w-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 py-6 text-md font-bold transition-all hover:scale-[1.01]">
+                                        <CheckCircle2 className="mr-2 h-5 w-5" /> Guardar Tarea y Activar Recordatorio
+                                    </Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
@@ -251,16 +285,29 @@ export default function TasksPage() {
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    {task.dueDate && (
-                                        <div className="flex items-center text-sm text-muted-foreground">
-                                            <Calendar className="mr-2 h-4 w-4" />
-                                            {format(new Date(task.dueDate), 'PPP', { locale: es })}
+                                <div className="flex flex-col items-end gap-2">
+                                    <div className="flex items-center gap-4">
+                                        {task.dueDate && (
+                                            <div className="flex items-center text-xs text-muted-foreground">
+                                                <Calendar className="mr-2 h-3 w-3" />
+                                                {format(new Date(task.dueDate), 'd MMM', { locale: es })}
+                                            </div>
+                                        )}
+                                        {task.reminderAt && (
+                                            <div className="flex items-center text-xs text-blue-500 font-medium bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                                                <Clock className="mr-1.5 h-3 w-3" />
+                                                {format(new Date(task.reminderAt), 'HH:mm', { locale: es })}
+                                            </div>
+                                        )}
+                                        <Badge className={`${getPriorityColor(task.priority)} text-white text-[10px] h-5 px-1.5`}>
+                                            {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
+                                        </Badge>
+                                    </div>
+                                    {task.reminderAt && (
+                                        <div className="text-[10px] text-blue-400 flex items-center gap-1">
+                                            <Badge variant="outline" className="text-[9px] border-blue-400/30 text-blue-400">Telegram</Badge>
                                         </div>
                                     )}
-                                    <Badge className={`${getPriorityColor(task.priority)} text-white`}>
-                                        {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
-                                    </Badge>
                                 </div>
                             </CardContent>
                         </Card>

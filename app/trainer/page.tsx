@@ -1123,7 +1123,8 @@ export default function TrainerPage() {
                                             templates={[
                                                 { id: 'owner', label: 'Dueño', text: TRAINER_WHATSAPP_TEMPLATES.owner(selectedLead?.contactName, selectedLead?.businessName) },
                                                 { id: 'receptionist', label: 'Recepción', text: TRAINER_WHATSAPP_TEMPLATES.receptionist(selectedLead?.businessName) },
-                                                { id: 'no_answer', label: 'No Contestó', text: TRAINER_WHATSAPP_TEMPLATES.no_answer(selectedLead?.contactName, selectedLead?.businessName) }
+                                                { id: 'no_answer', label: 'No Contestó', text: TRAINER_WHATSAPP_TEMPLATES.no_answer(selectedLead?.contactName) },
+                                                { id: 'info', label: 'Envío Información', text: TRAINER_WHATSAPP_TEMPLATES.info(selectedLead?.contactName) }
                                             ]}
                                             onSuccess={() => {
                                                 // Optional: refresh history or clear selection

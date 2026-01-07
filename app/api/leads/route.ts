@@ -3,7 +3,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db';
 import { contacts, contactChannels } from '@/lib/db/schema';
-import { eq, or } from 'drizzle-orm';
+import { eq, or, and } from 'drizzle-orm';
 
 export async function GET() {
   const cookieStore = cookies()
@@ -57,7 +57,6 @@ export async function GET() {
       opportunities: lead.opportunities,
       threats: lead.threats,
 
-      // Advanced fields
       relationshipType: lead.relationship_type,
       yearsInBusiness: lead.years_in_business,
       numberOfEmployees: lead.number_of_employees,
@@ -116,27 +115,23 @@ export async function POST(request: Request) {
       address: body.address,
       city: body.city,
       businessType: body.businessType,
-      connectionType: body.relationshipType, // relationshipType maps to connectionType in recorridos
+      connectionType: body.relationshipType,
       businessActivity: body.businessActivity,
-      // Handle array fields
-      interestedProduct: Array.isArray(body.interestedProduct) ? body.interestedProduct.join(', ') : body.interestedProduct,
+      interestedProduct: Array.isArray(body.interestedProduct) ? body.interestedProduct.join(', ') : (body.interestedProduct || null),
       verbalAgreements: body.verbalAgreements,
       personalityType: body.personalityType,
       communicationStyle: body.communicationStyle,
       keyPhrases: body.keyPhrases,
 
-      // Profiling
       pains: body.pains,
       goals: body.goals,
       objections: body.objections,
 
-      // FODA
       strengths: body.strengths,
       weaknesses: body.weaknesses,
       opportunities: body.opportunities,
       threats: body.threats,
 
-      // Metrics
       quantifiedProblem: body.quantifiedProblem,
       conservativeGoal: body.conservativeGoal,
       yearsInBusiness: body.yearsInBusiness ? parseInt(body.yearsInBusiness) : null,
@@ -144,8 +139,8 @@ export async function POST(request: Request) {
       numberOfBranches: body.numberOfBranches ? parseInt(body.numberOfBranches) : null,
       currentClientsPerMonth: body.currentClientsPerMonth ? parseInt(body.currentClientsPerMonth) : null,
       averageTicket: body.averageTicket ? parseInt(body.averageTicket) : null,
-      birthday: body.birthday ? new Date(body.birthday).toISOString() : null,
-      anniversaryDate: body.anniversaryDate ? new Date(body.anniversaryDate).toISOString() : null,
+      birthday: body.birthday ? new Date(body.birthday) : null,
+      anniversaryDate: body.anniversaryDate ? new Date(body.anniversaryDate) : null,
 
       knownCompetition: body.knownCompetition,
       highSeason: body.highSeason,
@@ -162,100 +157,122 @@ export async function POST(request: Request) {
       entityType: 'lead'
     };
 
-    // Remove undefined keys
-    Object.keys(drizzleBody).forEach(key =>
-      drizzleBody[key] === undefined && delete drizzleBody[key]
-    );
-
-    // 1. Deduplication Logic
+    // 1. Deduplication & Identity Resolution
     let contactId = null;
 
     if (body.phone) {
-      // Channel Check
-      const [channel] = await db.select().from(contactChannels)
+      const cleanPhone = body.phone.replace(/\D/g, '');
+
+      // A. Check Channels
+      const [channelMatch] = await db.select().from(contactChannels)
         .where(or(
           eq(contactChannels.identifier, body.phone),
-          eq(contactChannels.identifier, body.phone.replace(/\D/g, ''))
+          eq(contactChannels.identifier, cleanPhone)
         ))
         .limit(1);
 
-      if (channel) {
-        contactId = channel.contactId;
+      if (channelMatch) {
+        contactId = channelMatch.contactId;
+        console.log(`[POST /api/leads] Dedup: Found via Channel ${body.phone}`);
       } else {
-        // Legacy Check
-        const [legacyContact] = await db.select().from(contacts)
+        // B. Check Legacy Contacts table
+        const [legacyMatch] = await db.select().from(contacts)
           .where(or(
             eq(contacts.phone, body.phone),
-            eq(contacts.phone, body.phone.replace(/\D/g, ''))
+            eq(contacts.phone, cleanPhone)
           ))
           .limit(1);
 
-        if (legacyContact) {
-          contactId = legacyContact.id;
-          // Auto-heal
+        if (legacyMatch) {
+          contactId = legacyMatch.id;
+          console.log(`[POST /api/leads] Dedup: Found via Legacy Phone ${body.phone}. Auto-healing...`);
+
+          // Ensure this primary channel exists now
           try {
             await db.insert(contactChannels).values({
-              contactId: legacyContact.id,
+              contactId: legacyMatch.id,
               platform: 'whatsapp',
               identifier: body.phone,
-              isPrimary: true,
-              verified: false
+              isPrimary: true
             });
           } catch (e) {
-            console.warn('Auto-heal insert failed:', e);
+            console.warn('[POST /api/leads] Auto-heal channel insert skipped/failed');
           }
         }
       }
     }
 
     if (!contactId && body.email) {
-      const [contactByEmail] = await db.select().from(contacts)
+      const [emailMatch] = await db.select().from(contacts)
         .where(eq(contacts.email, body.email))
         .limit(1);
-      if (contactByEmail) contactId = contactByEmail.id;
+      if (emailMatch) {
+        contactId = emailMatch.id;
+        console.log(`[POST /api/leads] Dedup: Found via Email ${body.email}`);
+      }
     }
 
-    let finalLead;
+    let finalResult;
 
     if (contactId) {
-      // Update
+      // UPDATE
+      drizzleBody.updatedAt = new Date();
       const [updated] = await db.update(contacts)
-        .set({
-          ...drizzleBody,
-          updatedAt: new Date()
-        })
+        .set(drizzleBody)
         .where(eq(contacts.id, contactId))
         .returning();
-      finalLead = updated;
+
+      finalResult = updated;
+
+      // Ensure the CURRENT phone is registered in channels if it wasn't the one used for lookups
+      if (body.phone) {
+        try {
+          const [exists] = await db.select().from(contactChannels)
+            .where(and(
+              eq(contactChannels.contactId, contactId),
+              eq(contactChannels.identifier, body.phone)
+            ))
+            .limit(1);
+
+          if (!exists) {
+            await db.insert(contactChannels).values({
+              contactId,
+              platform: 'whatsapp',
+              identifier: body.phone,
+              isPrimary: true
+            });
+          }
+        } catch (e) { /* ignore */ }
+      }
     } else {
-      // Insert
+      // INSERT
       const [inserted] = await db.insert(contacts)
         .values(drizzleBody)
         .returning();
-      finalLead = inserted;
+
+      finalResult = inserted;
 
       if (body.phone) {
         await db.insert(contactChannels).values({
           contactId: inserted.id,
           platform: 'whatsapp',
           identifier: body.phone,
-          isPrimary: true,
-          verified: false
+          isPrimary: true
         });
       }
     }
 
-    // 2. Donna Biz Logic (Ensure Agent)
+    // 2. Donna Initialization
     try {
       const { agentService } = await import('@/lib/donna/services/AgentService');
-      await agentService.ensureAgent(finalLead.id);
+      await agentService.ensureAgent(finalResult.id);
     } catch (e) {
-      console.error('⚠️ LeadsAPI Agent Error:', e);
+      console.error('⚠️ LeadsAPI Agent Initialization Error:', e);
     }
 
-    return NextResponse.json(finalLead, { status: 201 });
+    return NextResponse.json(finalResult, { status: 201 });
   } catch (error) {
-    console.error("Critical Error POST /api/leads:", error);
+    console.error("Critical Error in POST /api/leads:", error);
     return NextResponse.json({
       error: "Failed to create/update lead",
       details: error instanceof Error ? error.message : String(error)

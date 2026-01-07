@@ -160,6 +160,18 @@ export async function POST(req: Request) {
                     }
                 }
 
+                // 2.5 UPDATE ACTIVITY & UNREAD STATUS
+                // This ensures the contact moves to the top and shows a badge
+                if (contactId) {
+                    await db.update(contacts)
+                        .set({
+                            lastActivityAt: new Date(),
+                            unreadCount: sql`${contacts.unreadCount} + 1`,
+                            updatedAt: new Date()
+                        } as any)
+                        .where(eq(contacts.id, contactId));
+                }
+
                 // 3. Save Interaction
                 await db.insert(interactions).values({
                     type: 'whatsapp',

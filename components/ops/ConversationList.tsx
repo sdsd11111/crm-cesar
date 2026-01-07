@@ -90,6 +90,8 @@ function ConversationItem({ conv, selectedId, onSelect }: { conv: Conversation, 
                 {/* Channel Icon */}
                 {conv.channelSource === 'telegram' ? (
                     <MessageSquare className="h-4 w-4 text-blue-400" />
+                ) : conv.channelSource === 'instagram' ? (
+                    <div className="h-4 w-4 text-pink-500">📸</div>
                 ) : (
                     <Phone className="h-4 w-4 text-green-500" />
                 )}

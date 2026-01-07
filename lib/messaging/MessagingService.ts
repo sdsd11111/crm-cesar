@@ -75,7 +75,8 @@ export class MessagingService {
                 // Update Last Activity
                 await db.update(contacts)
                     .set({
-                        last_activity_at: new Date(),
+                        lastActivityAt: new Date(),
+                        unreadCount: 0,
                         updatedAt: new Date()
                     } as any) // Cast as any until schema is migrated
                     .where(eq(contacts.id, contactId));

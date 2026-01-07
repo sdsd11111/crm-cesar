@@ -13,15 +13,31 @@ export function OpsBoard() {
     const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+    const fetchConversations = (showLoading = false) => {
+        if (showLoading) setLoading(true);
         fetch('/api/conversations?limit=30')
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
+                    // Check for new messages (compare unread counts or lastActivity)
+                    if (!showLoading && conversations.length > 0) {
+                        data.forEach(newConv => {
+                            const oldConv = conversations.find(c => c.id === newConv.id);
+                            // If unread count increased, or it's a new contact at the top
+                            if ((!oldConv && newConv.unreadCount > 0) || (oldConv && newConv.unreadCount > oldConv.unreadCount)) {
+                                import('sonner').then(({ toast }) => {
+                                    toast(`Mensaje nuevo de ${newConv.contactName}`, {
+                                        description: newConv.phone,
+                                        action: {
+                                            label: "Ver",
+                                            onClick: () => setSelectedId(newConv.id)
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                    }
                     setConversations(data);
-                } else {
-                    console.error("API returned invalid data format:", data);
-                    setConversations([]);
                 }
                 setLoading(false);
             })
@@ -29,7 +45,34 @@ export function OpsBoard() {
                 console.error("Failed to load conversations", err);
                 setLoading(false);
             });
+    };
+
+    // Initial load
+    useEffect(() => {
+        fetchConversations(true);
     }, []);
+
+    // Polling every 10 seconds
+    useEffect(() => {
+        const timer = setInterval(() => {
+            fetchConversations();
+        }, 10000);
+        return () => clearInterval(timer);
+    }, [conversations]);
+
+    // Reset unread count when selection changes
+    useEffect(() => {
+        if (selectedId) {
+            fetch(`/api/conversations/${selectedId}/read`, { method: 'POST' })
+                .then(() => {
+                    // Locally update unread count to 0
+                    setConversations(prev => prev.map(c =>
+                        c.id === selectedId ? { ...c, unreadCount: 0 } : c
+                    ));
+                })
+                .catch(e => console.error("Error resetting unread count:", e));
+        }
+    }, [selectedId]);
 
     const selectedConversation = conversations.find(c => c.id === selectedId);
 

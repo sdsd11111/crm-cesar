@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
+import { sql, and, eq } from 'drizzle-orm';
+import { contacts, contactChannels, interactions } from '@/lib/db/schema';
 
 /**
  * Instagram Webhook Endpoint (Meta Graph API)
@@ -49,7 +50,6 @@ export async function POST(req: NextRequest) {
         console.log(`📸 Instagram message from ${senderId}: ${text}`);
 
         // 2. IDEMPOTENCY CHECK
-        // Use message.mid as the unique identifier for Instagram messages
         const messageId = messagingEvent.message.mid;
         if (messageId) {
             try {
@@ -63,15 +63,70 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3. Process with Cortex Router
-        // For now, we route it to the general brain
+        // 2.5 IDENTITY RESOLUTION & ACTIVITY
+        let contactId = null;
+
+        // A. Resolve via Channels
+        const [channelMatch] = await db.select()
+            .from(contactChannels)
+            .where(and(eq(contactChannels.platform, 'instagram'), eq(contactChannels.identifier, senderId)))
+            .limit(1);
+
+        if (channelMatch) {
+            contactId = channelMatch.contactId;
+        } else {
+            // B. Create Ghost Contact for Instagram
+            try {
+                const [newGhost] = await db.insert(contacts).values({
+                    contactName: `IG_${senderId.slice(-4)}`,
+                    status: 'lead',
+                    source: 'instagram_inbound',
+                    channelSource: 'instagram',
+                    entityType: 'lead',
+                    lastActivityAt: new Date(),
+                    unreadCount: 1
+                } as any).returning();
+
+                contactId = newGhost.id;
+
+                await db.insert(contactChannels).values({
+                    contactId: newGhost.id,
+                    platform: 'instagram',
+                    identifier: senderId,
+                    isPrimary: true
+                });
+            } catch (err) {
+                console.error('Error creating IG ghost contact:', err);
+            }
+        }
+
+        if (contactId && channelMatch) {
+            // Update existing contact
+            await db.update(contacts)
+                .set({
+                    lastActivityAt: new Date(),
+                    unreadCount: sql`${contacts.unreadCount} + 1`,
+                    updatedAt: new Date()
+                } as any)
+                .where(eq(contacts.id, contactId));
+        }
+
+        // 3. Save Interaction (Clinical History)
+        await db.insert(interactions).values({
+            type: 'other', // Or add 'instagram' to enum if possible
+            direction: 'inbound',
+            content: text,
+            contactId: contactId,
+            metadata: { platform: 'instagram', senderId },
+            performedAt: new Date()
+        });
+
+        // 4. Process with Cortex Router
         await cortexRouter.processInput({
             text: text,
-            source: 'client', // Most messages here are clients
+            source: 'client',
             chatId: senderId,
-            // We don't provide onReply because CortexRouter already knows how to send 
-            // messages back via MessagingService if needed, OR we can implement 
-            // a specific Responder here if the router doesn't route SEND intents yet.
+            contactId: contactId as any
         });
 
         return NextResponse.json({ ok: true });

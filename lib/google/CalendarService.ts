@@ -18,21 +18,54 @@ export class GoogleCalendarService {
         if (credentialsVar) {
             try {
                 // Remove potential surrounding quotes from Vercel/Env variables
-                let cleanCredentials = credentialsVar.trim();
+                const text = credentialsVar.trim();
 
-                // Handle common env var issues:
-                // 1. Remove wrapping quotes if present
-                if ((cleanCredentials.startsWith('"') && cleanCredentials.endsWith('"')) ||
-                    (cleanCredentials.startsWith("'") && cleanCredentials.endsWith("'"))) {
-                    cleanCredentials = cleanCredentials.slice(1, -1);
+                try {
+                    // Strategy 1: Simple Clean
+                    let cleanText = text;
+                    if ((cleanText.startsWith('"') && cleanText.endsWith('"')) || (cleanText.startsWith("'") && cleanText.endsWith("'"))) {
+                        cleanText = cleanText.slice(1, -1);
+                    }
+                    const credentials = JSON.parse(cleanText);
+                    authOptions.credentials = credentials;
+                    console.log('🔐 [GoogleCalendarService] Using credentials from environment variable (Strategy 1)');
+                } catch (e1: any) {
+                    try {
+                        // Strategy 2: Unescape Double-Escaped
+                        // e.g. "{\"type\": ...}" -> {"type": ...}
+                        const unescaped = text.replace(/\\"/g, '"').replace(/\\\\n/g, '\\n');
+                        // Also handle if the outer layer had quotes we need to strip again? 
+                        // Let's rely on JSON.parse
+                        let cleanUnescaped = unescaped;
+                        if ((cleanUnescaped.startsWith('"') && cleanUnescaped.endsWith('"'))) {
+                            cleanUnescaped = cleanUnescaped.slice(1, -1);
+                        }
+
+                        authOptions.credentials = JSON.parse(cleanUnescaped);
+                        console.log('🔐 [GoogleCalendarService] Using credentials from environment variable (Strategy 2)');
+                    } catch (e2: any) {
+                        try {
+                            // Strategy 3: Escape Literal Newlines
+                            const escapedNewlines = text.replace(/\n/g, '\\n').replace(/\r/g, '');
+                            authOptions.credentials = JSON.parse(escapedNewlines);
+                            console.log('🔐 [GoogleCalendarService] Using credentials from environment variable (Strategy 3)');
+                        } catch (e3: any) {
+                            // Strategy 4: Double Parse
+                            try {
+                                const parsedOnce = JSON.parse(credentialsVar);
+                                if (typeof parsedOnce === 'string') {
+                                    authOptions.credentials = JSON.parse(parsedOnce);
+                                    console.log('🔐 [GoogleCalendarService] Using credentials from environment variable (Strategy 4)');
+                                } else {
+                                    throw new Error("Not a string");
+                                }
+                            } catch (e4: any) {
+                                console.error('⚠️ Critical: GOOGLE_CALENDAR_CREDENTIALS invalid JSON. Methods failed:', e1.message);
+                                throw new Error('Google Calendar Credentials Env Var is invalid JSON');
+                            }
+                        }
+                    }
                 }
-
-                // 2. Unescape newlines (common in private keys when stored as single line string)
-                cleanCredentials = cleanCredentials.replace(/\\n/g, '\n');
-
-                const credentials = JSON.parse(cleanCredentials);
-                authOptions.credentials = credentials;
-                console.log('🔐 [GoogleCalendarService] Using credentials from environment variable');
             } catch (e) {
                 console.error('❌ [GoogleCalendarService] Error parsing GOOGLE_CALENDAR_CREDENTIALS:', e);
                 // If Env var exists but is bad, we fail or fallback. 

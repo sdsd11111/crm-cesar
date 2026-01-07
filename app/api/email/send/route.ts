@@ -4,15 +4,24 @@ import { db } from '@/lib/db';
 import { interactions } from '@/lib/db/schema';
 
 // Configure SMTP transporter
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'mail.cesarreyesjaramillo.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_SECURE === 'true' || true, // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_USER || 'turismo@cesarreyesjaramillo.com',
-        pass: process.env.SMTP_PASSWORD || '',
-    },
-});
+const createTransporter = () => {
+    const config = {
+        host: process.env.SMTP_HOST || 'mail.cesarreyesjaramillo.com',
+        port: parseInt(process.env.SMTP_PORT || '465'),
+        secure: process.env.SMTP_SECURE === 'true' || true,
+        auth: {
+            user: process.env.SMTP_USER || 'turismo@cesarreyesjaramillo.com',
+            pass: process.env.SMTP_PASSWORD || '',
+        },
+    };
+
+    // Warn if using default password (empty)
+    if (!process.env.SMTP_PASSWORD) {
+        console.warn('⚠️ SMTP_PASSWORD not set in environment variables!');
+    }
+
+    return nodemailer.createTransport(config);
+};
 
 export async function POST(request: NextRequest) {
     try {
@@ -37,6 +46,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Send email
+        const transporter = createTransporter();
         const info = await transporter.sendMail({
             from: `"${process.env.SMTP_FROM_NAME || 'César Reyes - Posicionamiento Real'}" <${process.env.SMTP_FROM_EMAIL || 'turismo@cesarreyesjaramillo.com'}>`,
             to: to,
@@ -74,10 +84,28 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Error sending email:', error);
+
+        // Provide specific error messages based on error type
+        let errorMessage = 'Error al enviar email';
+        let errorDetails = error.message;
+
+        if (error.code === 'EAUTH' || error.responseCode === 535) {
+            errorMessage = 'Error de autenticación SMTP';
+            errorDetails = 'Credenciales incorrectas. Verifica SMTP_USER y SMTP_PASSWORD en las variables de entorno.';
+        } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+            errorMessage = 'Error de conexión al servidor SMTP';
+            errorDetails = `No se pudo conectar a ${process.env.SMTP_HOST || 'mail.cesarreyesjaramillo.com'}:${process.env.SMTP_PORT || '465'}`;
+        } else if (error.code === 'EMESSAGE') {
+            errorMessage = 'Error en el formato del mensaje';
+            errorDetails = error.message;
+        }
+
         return NextResponse.json(
             {
-                error: 'Error al enviar email',
-                details: error.message
+                error: errorMessage,
+                details: errorDetails,
+                code: error.code,
+                responseCode: error.responseCode
             },
             { status: 500 }
         );

@@ -14,96 +14,105 @@ Tu misión es generar **CINCO ESTRATEGIAS SIMULTÁNEAS** para que César esté l
    - El pitch DEBE tener **saltos de línea explícitos** (\n) después de cada frase corta. 
    - NO envíes un bloque de texto denso. Genera una línea por cada idea visualmente separada.
    
-2. **MANEJO DE NOMBRES (REEMPLAZO OBLIGATORIO):**
-   - **CRÍTICO:** Debes REEMPLAZAR el texto ((NOMBRE)) de la plantilla con el **PRIMER NOMBRE** y **PRIMER APELLIDO** real del contacto.
-   - **NO** dejes ((NOMBRE)) escrito en el texto final.
-   - Si solo hay nombres en mayúsculas, conviértelos a formato de Nombre Propio.
+2. **MANEJO DE VARIABLES DINÁMICAS (REEMPLAZO OBLIGATORIO):**
+   - **[NOMBRE]:** Reemplazar con el **PRIMER NOMBRE** y **PRIMER APELLIDO** del contacto. Si no se tiene, usa "estimado" o similar de forma natural.
+   - **[CIUDAD]:** Reemplazar con la ciudad del prospecto (ej: "Cuenca", "Manta").
+   - **[X] y [Y]:** Reemplazar con números de búsquedas realistas basados en la ciudad (ej: 150 y 200).
+   - **IMPORTANTE:** No dejes corchetes [ ] en el resultado final. Convierte todo a formato de Nombre Propio.
 
 3. **MISIÓN:** Generar los guiones exactos para:
-   - **DUEÑO (RECOMENDADO):** Pitch principal de ahorro de comisiones (10-20%) y captura de reservas directas.
-   - **ENOJADO/OCUPADO:** Máxima brevedad, directo al ahorro de comisiones sin dejar Booking.
+   - **SIN BOOKING (NUEVO Escenario):** Para prospectos donde el análisis de Google es la clave.
+   - **DUEÑO (RECOMENDADO):** Pitch principal actualizado enfocado en ahorro de comisiones y ciudad.
+   - **ENOJADO/OCUPADO:** Máxima brevedad, directo al grano.
    - **RECEPCIÓN:** Enfoque en compartir página web y video al propietario.
-   - **WORKSHOP:** "Última bala" para no interesados. Venta de taller de $60 para web propia en 2 horas.
-   - **WHATSAPP:** Resumen táctico según sea dueño o recepción.
-
-4. **USA LAS PLANTILLAS EXACTAS Y REEMPLAZA VARIABLES:**
-   - ((NOMBRE)): Nombre + Apellido del contacto.
-   - ((HOTEL)): Nombre del hotel/negocio.
+   - **WHATSAPP:** Resumen táctico persuasivo.
 
 ---
 
-## PLANTILLAS EXACTAS (ÚSALAS TAL CUAL)
+## PLANTILLAS EXACTAS (REEMPLAZA VARIABLES)
 
-### PITCH 1: PRINCIPAL (RECOMENDADO)
-Buenas, ¿hablo con ((NOMBRE))?
-((NOMBRE)), un gusto, le saluda César Reyes de la empresa Objetivo.
+### PITCH 1: SIN BOOKING (ANÁLISIS GOOGLE)
+Buenas, ¿hablo con [NOMBRE]?
+[NOMBRE], un gusto, le saluda César Reyes de la empresa Objetivo.
+Somos consultores para el sector turístico.
+¿Le puedo tomar 30 segundos… y si no le aporta, cortamos sin problema?
+(pausa)
+Gracias.
+Mire, hoy en la mañana hice un análisis de búsquedas en Google
+específicamente para [CIUDAD].
+¿Sabe cuántas veces al día la gente busca "hotel en [CIUDAD]"
+o "dónde hospedarse en [CIUDAD]"?
+(pausa medio segundo - NO dejes que responda)
+Entre [X] y [Y] veces diarias.
+Solo en Google.
+Ahora, la pregunta que le quiero hacer es esta:
+De esas [X] búsquedas diarias,
+¿cuántas cree que terminan viendo SU hotel?
+(silencio - CLAVE, déjalo procesar)
+Exacto.
+Por eso mi llamada es muy concreta:
+¿Le interesa que cuando alguien busque hospedaje en [CIUDAD],
+usted aparezca en los primeros resultados
+sin depender de Booking ni pagar comisiones?
+(si dice "sí" o "depende" o cualquier cosa que no sea NO rotundo)
+Perfecto. Esto es imposible explicarlo bien por teléfono.
+Le propongo algo: una videollamada de 15 minutos.
+Yo le muestro exactamente cómo funciona,
+usted ve si le hace sentido para su hotel, y si no le cierra, no pasa nada.
+¿Le viene mejor hoy en la tarde o mañana en la mañana?
+(cuando agende)
+[NOMBRE], perfecto. Le envío el link por WhatsApp.
+¿Tiene alguna pregunta rápida antes de cortar?
+
+### PITCH 2: DUEÑO V2 (COMISIONES + CIUDAD)
+Buenas, ¿hablo con [NOMBRE]?
+[NOMBRE], un gusto, le saluda César Reyes de la empresa Objetivo.
 Somos consultores para el sector turístico.
 ¿Le puedo tomar 30 segundos… y si no le aporta, cortamos sin problema?
 (pausa)
 Gracias.
 Vi que ustedes trabajan con Booking
-y le voy a hacer una pregunta muy directa:
-¿Le parece interesante ahorrar entre un 10% y un 20% anual
-en las comisiones que hoy le paga a Booking?
-(silencio)
-No le estoy hablando de dejar Booking,
-ni de redes sociales ni de publicaciones.
-Lo único que hacemos es brindar una herramienta
-que ayuda a captar más reservas directas desde Google
-de personas que ya están buscando hospedaje.
-Por eso mi llamada es solo para esto:
-¿Quiere conocer cómo ahorrar esa comisión
-y captar ese tipo de clientes de forma directa?
-Perfecto.
-Por teléfono es largo de explicar y prefiero no quitarle tiempo.
-¿Qué le parece si lo vemos en una videollamada corta
-y usted decide si le hace sentido o no?
-¿Le viene mejor hoy o mañana, según su agenda?
-((NOMBRE)), ha sido muy amable.
+y hoy en la mañana hice un análisis de búsquedas en Google
+específicamente para [CIUDAD].
+¿Sabe cuántas personas buscan "hotel en [CIUDAD]" cada día?
+(pausa medio segundo - NO esperes respuesta)
+Entre [X] y [Y] búsquedas diarias.
+Ahora, le voy a hacer una pregunta muy directa:
+De esas búsquedas, ¿cuántas cree que van directo a Booking
+en lugar de encontrar primero SU página?
+(silencio - déjalo procesar)
+Exacto. La mayoría.
+Y ahí está el tema:
+Usted le paga entre 15% y 18% de comisión a Booking
+por clientes que YA lo estaban buscando.
+Mi llamada es solo para esto:
+¿Le interesa captar esas reservas de forma directa,
+quedarse con el 100% del pago
+y seguir usando Booking solo para lo que sí sirve:
+traer clientes nuevos de otros países?
+(pausa)
+Perfecto. Por teléfono es largo de explicar y prefiero no quitarle tiempo.
+Le propongo una videollamada de 15 minutos.
+Yo le muestro exactamente cómo funciona,
+usted decide si le hace sentido, y si no le cierra, no hay problema.
+¿Le viene mejor hoy en la tarde o mañana en la mañana?
+(cuando agende)
+[NOMBRE], perfecto. Le envío el link por WhatsApp.
 ¿Tiene alguna pregunta rápida antes de cortar?
 
-### PITCH 2: DUEÑO ENOJADO / MUY OCUPADO
-((NOMBRE)), entiendo que esté ocupado, no le quito más de 20 segundos.
-Trabajo con hoteles y hostales ayudándolos a reducir las comisiones que pagan a Booking,
-sin dejar la plataforma.
-Si le parece interesante ahorrar entre un 10% y un 20% anual,
-lo vemos en una videollamada corta
-y usted decide si tiene sentido para su negocio.
+### PITCH 3: DUEÑO ENOJADO / MUY OCUPADO
+[NOMBRE], entiendo que esté ocupado, no le quito más de 20 segundos.
+Trabajo con hoteles en [CIUDAD] ayudándolos a reducir las comisiones que pagan a Booking, sin dejar la plataforma.
+Si le interesa ahorrar entre un 15% y un 18% por reserva, lo vemos en una videollamada de 15 minutos y usted decide.
 ¿Le viene mejor hoy o mañana?
 
-### PITCH 3: RECEPCIONISTA
+### PITCH 4: RECEPCIONISTA (FILTRO)
 Buenas tardes 😊
 ¿Me regala su nombre, por favor?
-Mucho gusto ((NOMBRE DE RECEPCIONISTA)).
-Mi nombre es César Reyes.
-Somos consultores para el sector turístico en Ecuador
-y ayudamos a hoteles y hostales a captar reservas directas desde Google,
-para depender menos de plataformas como Booking.
-Quisiera enviarles nuestra página web para que,
-si usted lo considera oportuno,
-se la pueda compartir al propietario o a la persona encargada.
-(pausa)
-Perfecto, gracias 🙏
-En el mensaje voy a dejar una frase
-para que usted solo la reenvíe, así no le quito más tiempo.
-Y si luego podemos agendar una videollamada corta
-con la persona encargada, sería ideal.
-
-### PITCH 4: WORKSHOP (ÚLTIMA BALA)
-Entiendo perfectamente.
-Muchos hoteles no están en el momento de hacer cambios grandes,
-y eso está bien.
-Justamente por eso estamos probando algo diferente, con un grupo reducido:
-👉 Si hoy no tiene página web propia,
-¿invertiría $60 para salir con una en solo 2 horas?
-La dinámica es muy simple:
-usted solo sigue lo que voy haciendo en pantalla y completa información básica
-(fotos, contactos, habitaciones, colores).
-No es nada técnico.
-Trabajamos con un grupo limitado de 15 hoteles.
-Al finalizar, su sitio queda listo y nosotros lo ponemos online.
-Si le parece, le envío la información por WhatsApp
-y usted decide con calma si forma parte del grupo o lo deja pasar.
+Mucho gusto. Mi nombre es César Reyes.
+Somos consultores turísticos y ayudamos a hoteles en [CIUDAD] a captar reservas directas desde Google para depender menos de Booking.
+Quisiera enviarle una información clave al propietario para que ahorre en comisiones. ¿Me ayuda compartiéndole este video por WhatsApp?
+Perfecto, se lo envío ahora mismo. Si luego podemos agendar 15 min con él, sería ideal.
 
 ---
 
@@ -111,16 +120,14 @@ y usted decide con calma si forma parte del grupo o lo deja pasar.
 Devuelve un JSON con esta estructura exacta:
 {
   "pitches": {
-    "asesor": "Pitch Principal...",
+    "sin_booking": "Pitch Sin Booking...",
+    "asesor": "Pitch Dueño V2...",
     "contencion": "Pitch Dueño Enojado...",
     "consultor": "Pitch Recepcionista...",
-    "workshop": "Pitch Workshop...",
-    "whatsapp_dueño": "Hola ((NOMBRE))... como conversamos, ahorro 10-20%...",
-    "whatsapp_dueño": "Hola ((NOMBRE))... como conversamos, ahorro 10-20%...",
-    "whatsapp_recep": "Hola ((NOMBRE)), un gusto saludarle 😊\nTal como conversamos ayer le envio la información sobre nuestra empresa, la reunión por zoom o meeting es máximo de 20 a 30 minutos y el único objetivo es conocer sus necesidades para saber si nuestros servicios les pueden ayudar\n\nhttps://www.cesarreyesjaramillo.com/motor-reservas-hotel\n\nImportante:\nEn Objetivo nos enfocamos en: \n* Crear herramientas automatizadas para la gestión de su hostal.\n* Posicionarlos en búsquedas en Google.\n\nSaludos,\nCésar Reyes"
+    "whatsapp_dueño": "Hola [NOMBRE]... como conversamos para su hotel en [CIUDAD]..."
   },
   "disparadores": [
-    { "titulo": "TÍTULO CORTO", "keywords": ["palabra1", "palabra2"] }
+    { "titulo": "VALOR DIFERENCIAL", "keywords": ["ahorro", "google", "directo"] }
   ]
 }
 `;

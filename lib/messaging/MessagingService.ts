@@ -119,34 +119,38 @@ export class MessagingService {
     async getUnifiedHistory(id: string, limit = 50) {
         // 1. Resolve Identity (Contact or Discovery Lead)
         let relatedIdentifiers: string[] = [];
+        let contactIds: string[] = [];
 
         const [contact] = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
 
         if (contact) {
+            contactIds.push(contact.id);
             relatedIdentifiers.push(contact.phone!);
             // Identity Merging (if client linked)
             const linkedClientId = (contact as any).clientId;
             if (linkedClientId) {
-                const siblings = await db.select({ phone: contacts.phone })
+                const siblings = await db.select({ id: contacts.id, phone: contacts.phone })
                     .from(contacts)
                     .where(eq(contacts.clientId, linkedClientId));
                 relatedIdentifiers = Array.from(new Set([...relatedIdentifiers, ...siblings.map(s => s.phone).filter(Boolean) as string[]]));
+                contactIds = Array.from(new Set([...contactIds, ...siblings.map(s => s.id)]));
             }
         } else {
             // Check Discovery Leads
             const [discovery] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, id)).limit(1);
             if (discovery) {
                 relatedIdentifiers.push(discovery.telefonoPrincipal!);
+                contactIds.push(discovery.id); // Discovery Leads use their own ID in interactions.contactId
             } else {
                 // If it's a ghost (id is actually a phone number)
                 relatedIdentifiers.push(id);
             }
         }
 
-        if (relatedIdentifiers.length === 0) return [];
+        if (relatedIdentifiers.length === 0 && contactIds.length === 0) return [];
 
-        // 3. Fetch History for ALL related identifiers (Omnichannel)
-        const history = await db.select()
+        // 3. Fetch History from donnaChatMessages (primarily outbound/IA)
+        const outboundHistory = await db.select()
             .from(donnaChatMessages)
             .where(
                 sql`${donnaChatMessages.chatId} IN ${relatedIdentifiers}`
@@ -154,7 +158,45 @@ export class MessagingService {
             .orderBy(desc(donnaChatMessages.messageTimestamp))
             .limit(limit);
 
-        return history.reverse();
+        // 4. Fetch History from interactions (primarily inbound)
+        const inboundHistory = await db.select()
+            .from(interactions)
+            .where(
+                and(
+                    sql`${interactions.contactId} IN ${contactIds.length > 0 ? contactIds : [id]}`,
+                    or(
+                        eq(interactions.type, 'whatsapp'),
+                        eq(interactions.type, 'telegram'),
+                        eq(interactions.type, 'instagram')
+                    )
+                )
+            )
+            .orderBy(desc(interactions.performedAt))
+            .limit(limit);
+
+        // 5. Merge and Normalize
+        const unified = [
+            ...outboundHistory.map(m => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                messageTimestamp: m.messageTimestamp,
+                platform: m.platform
+            })),
+            ...inboundHistory.map(i => ({
+                id: i.id,
+                role: i.direction === 'inbound' ? 'user' : 'assistant',
+                content: i.content,
+                messageTimestamp: i.performedAt,
+                platform: i.type
+            }))
+        ];
+
+        // 6. Sort and unique (avoid duplicates if some logs duplicated)
+        return unified
+            .sort((a, b) => new Date(a.messageTimestamp).getTime() - new Date(b.messageTimestamp).getTime())
+            .filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i)
+            .slice(-limit);
     }
 }
 

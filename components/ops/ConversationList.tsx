@@ -63,45 +63,63 @@ export function ConversationList({ conversations, selectedId, onSelect, viewMode
 }
 
 function ConversationItem({ conv, selectedId, onSelect }: { conv: Conversation, selectedId?: string, onSelect: (id: string) => void }) {
+    const isSelected = selectedId === conv.id;
+
     return (
         <button
             onClick={() => onSelect(conv.id)}
-            className={`flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent ${selectedId === conv.id ? "bg-accent" : ""
+            className={`group relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-200 
+                ${isSelected
+                    ? "bg-blue-600/10 border-blue-600 shadow-sm shadow-blue-500/10 scale-[0.98]"
+                    : "bg-background hover:bg-muted/50 border-muted hover:border-muted-foreground/30"
                 }`}
         >
-            <div className="flex w-full items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                        <AvatarFallback>{conv.contactName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="font-semibold">{conv.contactName}</div>
-                </div>
-                {conv.lastActivityAt && !isNaN(new Date(conv.lastActivityAt).getTime()) && (
-                    <span className="text-xs text-muted-foreground">
-                        {format(new Date(conv.lastActivityAt), 'HH:mm', { locale: es })}
+            <div className="relative">
+                <Avatar className={`h-10 w-10 border ${isSelected ? "border-blue-500" : "border-muted"}`}>
+                    <AvatarFallback className={isSelected ? "bg-blue-600 text-white" : "bg-muted"}>
+                        {conv.contactName?.substring(0, 2).toUpperCase() || '?'}
+                    </AvatarFallback>
+                </Avatar>
+                {conv.unreadCount && conv.unreadCount > 0 && (
+                    <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-background">
+                        {conv.unreadCount > 9 ? '+' : conv.unreadCount}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold truncate ${isSelected ? "text-blue-400" : "text-foreground"}`}>
+                        {conv.contactName}
                     </span>
-                )}
-            </div>
+                    {conv.lastActivityAt && !isNaN(new Date(conv.lastActivityAt).getTime()) && (
+                        <span className="text-[10px] text-muted-foreground font-medium shrink-0">
+                            {format(new Date(conv.lastActivityAt), 'HH:mm', { locale: es })}
+                        </span>
+                    )}
+                </div>
 
-            <div className="flex w-full items-center justify-between">
-                <span className="line-clamp-2 text-xs text-muted-foreground w-[80%]">
-                    {conv.phone || 'Sin número'}
-                </span>
-                {/* Channel Icon */}
-                {conv.channelSource === 'telegram' ? (
-                    <MessageSquare className="h-4 w-4 text-blue-400" />
-                ) : conv.channelSource === 'instagram' ? (
-                    <div className="h-4 w-4 text-pink-500">📸</div>
-                ) : (
-                    <Phone className="h-4 w-4 text-green-500" />
-                )}
+                <div className="flex items-center justify-between mt-1">
+                    <span className="truncate text-[10px] text-muted-foreground font-medium">
+                        {conv.phone || 'Sin número'}
+                    </span>
+                    <div className="flex items-center gap-1.5 grayscale group-hover:grayscale-0 transition-all opacity-70 group-hover:opacity-100">
+                        {conv.channelSource === 'telegram' ? (
+                            <div className="p-1 bg-blue-500/10 rounded-md">
+                                <MessageSquare className="h-3 w-3 text-blue-400" />
+                            </div>
+                        ) : conv.channelSource === 'instagram' ? (
+                            <div className="p-1 bg-pink-500/10 rounded-md">
+                                <span className="text-[10px]">📸</span>
+                            </div>
+                        ) : (
+                            <div className="p-1 bg-green-500/10 rounded-md">
+                                <Phone className="h-3 w-3 text-green-500" />
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
-
-            {conv.unreadCount && conv.unreadCount > 0 ? (
-                <Badge variant="destructive" className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full p-0 text-[10px]">
-                    {conv.unreadCount}
-                </Badge>
-            ) : null}
         </button>
     );
 }

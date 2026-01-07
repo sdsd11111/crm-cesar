@@ -84,13 +84,13 @@ export function OpsBoard() {
         <div className="h-full w-full">
             <ResizablePanelGroup direction="horizontal" className="h-full border rounded-lg overflow-hidden">
                 {/* Left Panel: Inbox / Pipeline */}
-                <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
                     <div className="flex flex-col h-full bg-muted/20">
-                        <div className="p-3 border-b">
+                        <div className="p-3 border-b bg-background">
                             <Tabs defaultValue="inbox" className="w-full">
                                 <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="inbox">Mesa de Entrada</TabsTrigger>
-                                    <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+                                    <TabsTrigger value="inbox" className="text-xs">Mesa de Entrada</TabsTrigger>
+                                    <TabsTrigger value="pipeline" className="text-xs">Pipeline</TabsTrigger>
                                 </TabsList>
                             </Tabs>
                         </div>
@@ -102,20 +102,33 @@ export function OpsBoard() {
                     </div>
                 </ResizablePanel>
 
-                <ResizableHandle />
+                <ResizableHandle withHandle />
 
-                {/* Main Panel: Chat / Board */}
-                <ResizablePanel defaultSize={70}>
+                {/* Main Panel: Chat View */}
+                <ResizablePanel defaultSize={50} minSize={30}>
                     {selectedId && selectedConversation ? (
                         <ChatView
                             contactId={selectedId}
                             contactName={selectedConversation.contactName}
                         />
                     ) : (
-                        <div className="flex h-full items-center justify-center text-muted-foreground">
-                            Selecciona una conversación para comenzar
+                        <div className="flex h-full items-center justify-center text-muted-foreground bg-muted/5">
+                            <div className="text-center space-y-2">
+                                <Loader2 className="h-8 w-8 animate-spin mx-auto opacity-20" />
+                                <p className="text-sm">Selecciona una conversación para comenzar</p>
+                            </div>
                         </div>
                     )}
+                </ResizablePanel>
+
+                <ResizableHandle withHandle />
+
+                {/* Right Panel: Ficha Técnica 360 */}
+                <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                    <ContactDetailsPanel
+                        contactId={selectedId || ''}
+                        contactName={selectedConversation?.contactName || ''}
+                    />
                 </ResizablePanel>
             </ResizablePanelGroup>
         </div>

@@ -29,20 +29,32 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
     const [sending, setSending] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Fetch History
+    // Fetch History & Polling
     useEffect(() => {
         if (!contactId) return;
-        setLoading(true);
-        fetch(`/api/conversations/${contactId}/history`)
-            .then(res => res.json())
-            .then(data => {
-                setMessages(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error("Failed to load history", err);
-                setLoading(false);
-            });
+
+        const fetchHistory = (isQuiet = false) => {
+            if (!isQuiet) setLoading(true);
+            fetch(`/api/conversations/${contactId}/history`)
+                .then(res => res.json())
+                .then(data => {
+                    setMessages(data);
+                    setLoading(false);
+                })
+                .catch(err => {
+                    console.error("Failed to load history", err);
+                    setLoading(false);
+                });
+        };
+
+        fetchHistory();
+
+        // Polling every 5 seconds for real-time sync
+        const timer = setInterval(() => {
+            fetchHistory(true);
+        }, 5000);
+
+        return () => clearInterval(timer);
     }, [contactId]);
 
     // Auto-scroll

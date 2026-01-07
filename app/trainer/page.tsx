@@ -61,6 +61,7 @@ import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp
 import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { WhatsAppForm } from '@/components/whatsapp/WhatsAppQuickSender';
+import { EmailForm } from '@/components/email/EmailForm';
 import {
     Dialog,
     DialogContent,
@@ -1182,9 +1183,12 @@ export default function TrainerPage() {
                     {/* COLUMN 3: ACTION PANE (WHATSAPP, RESULT, PROPOSAL) (4 Cols) */}
                     <div className="xl:col-span-4 h-full flex flex-col overflow-y-auto pb-20 custom-scrollbar pr-2">
                         <Tabs defaultValue="whatsapp" className="w-full">
-                            <TabsList className="w-full grid grid-cols-3 bg-background/50 border border-border/50 h-10 mb-4 rounded-xl p-1">
+                            <TabsList className="w-full grid grid-cols-4 bg-background/50 border border-border/50 h-10 mb-4 rounded-xl p-1">
                                 <TabsTrigger value="whatsapp" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-green-600 data-[state=active]:text-white">
                                     <MessageSquare className="h-3 w-3 mr-1" /> WhatsApp
+                                </TabsTrigger>
+                                <TabsTrigger value="email" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+                                    <Mail className="h-3 w-3 mr-1" /> Email
                                 </TabsTrigger>
                                 <TabsTrigger value="result" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                                     <ClipboardList className="h-3 w-3 mr-1" /> Resultado
@@ -1217,6 +1221,26 @@ export default function TrainerPage() {
                                             onSuccess={() => {
                                                 // Optional: refresh history or clear selection
                                             }}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            {/* TAB 2: EMAIL */}
+                            <TabsContent value="email">
+                                <Card className="border-orange-500/30 bg-orange-500/5 shadow-xl">
+                                    <CardHeader className="pb-2 border-b border-orange-500/10 flex flex-row items-center justify-between py-4 px-5">
+                                        <CardTitle className="text-xs uppercase tracking-widest text-orange-500 font-bold flex items-center gap-2">
+                                            <Mail className="h-4 w-4" /> Gestión de Email
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-5 pt-4">
+                                        <EmailForm
+                                            email={selectedLead?.correoElectronico || selectedLead?.email || ''}
+                                            contactId={selectedLead?.source === 'lead' ? selectedLead?.id : undefined}
+                                            discoveryLeadId={selectedLead?.source === 'discovery' ? selectedLead?.id : undefined}
+                                            contactName={selectedLead?.contactName || selectedLead?.personaContacto || selectedLead?.representative || selectedLead?.razonSocialPropietario || ''}
+                                            businessName={selectedLead?.businessName || selectedLead?.nombre_comercial || ''}
                                         />
                                     </CardContent>
                                 </Card>

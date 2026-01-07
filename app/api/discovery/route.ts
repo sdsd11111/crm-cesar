@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { discoveryLeads } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
-import { eq, desc, and, sql, inArray, like } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray, ilike } from 'drizzle-orm';
 
 // GET discovery leads with filters and pagination
 export async function GET(request: Request) {
@@ -27,30 +27,30 @@ export async function GET(request: Request) {
         const filters: any[] = [];
 
         if (provincia && provincia !== 'all') {
-            const values = provincia.split(',');
-            filters.push(inArray(discoveryLeads.provincia, values));
+            const values = provincia.split(',').map(v => v.toLowerCase());
+            filters.push(inArray(sql`lower(${discoveryLeads.provincia})`, values));
         }
         if (canton && canton !== 'all') {
-            const values = canton.split(',');
-            filters.push(inArray(discoveryLeads.canton, values));
+            const values = canton.split(',').map(v => v.toLowerCase());
+            filters.push(inArray(sql`lower(${discoveryLeads.canton})`, values));
         }
         if (actividadModalidad && actividadModalidad !== 'all') {
-            const values = actividadModalidad.split(',');
-            filters.push(inArray(discoveryLeads.actividadModalidad, values));
+            const values = actividadModalidad.split(',').map(v => v.toLowerCase());
+            filters.push(inArray(sql`lower(${discoveryLeads.actividadModalidad})`, values));
         }
         if (categoria && categoria !== 'all') {
-            const values = categoria.split(',');
-            filters.push(inArray(discoveryLeads.categoria, values));
+            const values = categoria.split(',').map(v => v.toLowerCase());
+            filters.push(inArray(sql`lower(${discoveryLeads.categoria})`, values));
         }
         if (clasificacion && clasificacion !== 'all') {
-            const values = clasificacion.split(',');
-            filters.push(inArray(discoveryLeads.clasificacion, values));
+            const values = clasificacion.split(',').map(v => v.toLowerCase());
+            filters.push(inArray(sql`lower(${discoveryLeads.clasificacion})`, values));
         }
         if (web) {
-            filters.push(like(discoveryLeads.direccionWeb, `%${web}%`));
+            filters.push(ilike(discoveryLeads.direccionWeb, `%${web}%`));
         }
         if (email) {
-            filters.push(like(discoveryLeads.correoElectronico, `%${email}%`));
+            filters.push(ilike(discoveryLeads.correoElectronico, `%${email}%`));
         }
         if (status && status !== 'all') {
             const values = status.split(',');
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
         }
         if (search) {
             // Search in business name
-            filters.push(like(discoveryLeads.nombreComercial, `%${search}%`));
+            filters.push(ilike(discoveryLeads.nombreComercial, `%${search}%`));
         }
 
         // Count total matching records

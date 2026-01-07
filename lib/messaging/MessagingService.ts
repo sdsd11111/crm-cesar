@@ -6,6 +6,7 @@ import { eq, or, desc, sql, and } from 'drizzle-orm';
 
 import { WhatsAppAdapter } from './adapters/WhatsAppAdapter';
 import { TelegramAdapter } from './adapters/TelegramAdapter';
+import { InstagramAdapter } from './adapters/InstagramAdapter';
 
 export class MessagingService {
     private adapters: Map<string, IMessagingAdapter> = new Map();
@@ -16,6 +17,7 @@ export class MessagingService {
         // Register default adapters
         this.registerAdapter(new WhatsAppAdapter());
         this.registerAdapter(new TelegramAdapter());
+        this.registerAdapter(new InstagramAdapter());
     }
 
     /**

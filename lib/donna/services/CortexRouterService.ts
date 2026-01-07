@@ -451,20 +451,23 @@ export class CortexRouterService {
     }
 
     private async sendTelegramMessage(message: string, context: { chatId?: string, onReply?: (text: string) => void }) {
-        const { chatId, onReply } = context;
-        if (onReply) onReply(message);
+        const { chatId } = context;
+        // NOTE: Redundant onReply(message) removed to prevent double-sending from Webhook
 
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         const targetChatId = chatId || process.env.TELEGRAM_CHAT_ID;
 
         if (targetChatId) {
+            // Save as bot message in DB
             await this.saveMessage(targetChatId, 'assistant', message);
+
             if (botToken) {
+                // Return the fetch promise to ensure we can await if needed, but here we fire and forget or trace error
                 fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: targetChatId, text: message, parse_mode: 'Markdown' })
-                }).catch(e => console.error('Telegram API Error:', e));
+                }).catch(e => console.error('Telegram API Error during async send:', e));
             }
         }
     }

@@ -45,7 +45,7 @@ export default function LegalPage() {
                         Si desea eliminar sus datos de Facebook/Instagram de nuestra plataforma, siga estos pasos:
                     </p>
                     <ol className="list-decimal pl-5 space-y-2">
-                        <li>Vaya a la sección de **Configuración -> Instagram** dentro del CRM.</li>
+                        <li>Vaya a la sección de **Configuración &rarr; Instagram** dentro del CRM.</li>
                         <li>Haga clic en el botón **"Desvincular Cuenta"**.</li>
                         <li>Esto eliminará inmediatamente de nuestros servidores todos los tokens de acceso y datos asociados a su cuenta de Instagram.</li>
                     </ol>

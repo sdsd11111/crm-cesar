@@ -76,15 +76,17 @@ export default function InstagramSettingsPage() {
 
         const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/api/auth/instagram/callback` : '';
         const appId = config.appId.trim();
+
+        // Using the exact scopes and base URL from the user's Meta suggestion
         const scopes = [
-            'instagram_basic',
-            'instagram_manage_messages',
-            'pages_manage_metadata',
-            'pages_show_list',
-            'pages_messaging'
+            'instagram_business_basic',
+            'instagram_business_manage_messages',
+            'instagram_business_manage_comments',
+            'instagram_business_content_publish',
+            'instagram_business_manage_insights'
         ].join(',');
 
-        return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code`;
+        return `https://www.instagram.com/oauth/authorize?force_reauth=true&client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code`;
     };
 
     const steps = [

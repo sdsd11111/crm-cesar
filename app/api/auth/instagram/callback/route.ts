@@ -1,5 +1,7 @@
-
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { systemSettings } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -15,8 +17,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'No code provided' }, { status: 400 });
     }
 
-    const appId = process.env.INSTAGRAM_APP_ID;
-    const appSecret = process.env.INSTAGRAM_APP_SECRET;
+    // Attempt to read from DB first (Professional Onboarding)
+    const [dbConfig] = await db.select().from(systemSettings).where(eq(systemSettings.key, 'instagram_config')).limit(1);
+    const config = (dbConfig?.value as any) || {};
+
+    const appId = config.appId || process.env.INSTAGRAM_APP_ID;
+    const appSecret = config.appSecret || process.env.INSTAGRAM_APP_SECRET;
 
     // Auto-detect the origin to keep it flexible
     const origin = new URL(req.url).origin;

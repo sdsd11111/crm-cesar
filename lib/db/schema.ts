@@ -731,3 +731,12 @@ export const donnaChatMessages = pgTable('donna_chat_messages', {
   metadata: jsonb('metadata').default({}), // For Intent, debugging info
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ============================================
+// SYSTEM SETTINGS - Credentials and Configurations
+// ============================================
+export const systemSettings = pgTable('system_settings', {
+  key: text('key').primaryKey(), // 'instagram_config', 'telegram_config', etc.
+  value: jsonb('value').notNull().default({}),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Save, Download, Upload, AlertTriangle, Building, Settings, Database, Store, Bot, MessageSquare, RefreshCw, LogOut, Home, Send } from 'lucide-react';
+import { Save, Download, Upload, AlertTriangle, Building, Settings, Database, Store, Bot, MessageSquare, RefreshCw, LogOut, Home, Send, Instagram } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -266,6 +266,30 @@ function ConnectionsConfig({ preferences, onPreferenceChange }: {
                                 Probar Telegram
                             </Button>
                         </div>
+
+                        {/* Instagram Config Redirect */}
+                        <div className="p-6 bg-pink-500/10 border border-pink-500/30 rounded-xl space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-pink-500 rounded-lg">
+                                    <Instagram className="text-white" size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-white">Instagram Business</h3>
+                                    <p className="text-xs text-gray-400">Mensajería Directa</p>
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-300">
+                                Gestiona tus credenciales y vincula tu cuenta de empresa para el Inbox de Operaciones.
+                            </p>
+                            <Link href="/settings/instagram" className="block w-full">
+                                <Button
+                                    className="w-full bg-pink-600 hover:bg-pink-700 text-white gap-2 font-bold"
+                                >
+                                    <Settings size={16} />
+                                    Configurar Instagram
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
 
                     <Separator className="bg-gray-800" />
@@ -461,7 +485,7 @@ export default function SettingsPage() {
                         <Bot size={16} /> IA y Cortex
                     </TabsTrigger>
                     <TabsTrigger value="whatsapp" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white gap-2">
-                        <MessageSquare size={16} /> Conexión WhatsApp
+                        <MessageSquare size={16} /> Omnicanalidad (WA/IG/TG)
                     </TabsTrigger>
                 </TabsList>
 

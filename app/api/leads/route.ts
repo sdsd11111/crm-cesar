@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { db } from '@/lib/db';
 import { contacts, contactChannels } from '@/lib/db/schema';
 import { eq, or } from 'drizzle-orm';
+
 export async function GET() {
   const cookieStore = cookies()
   const supabase = createServerClient(
@@ -140,15 +141,15 @@ export async function POST(request: Request) {
       threats: body.threats,
 
       // Advanced
-      quantified_problem: body.quantifiedProblem,
-      conservative_goal: body.conservativeGoal,
+      quantified_problem: body.quantified_problem,
+      conservative_goal: body.conservative_goal,
       years_in_business: body.yearsInBusiness ? parseInt(body.yearsInBusiness) : null,
       number_of_employees: body.numberOfEmployees ? parseInt(body.numberOfEmployees) : null,
       number_of_branches: body.numberOfBranches ? parseInt(body.numberOfBranches) : null,
-      current_clients_per_month: body.currentClientsPerMonth ? parseInt(body.currentClientsPerMonth) : null,
-      average_ticket: body.averageTicket ? parseInt(body.averageTicket) : null,
+      current_clients_per_month: body.current_clients_per_month ? parseInt(body.currentClientsPerMonth) : null,
+      average_ticket: body.average_ticket ? parseInt(body.averageTicket) : null,
       birthday: body.birthday || null,
-      anniversary_date: body.anniversaryDate || null,
+      anniversary_date: body.anniversary_date || null,
 
       known_competition: body.knownCompetition,
       high_season: body.highSeason,
@@ -170,21 +171,46 @@ export async function POST(request: Request) {
     );
 
     // 1. Anti-Duplicate Check
-    let existingContact = null;
     let contactId = null;
 
-    // A. Check by Phone (via Channels)
+    // A. Check by Phone (via Channels or Legacy Table)
     if (body.phone) {
+      // Strategy 1: Check new Channels table
       const [channel] = await db.select().from(contactChannels)
         .where(or(
           eq(contactChannels.identifier, body.phone),
-          eq(contactChannels.identifier, body.phone.replace(/\D/g, '')) // Try clean version
+          eq(contactChannels.identifier, body.phone.replace(/\D/g, ''))
         ))
         .limit(1);
 
       if (channel) {
         contactId = channel.contactId;
-        console.log(`Lead Deduplication: Found existing contact via Phone ${body.phone}`);
+        console.log(`Lead Deduplication: Found existing contact via Channel ${body.phone}`);
+      } else {
+        // Strategy 2: Check legacy Contacts table (Critical for migration)
+        const [legacyContact] = await db.select().from(contacts)
+          .where(or(
+            eq(contacts.phone, body.phone),
+            eq(contacts.phone, body.phone.replace(/\D/g, ''))
+          ))
+          .limit(1);
+
+        if (legacyContact) {
+          contactId = legacyContact.id;
+          console.log(`Lead Deduplication: Found legacy contact via phone ${body.phone}. Auto-healing...`);
+          // Auto-heal: Link this phone to the contact in the new channels table
+          try {
+            await db.insert(contactChannels).values({
+              contactId: legacyContact.id,
+              platform: 'whatsapp',
+              identifier: body.phone,
+              isPrimary: true,
+              verified: false
+            });
+          } catch (e) {
+            console.warn('Auto-heal insert failed (might already exist):', e);
+          }
+        }
       }
     }
 
@@ -204,19 +230,11 @@ export async function POST(request: Request) {
 
     if (contactId) {
       // UPDATE EXISTING
-      // We merge provided fields but respect existing critical data
-      // For simplicity, we update most fields to reflect the value from the *latest* form submission
-
       const [updatedLead] = await db.update(contacts)
         .set({
           ...supabaseBody, // Updates with new info from form
           updatedAt: new Date(),
-          // If previous status was 'atendido', we might want to keep it or move to 'reattended'?
-          // For now, let's reset to 'sin_contacto' ONLY if the user explicitly wants that, 
-          // or we can add a note.
-          // Let's NOT override status if it's already advanced (e.g. 'converted')
-          // But for 'recorridos', usually means new interest.
-          status: 'sin_contacto' // Reset status to ensure visibility in inbox? Or maybe 'reactivated'?
+          status: 'sin_contacto' // Ensure it reappears in pipeline
         } as any)
         .where(eq(contacts.id, contactId))
         .returning();
@@ -226,7 +244,7 @@ export async function POST(request: Request) {
     } else {
       // INSERT NEW
       const [insertedLead] = await db.insert(contacts)
-        .values({ ...supabaseBody, entity_type: 'lead' } as any)
+        .values({ ...supabaseBody, entityType: 'lead' } as any)
         .returning();
 
       newLead = insertedLead;
@@ -255,6 +273,6 @@ export async function POST(request: Request) {
     return NextResponse.json(newLead, { status: 201 });
   } catch (error) {
     console.error("Error in POST /api/leads:", error);
-    return NextResponse.json({ error: "Failed to create lead" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create lead", details: (error as Error).message }, { status: 500 });
   }
 }

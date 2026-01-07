@@ -106,54 +106,62 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
+    // Helper to normalize empty strings to null
+    const n = (val: any) => (val === "" || val === undefined) ? null : val;
+
     // Map body fields to Drizzle schema keys (CamelCase)
+    // We only map fields that are provided to avoid overwriting existing data with nulls accidentally in future selective updates
+    // But for current form logic, we map the expected set.
     const drizzleBody: any = {
-      businessName: body.businessName,
-      contactName: body.contactName,
-      phone: body.phone,
-      email: body.email,
-      address: body.address,
-      city: body.city,
-      businessType: body.businessType,
-      connectionType: body.relationshipType,
-      businessActivity: body.businessActivity,
-      interestedProduct: Array.isArray(body.interestedProduct) ? body.interestedProduct.join(', ') : (body.interestedProduct || null),
-      verbalAgreements: body.verbalAgreements,
-      personalityType: body.personalityType,
-      communicationStyle: body.communicationStyle,
-      keyPhrases: body.keyPhrases,
+      businessName: n(body.businessName),
+      contactName: n(body.contactName),
+      phone: n(body.phone),
+      email: n(body.email),
+      address: n(body.address),
+      city: n(body.city),
+      province: n(body.province),
+      businessType: n(body.businessType),
+      connectionType: n(body.relationshipType),
+      businessActivity: n(body.businessActivity),
+      interestedProduct: Array.isArray(body.interestedProduct) ? body.interestedProduct.join(', ') : n(body.interestedProduct),
+      verbalAgreements: n(body.verbalAgreements),
+      personalityType: n(body.personalityType),
+      communicationStyle: n(body.communicationStyle),
+      keyPhrases: n(body.keyPhrases),
 
-      pains: body.pains,
-      goals: body.goals,
-      objections: body.objections,
+      pains: n(body.pains),
+      goals: n(body.goals),
+      objections: n(body.objections),
 
-      strengths: body.strengths,
-      weaknesses: body.weaknesses,
-      opportunities: body.opportunities,
-      threats: body.threats,
+      strengths: n(body.strengths),
+      weaknesses: n(body.weaknesses),
+      opportunities: n(body.opportunities),
+      threats: n(body.threats),
 
-      quantifiedProblem: body.quantifiedProblem,
-      conservativeGoal: body.conservativeGoal,
+      quantifiedProblem: n(body.quantifiedProblem),
+      conservativeGoal: n(body.conservativeGoal),
       yearsInBusiness: body.yearsInBusiness ? parseInt(body.yearsInBusiness) : null,
       numberOfEmployees: body.numberOfEmployees ? parseInt(body.numberOfEmployees) : null,
       numberOfBranches: body.numberOfBranches ? parseInt(body.numberOfBranches) : null,
       currentClientsPerMonth: body.currentClientsPerMonth ? parseInt(body.currentClientsPerMonth) : null,
       averageTicket: body.averageTicket ? parseInt(body.averageTicket) : null,
+
+      // Date handling
       birthday: body.birthday ? new Date(body.birthday) : null,
       anniversaryDate: body.anniversaryDate ? new Date(body.anniversaryDate) : null,
 
-      knownCompetition: body.knownCompetition,
-      highSeason: body.highSeason,
-      criticalDates: body.criticalDates,
+      knownCompetition: n(body.knownCompetition),
+      highSeason: n(body.highSeason),
+      criticalDates: n(body.criticalDates),
       facebookFollowers: body.facebookFollowers ? parseInt(body.facebookFollowers) : null,
-      otherAchievements: body.otherAchievements,
-      specificRecognitions: body.specificRecognitions,
+      otherAchievements: n(body.otherAchievements),
+      specificRecognitions: n(body.specificRecognitions),
 
-      notes: body.notes,
+      notes: n(body.notes),
       source: body.source || 'recorridos',
       status: body.status || 'sin_contacto',
-      outreachStatus: 'new',
-      discoveryLeadId: body.discoveryLeadId || null,
+      outreachStatus: body.outreachStatus || 'new',
+      discoveryLeadId: n(body.discoveryLeadId),
       entityType: 'lead'
     };
 
@@ -173,7 +181,6 @@ export async function POST(request: Request) {
 
       if (channelMatch) {
         contactId = channelMatch.contactId;
-        console.log(`[POST /api/leads] Dedup: Found via Channel ${body.phone}`);
       } else {
         // B. Check Legacy Contacts table
         const [legacyMatch] = await db.select().from(contacts)
@@ -185,19 +192,7 @@ export async function POST(request: Request) {
 
         if (legacyMatch) {
           contactId = legacyMatch.id;
-          console.log(`[POST /api/leads] Dedup: Found via Legacy Phone ${body.phone}. Auto-healing...`);
-
-          // Ensure this primary channel exists now
-          try {
-            await db.insert(contactChannels).values({
-              contactId: legacyMatch.id,
-              platform: 'whatsapp',
-              identifier: body.phone,
-              isPrimary: true
-            });
-          } catch (e) {
-            console.warn('[POST /api/leads] Auto-heal channel insert skipped/failed');
-          }
+          // Auto-heal later
         }
       }
     }
@@ -206,10 +201,7 @@ export async function POST(request: Request) {
       const [emailMatch] = await db.select().from(contacts)
         .where(eq(contacts.email, body.email))
         .limit(1);
-      if (emailMatch) {
-        contactId = emailMatch.id;
-        console.log(`[POST /api/leads] Dedup: Found via Email ${body.email}`);
-      }
+      if (emailMatch) contactId = emailMatch.id;
     }
 
     let finalResult;
@@ -224,7 +216,7 @@ export async function POST(request: Request) {
 
       finalResult = updated;
 
-      // Ensure the CURRENT phone is registered in channels if it wasn't the one used for lookups
+      // Auto-heal Channel
       if (body.phone) {
         try {
           const [exists] = await db.select().from(contactChannels)

@@ -371,7 +371,7 @@ export const events = pgTable('events', {
 // Interactions Table (The "Clinical History")
 export const interactions = pgTable('interactions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  type: text('type', { enum: ['call', 'email', 'meeting', 'whatsapp', 'note', 'other'] }).notNull(),
+  type: text('type', { enum: ['call', 'email', 'meeting', 'whatsapp', 'instagram', 'telegram', 'note', 'other'] }).notNull(),
   direction: text('direction', { enum: ['inbound', 'outbound'] }), // For calls/messages
 
   content: text('content'), // Summary or body

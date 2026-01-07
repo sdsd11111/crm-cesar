@@ -50,18 +50,48 @@ export async function GET(req: NextRequest) {
 
         console.log('✅ Instagram Token Obtained Successfully');
 
-        // 3. Return a friendly UI with instructions
+        // 3. AUTO-SAVE to DB
+        await db.insert(systemSettings)
+            .values({
+                key: 'instagram_config',
+                value: { ...config, accessToken: finalToken },
+                updatedAt: new Date()
+            })
+            .onConflictDoUpdate({
+                target: systemSettings.key,
+                set: {
+                    value: { ...config, accessToken: finalToken },
+                    updatedAt: new Date()
+                }
+            });
+
+        console.log('💾 Token saved to database');
+
+        // 4. Return a friendly UI with instructions
         return new NextResponse(`
             <html>
-                <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #000; color: #fff;">
-                    <div style="background: #111; padding: 2rem; border-radius: 12px; border: 1px solid #333; text-align: center; max-width: 500px;">
-                        <h2 style="color: #E1306C;">📸 Instagram Conectado!</h2>
-                        <p>El token de acceso se ha generado correctamente.</p>
-                        <div style="background: #222; padding: 10px; border-radius: 6px; margin: 15px 0; word-break: break-all; font-family: monospace; font-size: 12px; border: 1px dashed #555;">
-                            ${finalToken}
+                <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0b0e11; color: #e9edef;">
+                    <div style="background: #111b21; padding: 2.5rem; border-radius: 16px; border: 1px solid #202c33; text-align: center; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                        <div style="font-size: 50px; margin-bottom: 10px;">📸</div>
+                        <h2 style="color: #00a884; margin-bottom: 10px;">¡Instagram Conectado!</h2>
+                        <p style="color: #8696a0; font-size: 15px; line-height: 1.5;">
+                            El token ha sido obtenido y <b>guardado automáticamente</b> en tu base de datos. 
+                            Ya no es necesario configurar variables de entorno manualmente.
+                        </p>
+                        
+                        <div style="margin: 25px 0; padding: 15px; background: #202c33; border-radius: 12px; border-left: 4px solid #00a884; text-align: left;">
+                            <h4 style="margin: 0 0 5px 0; font-size: 12px; color: #00a884; text-transform: uppercase;">Estado de la Conexión</h4>
+                            <p style="margin: 0; font-size: 11px; color: #aebac1; font-family: monospace;">TOKEN_SAVED: SUCCESS</p>
+                            <p style="margin: 3px 0 0 0; font-size: 11px; color: #aebac1; font-family: monospace;">CHANNEL_READY: TRUE</p>
                         </div>
-                        <p style="font-size: 14px; color: #888;">Copia este token y actualiza tu variable <b>INSTAGRAM_ACCESS_TOKEN</b> en Vercel para que todo esté listo.</p>
-                        <a href="/ops" style="display: inline-block; background: #E1306C; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 20px;">Volver al CRM</a>
+
+                        <a href="/ops" style="display: inline-block; background: #00a884; color: #111b21; padding: 12px 28px; border-radius: 24px; text-decoration: none; font-weight: 800; font-size: 14px; transition: all 0.2s; box-shadow: 0 4px 14px rgba(0, 168, 132, 0.3);">
+                            ENTRAR AL CRM
+                        </a>
+                        
+                        <p style="margin-top: 25px; font-size: 12px; color: #667781;">
+                            Ya puedes recibir y enviar mensajes desde la pestaña Operaciones.
+                        </p>
                     </div>
                 </body>
             </html>

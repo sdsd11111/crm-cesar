@@ -1,18 +1,42 @@
 
 import { IMessagingAdapter } from '../interfaces';
+import { db } from '@/lib/db';
+import { systemSettings } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export class InstagramAdapter implements IMessagingAdapter {
     providerId = 'instagram';
 
-    private accessToken: string;
+    private accessToken: string = '';
     private baseURL: string;
 
     constructor() {
-        this.accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || '';
         this.baseURL = 'https://graph.facebook.com/v19.0';
+        this.initialize();
+    }
+
+    private async initialize() {
+        // Try DB first
+        try {
+            const [dbConfig] = await db.select().from(systemSettings).where(eq(systemSettings.key, 'instagram_config')).limit(1);
+            if (dbConfig?.value && (dbConfig.value as any).accessToken) {
+                this.accessToken = (dbConfig.value as any).accessToken;
+                console.log('🔌 InstagramAdapter: Using token from Database');
+            } else {
+                this.accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || '';
+                if (this.accessToken) console.log('🔌 InstagramAdapter: Using token from Environment');
+            }
+        } catch (e) {
+            this.accessToken = process.env.INSTAGRAM_ACCESS_TOKEN || '';
+        }
     }
 
     async sendMessage(to: string, text: string, metadata?: any): Promise<{ success: boolean; data?: any; error?: string }> {
+        // Ensure initialized if called too fast (though constructor is sync, initialize is async)
+        // In practice, since sendMessage is called via UI interaction, initialize will likely be done.
+        if (!this.accessToken) {
+            await this.initialize();
+        }
         if (!this.accessToken) {
             console.error('❌ InstagramAdapter: INSTAGRAM_ACCESS_TOKEN missing');
             return { success: false, error: 'Instagram Access Token missing' };

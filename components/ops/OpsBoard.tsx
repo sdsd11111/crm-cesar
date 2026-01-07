@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { ConversationList } from './ConversationList';
 import { ChatView } from './ChatView';
+import { ContactDetailsPanel } from './ContactDetailsPanel';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

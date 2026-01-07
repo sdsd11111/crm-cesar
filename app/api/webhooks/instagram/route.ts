@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
 
         // 3. Save Interaction (Clinical History)
         await db.insert(interactions).values({
-            type: 'other', // Or add 'instagram' to enum if possible
+            type: 'instagram',
             direction: 'inbound',
             content: text,
             contactId: contactId,

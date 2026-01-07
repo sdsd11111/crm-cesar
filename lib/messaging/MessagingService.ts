@@ -1,7 +1,7 @@
 
 import { IMessagingAdapter } from './interfaces';
 import { db } from '@/lib/db';
-import { contacts, clients, interactions, donnaChatMessages, contactChannels } from '@/lib/db/schema';
+import { contacts, clients, interactions, donnaChatMessages, contactChannels, discoveryLeads } from '@/lib/db/schema';
 import { eq, or, desc, sql, and } from 'drizzle-orm';
 
 import { WhatsAppAdapter } from './adapters/WhatsAppAdapter';
@@ -32,55 +32,68 @@ export class MessagingService {
      * Centralized Send Method
      * automatically determines the best channel for the contact
      */
-    async send(contactId: string, text: string, metadata: any = {}) {
+    async send(id: string, text: string, metadata: any = {}) {
         try {
-            // 1. Resolve Contact & Channel Preference
-            const [contact] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
+            // 1. Resolve Destination & Adapter
+            let destination: string | null = null;
+            let requestedChannel = 'whatsapp';
+            let contactId: string | null = null;
 
-            if (!contact) throw new Error('Contact not found');
+            const [contact] = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
 
-            // Default to WhatsApp if not specified (legacy behavior)
-            const requestedChannel = contact.channelSource || 'whatsapp';
+            if (contact) {
+                contactId = contact.id;
+                requestedChannel = contact.channelSource || 'whatsapp';
+
+                // Resolve Channel Entry for non-legacy platforms
+                const [channelEntry] = await db.select()
+                    .from(contactChannels)
+                    .where(
+                        and(
+                            eq(contactChannels.contactId, id),
+                            eq(contactChannels.platform, requestedChannel),
+                            eq(contactChannels.isPrimary, true)
+                        )
+                    )
+                    .limit(1);
+
+                destination = channelEntry?.identifier || contact.phone;
+            } else {
+                // Check Discovery Lead
+                const [discovery] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, id)).limit(1);
+                if (discovery) {
+                    destination = discovery.telefonoPrincipal;
+                    requestedChannel = 'whatsapp';
+                } else {
+                    // It's a ghost (id is phone)
+                    destination = id;
+                    requestedChannel = 'whatsapp';
+                }
+            }
+
             const adapter = this.adapters.get(requestedChannel);
-
             if (!adapter) throw new Error(`No adapter found for channel: ${requestedChannel}`);
 
-            // 2. Resolve Destination Identifier via Contact Channels (The New Way)
-            // We search for a PRIMARY channel matching the requested platform
-            const [channelEntry] = await db.select()
-                .from(contactChannels)
-                .where(
-                    and(
-                        eq(contactChannels.contactId, contactId),
-                        eq(contactChannels.platform, requestedChannel),
-                        eq(contactChannels.isPrimary, true)
-                    )
-                )
-                .limit(1);
-
-            // Fallback: If no channel entry exists yet (migration gap), try legacy phone
-            // Fallback: If no channel entry exists yet (migration gap), try legacy phone
-            const destination = channelEntry?.identifier || contact.phone;
-
-            console.log(`📨 MessagingService: Sending to ${contactId} via ${requestedChannel}. Destination: ${destination} (Source: ${channelEntry ? 'Channel' : 'Legacy'})`);
+            console.log(`📨 MessagingService: Sending to ${id} via ${requestedChannel}. Destination: ${destination}`);
 
             if (!destination) {
-                throw new Error(`No valid destination identifier found for contact ${contactId} on ${requestedChannel}`);
+                throw new Error(`No valid destination identifier found for ${id} on ${requestedChannel}`);
             }
 
             const result = await adapter.sendMessage(destination, text, metadata);
 
-            // 3. Centralized Logging (The "Zero-Refactor" Tables)
+            // 3. Centralized Logging
             if (result.success) {
-                // Update Last Activity
-                await db.update(contacts)
-                    .set({
-                        lastActivityAt: new Date(),
-                        unreadCount: 0,
-                        updatedAt: new Date()
-                    } as any) // Cast as any until schema is migrated
-                    .where(eq(contacts.id, contactId));
-
+                // Update Last Activity (Only if it's a formal contact)
+                if (contactId) {
+                    await db.update(contacts)
+                        .set({
+                            lastActivityAt: new Date(),
+                            unreadCount: 0,
+                            updatedAt: new Date()
+                        } as any)
+                        .where(eq(contacts.id, contactId!));
+                }
                 // Log to Donna Chat History (Unified View)
                 await db.insert(donnaChatMessages).values({
                     chatId: destination!,
@@ -103,31 +116,40 @@ export class MessagingService {
      * Context Retrieval with Identity Merging
      * Fetches history for a contact, OR all contacts belonging to the same Client.
      */
-    async getUnifiedHistory(contactId: string, limit = 50) {
-        // 1. Get Contact
-        const [contact] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
-        if (!contact) return [];
+    async getUnifiedHistory(id: string, limit = 50) {
+        // 1. Resolve Identity (Contact or Discovery Lead)
+        let relatedIdentifiers: string[] = [];
 
-        let relatedPhoneNumbers = [contact.phone];
+        const [contact] = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
 
-        // 2. Identity Merge Check
-        // If linked to a client, fetch ALL phone numbers for that client
-        let linkedClientId = (contact as any).client_id; // Will exist after migration
-        if (linkedClientId) {
-            const siblings = await db.select({ phone: contacts.phone })
-                .from(contacts)
-                .where(eq((contacts as any).client_id, linkedClientId));
-
-            relatedPhoneNumbers = siblings.map(s => s.phone).filter(Boolean) as string[];
+        if (contact) {
+            relatedIdentifiers.push(contact.phone!);
+            // Identity Merging (if client linked)
+            const linkedClientId = (contact as any).clientId;
+            if (linkedClientId) {
+                const siblings = await db.select({ phone: contacts.phone })
+                    .from(contacts)
+                    .where(eq(contacts.clientId, linkedClientId));
+                relatedIdentifiers = Array.from(new Set([...relatedIdentifiers, ...siblings.map(s => s.phone).filter(Boolean) as string[]]));
+            }
+        } else {
+            // Check Discovery Leads
+            const [discovery] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, id)).limit(1);
+            if (discovery) {
+                relatedIdentifiers.push(discovery.telefonoPrincipal!);
+            } else {
+                // If it's a ghost (id is actually a phone number)
+                relatedIdentifiers.push(id);
+            }
         }
 
-        if (relatedPhoneNumbers.length === 0) return [];
+        if (relatedIdentifiers.length === 0) return [];
 
-        // 3. Fetch History for ALL related identifiers
+        // 3. Fetch History for ALL related identifiers (Omnichannel)
         const history = await db.select()
             .from(donnaChatMessages)
             .where(
-                sql`${donnaChatMessages.chatId} IN ${relatedPhoneNumbers}`
+                sql`${donnaChatMessages.chatId} IN ${relatedIdentifiers}`
             )
             .orderBy(desc(donnaChatMessages.messageTimestamp))
             .limit(limit);

@@ -12,7 +12,7 @@ interface Conversation {
     contactName: string;
     phone: string;
     lastActivityAt?: string;
-    channelSource?: 'whatsapp' | 'telegram';
+    channelSource?: 'whatsapp' | 'telegram' | 'instagram';
     unreadCount?: number;
     status?: string; // Added for pipeline view
 }

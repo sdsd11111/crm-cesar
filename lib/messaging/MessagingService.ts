@@ -57,7 +57,10 @@ export class MessagingService {
                 .limit(1);
 
             // Fallback: If no channel entry exists yet (migration gap), try legacy phone
+            // Fallback: If no channel entry exists yet (migration gap), try legacy phone
             const destination = channelEntry?.identifier || contact.phone;
+
+            console.log(`📨 MessagingService: Sending to ${contactId} via ${requestedChannel}. Destination: ${destination} (Source: ${channelEntry ? 'Channel' : 'Legacy'})`);
 
             if (!destination) {
                 throw new Error(`No valid destination identifier found for contact ${contactId} on ${requestedChannel}`);

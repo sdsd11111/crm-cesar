@@ -18,7 +18,18 @@ export class GoogleCalendarService {
         if (credentialsVar) {
             try {
                 // Remove potential surrounding quotes from Vercel/Env variables
-                const cleanCredentials = credentialsVar.trim().replace(/^['"]|['"]$/g, '');
+                let cleanCredentials = credentialsVar.trim();
+
+                // Handle common env var issues:
+                // 1. Remove wrapping quotes if present
+                if ((cleanCredentials.startsWith('"') && cleanCredentials.endsWith('"')) ||
+                    (cleanCredentials.startsWith("'") && cleanCredentials.endsWith("'"))) {
+                    cleanCredentials = cleanCredentials.slice(1, -1);
+                }
+
+                // 2. Unescape newlines (common in private keys when stored as single line string)
+                cleanCredentials = cleanCredentials.replace(/\\n/g, '\n');
+
                 const credentials = JSON.parse(cleanCredentials);
                 authOptions.credentials = credentials;
                 console.log('🔐 [GoogleCalendarService] Using credentials from environment variable');

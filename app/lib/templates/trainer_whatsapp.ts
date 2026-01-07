@@ -30,8 +30,8 @@ con gusto lo revisamos aplicado específicamente a su hotel.
 Muchas gracias por su apoyo 🙏
 César Reyes`,
 
-    no_answer: (contactName: string) => `Buenos días ${contactName || '((NOMBRE))'}, Intenté contactarle hace un momento,
-pero no logré comunicarme, somos una consultora especializada en el sector del turismo y le comparto concretamente como le podemos ayudar:
+    no_answer: (contactName: string, businessName: string = '((HOTEL))') => `Buenos días ${contactName || '((NOMBRE))'}, Intenté contactarle hace un momento para hablar sobre ${businessName},
+pero no logré comunicarme. Somos una consultora especializada en el sector del turismo y le comparto concretamente como le podemos ayudar:
 
 - Que un turista encuentre fácilmente su propuesta digital del hotel, su sistema de reservas, la propuesta de habitaciones, servicios complementarios y galería de fotos.
 - Que su información salga en búsquedas en Google y por ChatGPT fácilmente a quien busque por ejemplo “hoteles cerca al cementerio”. (El 80% de los viajeros usan motores de búsqueda para planificar viajes).
@@ -40,7 +40,7 @@ Si le gustaría conocer cómo hacerlo, acá está cómo lo hacemos https://www.c
 
 ¿Agendamos los 20 minutos?`,
 
-    info: (contactName: string) => `${contactName || '((NOMBRE))'} como conversamos brevemente por teléfono, somos una consultora especializada en el sector del turismo y concretamente les ayudamos:
+    info: (contactName: string, businessName: string = '((HOTEL))') => `${contactName || '((NOMBRE))'} como conversamos brevemente por teléfono sobre ${businessName}, somos una consultora especializada en el sector del turismo y concretamente les ayudamos:
 
 - Que un turista encuentre fácilmente su propuesta digital del hotel, su sistema de reservas, la propuesta de habitaciones, servicios complementarios y galería de fotos.
 - Que su información salga en búsquedas en Google y por ChatGPT fácilmente a quien busque por ejemplo “hoteles cerca al cementerio”. (El 80% de los viajeros usan motores de búsqueda para planificar viajes).

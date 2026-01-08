@@ -3,22 +3,47 @@ import nodemailer from 'nodemailer';
 import { db } from '@/lib/db';
 import { interactions } from '@/lib/db/schema';
 
-// Configure SMTP transporter
+// Configure SMTP transporter with strict validation
 const createTransporter = () => {
-    const config = {
-        host: process.env.SMTP_HOST || 'mail.cesarreyesjaramillo.com',
-        port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: process.env.SMTP_SECURE === 'true' || true,
-        auth: {
-            user: process.env.SMTP_USER || 'turismo@cesarreyesjaramillo.com',
-            pass: process.env.SMTP_PASSWORD || '',
-        },
+    // Validate required SMTP environment variables
+    const requiredVars = {
+        SMTP_HOST: process.env.SMTP_HOST,
+        SMTP_PORT: process.env.SMTP_PORT,
+        SMTP_USER: process.env.SMTP_USER,
+        SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     };
 
-    // Warn if using default password (empty)
-    if (!process.env.SMTP_PASSWORD) {
-        console.warn('⚠️ SMTP_PASSWORD not set in environment variables!');
+    const missing = Object.entries(requiredVars)
+        .filter(([_, value]) => !value)
+        .map(([key]) => key);
+
+    if (missing.length > 0) {
+        const error = `Missing required SMTP environment variables: ${missing.join(', ')}`;
+        console.error('❌ SMTP Configuration Error:', error);
+        throw new Error(error);
     }
+
+    const config = {
+        host: process.env.SMTP_HOST!,
+        port: parseInt(process.env.SMTP_PORT!),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+            user: process.env.SMTP_USER!,
+            pass: process.env.SMTP_PASSWORD!,
+        },
+        // Add connection timeout
+        connectionTimeout: 10000, // 10 seconds
+        // Add socket timeout
+        socketTimeout: 10000,
+    };
+
+    console.log('📧 SMTP Configuration:', {
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        user: config.auth.user,
+        passwordSet: !!config.auth.pass,
+    });
 
     return nodemailer.createTransport(config);
 };
@@ -45,17 +70,42 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Send email
+        // Create transporter and verify connection
+        console.log('📤 Attempting to send email to:', to);
         const transporter = createTransporter();
-        const info = await transporter.sendMail({
+
+        // Verify SMTP connection before sending
+        try {
+            await transporter.verify();
+            console.log('✅ SMTP connection verified successfully');
+        } catch (verifyError: any) {
+            console.error('❌ SMTP verification failed:', verifyError);
+            throw new Error(`SMTP connection failed: ${verifyError.message}`);
+        }
+
+        // Send email
+        const mailOptions = {
             from: `"${process.env.SMTP_FROM_NAME || 'César Reyes - Posicionamiento Real'}" <${process.env.SMTP_FROM_EMAIL || 'turismo@cesarreyesjaramillo.com'}>`,
             to: to,
             subject: subject,
             text: emailBody, // Plain text body
             html: emailBody.replace(/\n/g, '<br>'), // Simple HTML conversion
+        };
+
+        console.log('📧 Sending email with options:', {
+            from: mailOptions.from,
+            to: mailOptions.to,
+            subject: mailOptions.subject,
         });
 
-        console.log('Email sent:', info.messageId);
+        const info = await transporter.sendMail(mailOptions);
+
+        console.log('✅ Email sent successfully:', {
+            messageId: info.messageId,
+            response: info.response,
+            accepted: info.accepted,
+            rejected: info.rejected,
+        });
 
         // Register interaction in database
         if (contactId || discoveryLeadId) {
@@ -83,21 +133,36 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error('Error sending email:', error);
+        console.error('❌ Error sending email:', {
+            message: error.message,
+            code: error.code,
+            responseCode: error.responseCode,
+            command: error.command,
+            stack: error.stack,
+        });
 
         // Provide specific error messages based on error type
         let errorMessage = 'Error al enviar email';
         let errorDetails = error.message;
 
-        if (error.code === 'EAUTH' || error.responseCode === 535) {
+        if (error.message?.includes('Missing required SMTP')) {
+            errorMessage = 'Configuración SMTP incompleta';
+            errorDetails = error.message;
+        } else if (error.message?.includes('SMTP connection failed')) {
+            errorMessage = 'Error de conexión SMTP';
+            errorDetails = error.message;
+        } else if (error.code === 'EAUTH' || error.responseCode === 535) {
             errorMessage = 'Error de autenticación SMTP';
             errorDetails = 'Credenciales incorrectas. Verifica SMTP_USER y SMTP_PASSWORD en las variables de entorno.';
         } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
             errorMessage = 'Error de conexión al servidor SMTP';
-            errorDetails = `No se pudo conectar a ${process.env.SMTP_HOST || 'mail.cesarreyesjaramillo.com'}:${process.env.SMTP_PORT || '465'}`;
+            errorDetails = `No se pudo conectar a ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`;
         } else if (error.code === 'EMESSAGE') {
             errorMessage = 'Error en el formato del mensaje';
             errorDetails = error.message;
+        } else if (error.code === 'EENVELOPE') {
+            errorMessage = 'Error en las direcciones de email';
+            errorDetails = 'Verifica que las direcciones de email sean válidas';
         }
 
         return NextResponse.json(
@@ -105,7 +170,8 @@ export async function POST(request: NextRequest) {
                 error: errorMessage,
                 details: errorDetails,
                 code: error.code,
-                responseCode: error.responseCode
+                responseCode: error.responseCode,
+                success: false,
             },
             { status: 500 }
         );

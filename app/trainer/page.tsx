@@ -57,7 +57,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
-import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp';
+import { WHATSAPP_TEMPLATES, fillWhatsAppTemplate } from '@/lib/templates/whatsapp';
 import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { WhatsAppForm } from '@/components/whatsapp/WhatsAppQuickSender';
@@ -1213,10 +1213,10 @@ export default function TrainerPage() {
                                             discoveryLeadId={selectedLead?.source === 'discovery' ? selectedLead?.id : undefined}
                                             initialMessage={waBody}
                                             templates={[
-                                                { id: 'owner', label: 'Dueño', text: TRAINER_WHATSAPP_TEMPLATES.owner(selectedLead?.contactName, selectedLead?.businessName) },
-                                                { id: 'receptionist', label: 'Recepción', text: TRAINER_WHATSAPP_TEMPLATES.receptionist(selectedLead?.businessName) },
-                                                { id: 'no_answer', label: 'No Contestó', text: TRAINER_WHATSAPP_TEMPLATES.no_answer(selectedLead?.contactName) },
-                                                { id: 'info', label: 'Envío Información', text: TRAINER_WHATSAPP_TEMPLATES.info(selectedLead?.contactName) }
+                                                fillWhatsAppTemplate(WHATSAPP_TEMPLATES.owner, { nombre: selectedLead?.contactName || '((NOMBRE))', hotel: selectedLead?.businessName || '((HOTEL))' }),
+                                                fillWhatsAppTemplate(WHATSAPP_TEMPLATES.receptionist, { nombre: selectedLead?.contactName || '((NOMBRE))', hotel: selectedLead?.businessName || '((HOTEL))' }),
+                                                fillWhatsAppTemplate(WHATSAPP_TEMPLATES.no_answer, { nombre: selectedLead?.contactName || '((NOMBRE))', hotel: selectedLead?.businessName || '((HOTEL))' }),
+                                                fillWhatsAppTemplate(WHATSAPP_TEMPLATES.info, { nombre: selectedLead?.contactName || '((NOMBRE))', hotel: selectedLead?.businessName || '((HOTEL))' })
                                             ]}
                                             onSuccess={() => {
                                                 // Optional: refresh history or clear selection

@@ -53,7 +53,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { MeetingBriefingCard } from '@/components/donna/MeetingBriefingCard'
 import { PostMeetingReviewModal } from '@/components/donna/PostMeetingReviewModal'
-import { TRAINER_WHATSAPP_TEMPLATES } from '@/app/lib/templates/trainer_whatsapp';
+import { WHATSAPP_TEMPLATES, fillWhatsAppTemplate } from '@/lib/templates/whatsapp';
 import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { ConvertLeadDialog, FinancialDetails } from '@/components/leads/convert-lead-dialog'
@@ -181,12 +181,14 @@ export default function LeadDetailPage() {
 
                 // Set default template
                 const name = result.lead.contactName || '';
+                const commonData = { nombre: name || '((NOMBRE))', hotel: result.lead.businessName || '((HOTEL))' };
+
                 if (name) {
                     setWaTemplate('owner');
-                    setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(name));
+                    setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.owner, commonData).text);
                 } else {
                     setWaTemplate('receptionist');
-                    setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
+                    setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.receptionist, commonData).text);
                 }
             }
 
@@ -581,9 +583,11 @@ export default function LeadDetailPage() {
                                                 setWaTemplate(val);
                                                 const rawName = lead.contactName || '';
                                                 const formattedName = formatContactName(rawName);
-                                                if (val === 'owner') setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(formattedName));
-                                                else if (val === 'receptionist') setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
-                                                else if (val === 'no_answer') setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(formattedName, lead.businessName));
+                                                const commonData = { nombre: formattedName || '((NOMBRE))', hotel: lead.businessName || '((HOTEL))' };
+
+                                                if (val === 'owner') setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.owner, commonData).text);
+                                                else if (val === 'receptionist') setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.receptionist, commonData).text);
+                                                else if (val === 'no_answer') setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.no_answer, commonData).text);
                                             }}>
                                                 <SelectTrigger>
                                                     <SelectValue />

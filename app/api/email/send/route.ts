@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { db } from '@/lib/db';
 import { interactions } from '@/lib/db/schema';
+import { wrapEmailHTML } from '@/lib/templates/signature';
 
 // Configure SMTP transporter with strict validation
 const createTransporter = () => {
@@ -83,13 +84,15 @@ export async function POST(request: NextRequest) {
             throw new Error(`SMTP connection failed: ${verifyError.message}`);
         }
 
-        // Send email
+        // Send email with HTML template
+        const htmlContent = wrapEmailHTML(emailBody);
+
         const mailOptions = {
             from: `"${process.env.SMTP_FROM_NAME || 'César Reyes - Posicionamiento Real'}" <${process.env.SMTP_FROM_EMAIL || 'turismo@cesarreyesjaramillo.com'}>`,
             to: to,
             subject: subject,
-            text: emailBody, // Plain text body
-            html: emailBody.replace(/\n/g, '<br>'), // Simple HTML conversion
+            text: emailBody.replace(/<[^>]*>/g, ''), // Plain text fallback (strip HTML)
+            html: htmlContent, // Professional HTML email with signature
         };
 
         console.log('📧 Sending email with options:', {

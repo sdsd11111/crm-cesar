@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Mail, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { EMAIL_TEMPLATES, EMAIL_TEMPLATE_LIST } from '@/app/lib/templates/email_templates';
+import { EMAIL_TEMPLATES, EMAIL_TEMPLATE_LIST, fillTemplate } from '@/lib/templates/email';
 
 interface EmailFormProps {
     email?: string;
@@ -45,13 +45,15 @@ export function EmailForm({
         if (templateId && templateId !== 'custom') {
             const template = EMAIL_TEMPLATES[templateId as keyof typeof EMAIL_TEMPLATES];
             if (template) {
-                const { subject: templateSubject, body: templateBody } =
-                    typeof template === 'function'
-                        ? template(contactName, businessName)
-                        : template;
+                const filled = fillTemplate(template, {
+                    nombre: contactName || '((NOMBRE))',
+                    empresa: businessName || '((EMPRESA))',
+                    fecha: new Date().toLocaleDateString('es-ES'),
+                    hora: '10:00 AM' // Default, user can edit
+                });
 
-                setSubject(templateSubject);
-                setBody(templateBody);
+                setSubject(filled.subject);
+                setBody(filled.body);
             }
         }
     };

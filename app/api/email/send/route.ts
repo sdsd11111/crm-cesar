@@ -108,23 +108,29 @@ export async function POST(request: NextRequest) {
         });
 
         // Register interaction in database
-        if (contactId || discoveryLeadId) {
-            try {
-                await db.insert(interactions).values({
-                    type: 'email',
-                    direction: 'outbound',
-                    outcome: 'sent',
-                    content: `Asunto: ${subject}\n\n${emailBody}`,
-                    contactId: contactId || null,
-                    discoveryLeadId: discoveryLeadId || null,
-                    performedAt: new Date(),
-                    metadata: template ? { template } : null,
-                });
-            } catch (dbError) {
-                console.error('Error saving interaction:', dbError);
-                // Don't fail the request if DB insert fails
-            }
+        // Always log sent emails (removed conditional)
+        try {
+            await db.insert(interactions).values({
+                type: 'email',
+                direction: 'outbound',
+                outcome: 'sent',
+                content: `Asunto: ${subject}\n\n${emailBody}`,
+                contactId: contactId || null,
+                discoveryLeadId: discoveryLeadId || null,
+                performedAt: new Date(),
+                metadata: template ? { template, to, messageId: info.messageId } : { to, messageId: info.messageId },
+            });
+            console.log('✅ Interaction saved to database:', {
+                type: 'email',
+                to,
+                contactId: contactId || 'none',
+                discoveryLeadId: discoveryLeadId || 'none',
+            });
+        } catch (dbError) {
+            console.error('❌ Error saving interaction to database:', dbError);
+            // Don't fail the request if DB insert fails
         }
+
 
         return NextResponse.json({
             success: true,

@@ -1,12 +1,21 @@
 export default {
     id: 'info',
-    label: 'Envío Información',
-    text: `((NOMBRE)) como conversamos brevemente por teléfono sobre ((HOTEL)), somos una consultora especializada en el sector del turismo y concretamente les ayudamos:
+    label: 'Envío Información Detallada',
+    text: `Hola ((NOMBRE)), la tecnología avanza y adaptarse es clave.
 
-- Que un turista encuentre fácilmente su propuesta digital del hotel, su sistema de reservas, la propuesta de habitaciones, servicios complementarios y galería de fotos.
-- Que su información salga en búsquedas en Google y por ChatGPT fácilmente a quien busque por ejemplo “hoteles cerca al cementerio”. (El 80% de los viajeros usan motores de búsqueda para planificar viajes).
-- Estrategias de posicionamiento web para que las aplique con su equipo de marketing o los ejecute usted mismo. (El 57% de reservas online vienen de búsquedas orgánicas en Google).
-Si le gustaría conocer cómo hacerlo, acá está cómo lo hacemos https://www.cesarreyesjaramillo.com/motor-reservas-hotel
+Soy César Reyes, consultor turístico. Vi la web de ((EMPRESA)) y podemos potenciarla.
 
-¿Agendamos los 20 minutos?`
+¿En qué les ayudo?
+
+1️⃣ A que los turistas encuentren fácilmente su propuesta digital, reservas y servicios.
+
+2️⃣ A que aparezcan en Google y ChatGPT cuando alguien busque *"((EJEMPLO_BUSQUEDA))"*. (El 80% de viajeros usan buscadores).
+
+3️⃣ A implementar estrategias de posicionamiento web para captar reservas directas. (El 57% de reservas vienen de búsquedas orgánicas).
+
+Me encantaría comentarle cómo hacerlo en 15 minutos:
+👉 https://calendar.app.google/wMwRKhv9kB3x3Edz9
+
+Saludos,
+César Reyes`
 };

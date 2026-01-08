@@ -48,6 +48,7 @@ export function EmailForm({
                 const filled = fillTemplate(template, {
                     nombre: contactName || '((NOMBRE))',
                     empresa: businessName || '((EMPRESA))',
+                    ejemplo_busqueda: 'hoteles en su zona', // Default placeholder
                     fecha: new Date().toLocaleDateString('es-ES'),
                     hora: '10:00 AM' // Default, user can edit
                 });

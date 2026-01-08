@@ -181,7 +181,12 @@ export default function LeadDetailPage() {
 
                 // Set default template
                 const name = result.lead.contactName || '';
-                const commonData = { nombre: name || '((NOMBRE))', hotel: result.lead.businessName || '((HOTEL))' };
+                const city = result.lead.city || 'su zona';
+                const commonData = {
+                    nombre: name || '((NOMBRE))',
+                    hotel: result.lead.businessName || '((HOTEL))',
+                    ejemplo_busqueda: `hoteles en ${city}`
+                };
 
                 if (name) {
                     setWaTemplate('owner');
@@ -583,7 +588,12 @@ export default function LeadDetailPage() {
                                                 setWaTemplate(val);
                                                 const rawName = lead.contactName || '';
                                                 const formattedName = formatContactName(rawName);
-                                                const commonData = { nombre: formattedName || '((NOMBRE))', hotel: lead.businessName || '((HOTEL))' };
+                                                const city = lead.city || 'su zona';
+                                                const commonData = {
+                                                    nombre: formattedName || '((NOMBRE))',
+                                                    hotel: lead.businessName || '((HOTEL))',
+                                                    ejemplo_busqueda: `hoteles en ${city}`
+                                                };
 
                                                 if (val === 'owner') setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.owner, commonData).text);
                                                 else if (val === 'receptionist') setWaBody(fillWhatsAppTemplate(WHATSAPP_TEMPLATES.receptionist, commonData).text);

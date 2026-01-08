@@ -1,13 +1,14 @@
 export default {
     id: 'no_answer',
     label: 'No Contestó',
-    text: `Buenos días ((NOMBRE)), Intenté contactarle hace un momento para hablar sobre ((HOTEL)),
-pero no logré comunicarme. Somos una consultora especializada en el sector del turismo y le comparto concretamente como le podemos ayudar:
+    text: `Buenos días ((NOMBRE)), intenté contactarle sobre ((HOTEL)).
 
-- Que un turista encuentre fácilmente su propuesta digital del hotel, su sistema de reservas, la propuesta de habitaciones, servicios complementarios y galería de fotos.
-- Que su información salga en búsquedas en Google y por ChatGPT fácilmente a quien busque por ejemplo “hoteles cerca al cementerio”. (El 80% de los viajeros usan motores de búsqueda para planificar viajes).
-- Estrategias de posicionamiento web para que las aplique con su equipo de marketing o los ejecute usted mismo. (El 57% de reservas online vienen de búsquedas orgánicas en Google).
-Si le gustaría conocer cómo hacerlo, acá está cómo lo hacemos https://www.cesarreyesjaramillo.com/motor-reservas-hotel
+Soy César Reyes. Quería contarle brevemente cómo ayudamos a hoteles a destacar:
 
-¿Agendamos los 20 minutos?`
+✅ Que encuentren fácilmente su propuesta digital y reservas.
+✅ Que aparezcan en Google/ChatGPT al buscar *"((EJEMPLO_BUSQUEDA))"*.
+✅ Estrategias para captar el 57% de reservas que vienen de búsquedas orgánicas.
+
+Si le interesa, aquí puede agendar una breve llamada:
+👉 https://calendar.app.google/wMwRKhv9kB3x3Edz9`
 };

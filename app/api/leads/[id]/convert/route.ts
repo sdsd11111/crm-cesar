@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getHotelContract } from '@/lib/templates/Contrato/hotel';
+
 
 export async function POST(
   request: Request,
@@ -21,7 +23,12 @@ export async function POST(
 
   try {
     const leadId = params.id;
-    const { contractValue, initialPayment, balanceDueDate } = await request.json();
+    const body = await request.json();
+    // Handle both old and new structure or just new
+    const financials = body.financials || body;
+    const { contractValue, initialPayment, balanceDueDate } = financials;
+    const contractData = body.contract; // { plan, variables }
+
 
     // 1. Update entity_type to 'client'
     const { data: updatedContact, error: updateError } = await supabase
@@ -102,6 +109,25 @@ export async function POST(
         if (txError) console.error('Error creating linked transactions:', txError);
       }
     }
+
+    // 3. Generate and Save Contract
+    if (contractData) {
+      try {
+        const contractText = getHotelContract(contractData.variables, contractData.plan);
+
+        await supabase.from('interactions').insert({
+          contact_id: updatedContact.id,
+          type: 'note',
+          direction: 'inbound',
+          content: `📝 CONTRATO GENERADO (${contractData.plan})\n\n${contractText}`,
+          outcome: 'contract_generated',
+          performed_at: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error('Error generating contract:', e);
+      }
+    }
+
 
     // Initialize Agent (Ensures one exists for the new client)
     try {

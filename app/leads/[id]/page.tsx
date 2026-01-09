@@ -56,7 +56,7 @@ import { PostMeetingReviewModal } from '@/components/donna/PostMeetingReviewModa
 import { WHATSAPP_TEMPLATES, fillWhatsAppTemplate } from '@/lib/templates/whatsapp';
 import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
-import { ConvertLeadDialog, FinancialDetails } from '@/components/leads/convert-lead-dialog'
+import { ConvertLeadDialog, ConversionDetails } from '@/components/leads/convert-lead-dialog'
 
 // Dynamic PDF Download Component
 const PDFDownloadLink = dynamic(() => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink), {
@@ -134,13 +134,13 @@ export default function LeadDetailPage() {
         }
     };
 
-    const confirmConversion = async (financialDetails: FinancialDetails) => {
+    const confirmConversion = async (data: ConversionDetails) => {
         setIsConverting(true)
         try {
             const response = await fetch(`/api/leads/${params.id}/convert`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(financialDetails)
+                body: JSON.stringify(data)
             });
             const result = await response.json();
             if (result.success) {
@@ -432,6 +432,7 @@ export default function LeadDetailPage() {
                     onConfirm={confirmConversion}
                     leadName={lead?.businessName || lead?.contactName || ""}
                     isConverting={isConverting}
+                    leadCity={lead?.city}
                 />
 
                 {/* Main Content Tabs */}

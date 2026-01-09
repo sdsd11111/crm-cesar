@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ConvertLeadDialog, FinancialDetails } from '@/components/leads/convert-lead-dialog'
+import { ConvertLeadDialog, ConversionDetails } from '@/components/leads/convert-lead-dialog'
 
 interface Lead {
   id: string
@@ -98,7 +98,7 @@ export default function LeadsPage() {
     setConversionDialogOpen(true)
   }
 
-  const confirmConversion = async (financialDetails: FinancialDetails) => {
+  const confirmConversion = async (data: ConversionDetails) => {
     if (!leadToConvert) return
 
     setIsConverting(true)
@@ -108,7 +108,7 @@ export default function LeadsPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(financialDetails)
+        body: JSON.stringify(data)
       });
       const result = await response.json();
 

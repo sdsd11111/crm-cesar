@@ -119,6 +119,23 @@ export default function TrainerPage() {
     const [editFormData, setEditFormData] = useState<any>({});
     const [isUpdatingLead, setIsUpdatingLead] = useState(false);
 
+
+    // Helper to fill WhatsApp templates for Trainer
+    const getTrainerWaBody = (templateId: string, lead: any) => {
+        if (!lead || !WHATSAPP_TEMPLATES[templateId]) return '';
+
+        const rawName = lead.contactName || lead.personaContacto || lead.representative || lead.razonSocialPropietario || '';
+        const formattedName = formatContactName(rawName);
+        const bName = lead.businessName || lead.nombre_comercial || '';
+        const city = lead.city || lead.canton || 'Ecuador';
+
+        return fillWhatsAppTemplate(WHATSAPP_TEMPLATES[templateId], {
+            NOMBRE: formattedName,
+            HOTEL: bName,
+            EJEMPLO_BUSQUEDA: `hoteles en ${city}`
+        }).text;
+    };
+
     // Auto-populate WhatsApp and Call data from draft or defaults
     useEffect(() => {
         if (!selectedLead) return;
@@ -147,15 +164,14 @@ export default function TrainerPage() {
 
         const rawName = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || selectedLead.razonSocialPropietario || '';
         const formattedName = formatContactName(rawName);
-        const bName = selectedLead.businessName || selectedLead.nombre_comercial || '';
 
         // Prioritize 'owner' template if a name is available
         if (formattedName) {
             setWaTemplate('owner');
-            setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(formattedName));
+            setWaBody(getTrainerWaBody('owner', selectedLead));
         } else {
             setWaTemplate('receptionist');
-            setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
+            setWaBody(getTrainerWaBody('receptionist', selectedLead));
         }
 
         // Reset call result form
@@ -199,9 +215,7 @@ export default function TrainerPage() {
             const rawName = lead.contactName || lead.personaContacto || lead.representative || lead.razonSocialPropietario || '';
             const formattedName = formatContactName(rawName);
 
-            if (val === 'owner') setWaBody(TRAINER_WHATSAPP_TEMPLATES.owner(formattedName));
-            else if (val === 'receptionist') setWaBody(TRAINER_WHATSAPP_TEMPLATES.receptionist());
-            else if (val === 'no_answer') setWaBody(TRAINER_WHATSAPP_TEMPLATES.no_answer(formattedName, lead.businessName || lead.nombre_comercial));
+            setWaBody(getTrainerWaBody(val, lead));
         }
     };
 

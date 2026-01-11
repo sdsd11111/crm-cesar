@@ -88,12 +88,26 @@ export async function GET(request: Request, { params }: { params: { id: string }
       createdAt: lead.created_at,
       source: lead.source,
       notes: lead.notes,
-      quotation: lead.quotation
+      quotation: lead.quotation,
+      discoveryLeadId: lead.discovery_lead_id
     };
 
     // Fetch related data (interactions, tasks)
+    // If the lead has a linked discovery lead, we want to fetch interactions for BOTH IDs
+    const interactionsQuery = lead.discovery_lead_id
+      ? supabase
+        .from('interactions')
+        .select('*')
+        .or(`contact_id.eq.${id},discovery_lead_id.eq.${lead.discovery_lead_id}`)
+        .order('performed_at', { ascending: false })
+      : supabase
+        .from('interactions')
+        .select('*')
+        .eq('contact_id', id)
+        .order('performed_at', { ascending: false });
+
     const [interactions, tasks] = await Promise.all([
-      supabase.from('interactions').select('*').eq('contact_id', id).order('performed_at', { ascending: false }),
+      interactionsQuery,
       supabase.from('tasks').select('*').eq('contact_id', id).order('created_at', { ascending: false })
     ]);
 

@@ -102,6 +102,7 @@ export default function LeadDetailPage() {
 
     const [isConverting, setIsConverting] = useState(false)
     const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
+    const [isQuickInteractionOpen, setIsQuickInteractionOpen] = useState(false)
 
     const handleGenerateProposal = async () => {
         setIsGeneratingProposal(true);
@@ -341,6 +342,7 @@ export default function LeadDetailPage() {
             toast.error("Error al guardar resultado");
         } finally {
             setIsSavingResult(false);
+            setIsQuickInteractionOpen(false);
         }
     };
 
@@ -581,6 +583,84 @@ export default function LeadDetailPage() {
                                             Sin historia de contacto aún.
                                         </div>
                                     )}
+
+                                    {/* Quick Interaction Button */}
+                                    <Dialog open={isQuickInteractionOpen} onOpenChange={setIsQuickInteractionOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full py-8 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all group flex flex-col gap-1 items-center justify-center rounded-xl"
+                                            >
+                                                <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors">
+                                                    <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
+                                                </div>
+                                                <span className="text-xs font-bold text-muted-foreground group-hover:text-primary uppercase tracking-wider">Registrar Nueva Interacción</span>
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle className="flex items-center gap-2">
+                                                    <Plus className="h-5 w-5 text-primary" /> Nueva Interacción
+                                                </DialogTitle>
+                                                <DialogDescription>
+                                                    Registra el resultado de tu última gestión con el lead.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="space-y-4 py-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Resultado</Label>
+                                                        <Select value={callOutcome} onValueChange={setCallOutcome}>
+                                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="interesado">🔥 Interesado</SelectItem>
+                                                                <SelectItem value="reunion_agendada">📅 Reunión Agendada</SelectItem>
+                                                                <SelectItem value="no_contesto">🔇 No Contestó</SelectItem>
+                                                                <SelectItem value="no_interesado">❌ No Interesado</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Mover a Etapa</Label>
+                                                        <Select value={callAction} onValueChange={setCallAction}>
+                                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="pendiente">Mantener Actual</SelectItem>
+                                                                <SelectItem value="primer_contacto">1er Contacto</SelectItem>
+                                                                <SelectItem value="segundo_contacto">2do Contacto</SelectItem>
+                                                                <SelectItem value="cotizado">Cotizado / Propuesta</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Notas</Label>
+                                                    <Textarea
+                                                        placeholder="¿Qué pasó en esta interacción?"
+                                                        value={callNotes}
+                                                        onChange={(e) => setCallNotes(e.target.value)}
+                                                        className="h-32"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <DialogFooter className="gap-2 sm:gap-0">
+                                                <Button
+                                                    variant="ghost"
+                                                    onClick={() => setIsQuickInteractionOpen(false)}
+                                                >
+                                                    Cancelar
+                                                </Button>
+                                                <Button
+                                                    className="bg-primary hover:bg-primary/90"
+                                                    onClick={handleSaveCallResult}
+                                                    disabled={isSavingResult}
+                                                >
+                                                    {isSavingResult ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                                                    Guardar Interacción
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
                                 </div>
                             </div>
                         </div>

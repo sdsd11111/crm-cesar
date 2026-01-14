@@ -35,7 +35,10 @@ import {
     PenTool,
     ShieldAlert,
     AlertTriangle,
-    History
+    History,
+    Trash2,
+    Building,
+    Map
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog'
@@ -361,6 +364,30 @@ export default function LeadDetailPage() {
         } catch (e) { toast.error("Error al enviar recordatorio"); }
     };
 
+    // Mark as Lost Functionality
+    const [isLostLeadDialogOpen, setIsLostLeadDialogOpen] = useState(false);
+    const [isDroppingLead, setIsDroppingLead] = useState(false);
+
+    const handleMarkAsLost = async () => {
+        setIsDroppingLead(true);
+        try {
+            const res = await fetch(`/api/leads/${params.id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                toast.success("Lead marcado como perdido y archivado.");
+                router.push('/leads');
+            } else {
+                throw new Error("Error al archivar lead");
+            }
+        } catch (error) {
+            toast.error("No se pudo marcar como perdido.");
+        } finally {
+            setIsDroppingLead(false);
+            setIsLostLeadDialogOpen(false);
+        }
+    };
+
     const history = useMemo(() => {
         if (!data?.interactions) return []
         return [...data.interactions].sort((a: any, b: any) =>
@@ -435,6 +462,31 @@ export default function LeadDetailPage() {
                     leadCity={lead?.city}
                 />
 
+                <Dialog open={isLostLeadDialogOpen} onOpenChange={setIsLostLeadDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle className="text-destructive flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5" /> Confirmar Pérdida
+                            </DialogTitle>
+                            <DialogDescription>
+                                ¿Estás seguro de marcar este lead como <strong>PERDIDO</strong>?
+                                <br /><br />
+                                Se moverá a prospectos "Sin Interés" y se archivará.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setIsLostLeadDialogOpen(false)}>Cancelar</Button>
+                            <Button
+                                variant="destructive"
+                                onClick={handleMarkAsLost}
+                                disabled={isDroppingLead}
+                            >
+                                {isDroppingLead ? <Loader2 className="animate-spin h-4 w-4" /> : "Sí, Dar por Perdido"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
                 {/* Main Content Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-4 h-12 bg-muted/50 p-1 rounded-xl max-w-2xl mb-6">
@@ -467,11 +519,32 @@ export default function LeadDetailPage() {
                                             <MapPin className="h-4 w-4 text-primary" />
                                             <span>{lead.city || 'N/A'}</span>
                                         </div>
+                                        {lead.province && (
+                                            <div className="flex items-center gap-3">
+                                                <Map className="h-4 w-4 text-primary" />
+                                                <span>{lead.province}</span>
+                                            </div>
+                                        )}
+                                        {lead.businessName && (
+                                            <div className="flex items-center gap-3">
+                                                <Building className="h-4 w-4 text-primary" />
+                                                <span className="font-semibold">{lead.businessName}</span>
+                                            </div>
+                                        )}
                                         <Separator />
                                         <div>
                                             <Label className="text-[10px] font-bold uppercase opacity-60">Producto de Interés</Label>
                                             <p className="font-semibold text-primary">{lead.interestedProduct || 'No especificado'}</p>
                                         </div>
+                                        <Separator />
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() => setIsLostLeadDialogOpen(true)}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-2" /> Dar por Perdido
+                                        </Button>
                                     </CardContent>
                                 </Card>
                             </div>

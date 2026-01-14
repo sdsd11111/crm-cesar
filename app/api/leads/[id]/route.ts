@@ -52,6 +52,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       email: lead.email,
       address: lead.address,
       city: lead.city,
+      province: lead.province,
       businessType: lead.business_type,
       connectionType: lead.connection_type,
       businessActivity: lead.business_activity,
@@ -165,6 +166,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (body.email !== undefined) updateData.email = body.email;
     if (body.address !== undefined) updateData.address = body.address;
     if (body.city !== undefined) updateData.city = body.city;
+    if (body.province !== undefined) updateData.province = body.province;
     if (body.businessType !== undefined) updateData.business_type = body.businessType;
 
     // Recorridos Fields

@@ -184,7 +184,7 @@ export default function TrainerPage() {
         // Prepare edit form data
         setEditFormData({
             businessName: selectedLead.businessName || selectedLead.nombre_comercial || '',
-            contactName: selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || selectedLead.razonSocialPropietario || '',
+            contactName: selectedLead.contactName || selectedLead.razonSocialPropietario || selectedLead.personaContacto || selectedLead.representative || '',
             telefonoPrincipal: selectedLead.telefonoPrincipal || selectedLead.phone1 || selectedLead.phone || '',
             correoElectronico: selectedLead.correoElectronico || selectedLead.email || '',
             direccion: selectedLead.direccion || selectedLead.address || '',
@@ -783,9 +783,22 @@ export default function TrainerPage() {
                 ? `/api/discovery/${selectedLead.id}`
                 : `/api/leads/${selectedLead.id}`;
 
-            // Map fields back to specific API expectations if needed
+            // Map fields back to specific API expectations
             const body: any = { ...editFormData };
-            if (selectedLead.source === 'lead') {
+
+            if (selectedLead.source === 'discovery') {
+                // USER REQUEST: Prioritize 'razon_social_propietario' (Owner) over 'persona_contacto'
+                // The 'contactName' input will update the Owner's name.
+                body.razonSocialPropietario = editFormData.contactName;
+                body.nombreComercial = editFormData.businessName;
+                body.telefonoPrincipal = editFormData.telefonoPrincipal;
+                body.correoElectronico = editFormData.correoElectronico;
+                body.direccion = editFormData.direccion;
+
+                // Remove generic keys if they don't match the API expectation to avoid clutter/errors (optional but cleaner)
+                delete body.contactName;
+                delete body.businessName;
+            } else if (selectedLead.source === 'lead') {
                 body.phone = editFormData.telefonoPrincipal;
                 body.email = editFormData.correoElectronico;
                 body.address = editFormData.direccion;
@@ -802,12 +815,18 @@ export default function TrainerPage() {
                 const updatedLead = {
                     ...selectedLead,
                     ...editFormData,
-                    // Handle field name differences
+                    // Handle field name differences for local state update
                     telefonoPrincipal: editFormData.telefonoPrincipal,
                     phone1: editFormData.telefonoPrincipal,
                     phone: editFormData.telefonoPrincipal,
-                    personaContacto: editFormData.contactName,
-                    nombre_comercial: editFormData.businessName
+
+                    // Critical: Update the specific fields for Discovery vs Lead
+                    razonSocialPropietario: selectedLead.source === 'discovery' ? editFormData.contactName : selectedLead.razonSocialPropietario,
+                    nombre_comercial: selectedLead.source === 'discovery' ? editFormData.businessName : selectedLead.nombre_comercial,
+
+                    personaContacto: selectedLead.source === 'discovery' ? editFormData.contactName : selectedLead.personaContacto, // Update this too fallback
+                    contactName: editFormData.contactName, // Generic
+                    businessName: editFormData.businessName // Generic
                 };
 
                 setSelectedLead(updatedLead);
@@ -950,7 +969,7 @@ export default function TrainerPage() {
                                             </div>
                                             <p className="text-xs text-slate-300 font-medium leading-relaxed">
                                                 {selectedLead.source === 'discovery'
-                                                    ? (selectedLead.razonSocialPropietario || selectedLead.representative || "Sin nombre registrado")
+                                                    ? (selectedLead.razonSocialPropietario || selectedLead.representative || selectedLead.personaContacto || "Sin nombre registrado")
                                                     : selectedLead.contactName}
                                             </p>
                                             <div className="flex gap-1 mt-2">

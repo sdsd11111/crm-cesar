@@ -717,7 +717,7 @@ export default function LeadDetailPage() {
                                                 )}
                                             </div>
                                             <Textarea
-                                                className="flex-1 min-h-[400px] font-mono text-xs leading-relaxed"
+                                                className="flex-1 min-h-[400px] font-mono text-xs leading-relaxed text-slate-900 dark:text-slate-100"
                                                 value={bookingProposalContent}
                                                 onChange={(e) => setBookingProposalContent(e.target.value)}
                                                 placeholder="Genera una propuesta usando los botones de la izquierda..."

@@ -595,8 +595,10 @@ export default function LeadDetailPage() {
                                                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="pendiente">Mantener Actual</SelectItem>
-                                                                    <SelectItem value="primer_contacto">1er Contacto</SelectItem>
-                                                                    <SelectItem value="segundo_contacto">2do Contacto</SelectItem>
+                                                                    <SelectItem value="sin_contacto">Mensaje enviado</SelectItem>
+                                                                    <SelectItem value="primer_contacto">Propuesta enviada</SelectItem>
+                                                                    <SelectItem value="segundo_contacto">Reunión Agendada</SelectItem>
+                                                                    <SelectItem value="tercer_contacto">Seguimiento</SelectItem>
                                                                     <SelectItem value="cotizado">Cotizado / Propuesta</SelectItem>
                                                                 </SelectContent>
                                                             </Select>

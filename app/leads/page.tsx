@@ -56,10 +56,10 @@ interface Lead {
 }
 
 const STAGES = {
-  sin_contacto: 'Sin Contacto',
-  primer_contacto: '1er Contacto',
-  segundo_contacto: '2do Contacto',
-  tercer_contacto: '3er Contacto',
+  sin_contacto: 'Mensaje enviado',
+  primer_contacto: 'Propuesta enviada',
+  segundo_contacto: 'Reunión Agendada',
+  tercer_contacto: 'Seguimiento',
 } as const
 
 type StageKey = keyof typeof STAGES
@@ -281,16 +281,16 @@ export default function LeadsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align='end'>
                             <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'sin_contacto')}>
-                              Mover a Sin Contacto
+                              Mover a Mensaje enviado
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'primer_contacto')}>
-                              Mover a 1er Contacto
+                              Mover a Propuesta enviada
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'segundo_contacto')}>
-                              Mover a 2do Contacto
+                              Mover a Reunión Agendada
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleLeadMove(lead.id, 'tercer_contacto')}>
-                              Mover a 3er Contacto
+                              Mover a Seguimiento
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleConvertToClient(lead) }} className="text-green-600">
                               Convertir a Cliente
@@ -535,16 +535,16 @@ function LeadCard({
           </DropdownMenuTrigger>
           <DropdownMenuContent align='end' className="bg-gray-900 border-gray-800 text-white">
             <DropdownMenuItem onClick={() => onMove(lead.id, 'sin_contacto')} className="focus:bg-gray-800 focus:text-white">
-              Sin Contacto
+              Mensaje enviado
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onMove(lead.id, 'primer_contacto')} className="focus:bg-gray-800 focus:text-white">
-              1er Contacto
+              Propuesta enviada
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onMove(lead.id, 'segundo_contacto')} className="focus:bg-gray-800 focus:text-white">
-              2do Contacto
+              Reunión Agendada
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onMove(lead.id, 'tercer_contacto')} className="focus:bg-gray-800 focus:text-white">
-              3er Contacto
+              Seguimiento
             </DropdownMenuItem>
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onConvert(); }} className="focus:bg-gray-800 focus:text-white text-green-500 hover:text-green-400">
               Convertir a Cliente

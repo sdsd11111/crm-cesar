@@ -100,6 +100,7 @@ export default function LeadDetailPage() {
     const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
     const [proposalContent, setProposalContent] = useState<string>('');
     const [bookingProposalContent, setBookingProposalContent] = useState<string>('');
+    const [historySubTab, setHistorySubTab] = useState('linea_tiempo');
 
     const [isConverting, setIsConverting] = useState(false)
     const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
@@ -154,7 +155,7 @@ Estuve revisando la presencia digital de ${hotel} y, como te comenté, tienen un
 Tal como quedamos, te comparto las opciones disponibles para que puedan contar con un sistema propio de reservas y pagos en línea, que funcione tanto para el equipo de recepción como para los turistas que reservan por internet.
 
 La idea central es muy simple:
-👉 un solo sistema para manejar habitaciones, disponibilidad y cobros, evitando depender únicamente de plataformas externas.
+- un solo sistema para manejar habitaciones, disponibilidad y cobros, evitando depender únicamente de plataformas externas.
 
 Opción 1 – Sistema Base de Reservas Directas
 
@@ -177,9 +178,9 @@ Integración con Google para recibir reservas directas.
 Todo queda a nombre del hotel.
 
 Ideal si desean:
-✔ Ordenar las reservas
-✔ Cobrar por internet
-✔ Tener control directo desde recepción
+- Ordenar las reservas
+- Cobrar por internet
+- Tener control directo desde recepción
 
 Opción 2 – Sistema Estratégico de Reservas y Visibilidad
 
@@ -202,9 +203,9 @@ Optimización para aparecer mejor en Google.
 Estructura pensada para que el visitante reserve, no solo consulte.
 
 Ideal si desean:
-✔ Aumentar reservas directas
-✔ Reducir dependencia de intermediarios
-✔ Aprovechar búsquedas turísticas en ${city}
+- Aumentar reservas directas
+- Reducir dependencia de intermediarios
+- Aprovechar búsquedas turísticas en ${city}
 
 Opción 3 – Sistema Avanzado de Captación Directa
 
@@ -223,9 +224,9 @@ Soporte y ajustes posteriores.
 Actualización de contenidos durante 6 meses.
 
 Ideal si desean:
-✔ Posicionar al hotel como referencia en la ciudad
-✔ Convertir Google en un canal constante de reservas
-✔ Tener un sistema sólido y escalable
+- Posicionar al hotel como referencia en la ciudad
+- Convertir Google en un canal constante de reservas
+- Tener un sistema sólido y escalable
 
 Cómo avanzamos
 
@@ -241,11 +242,12 @@ Un cordial saludo,
 
 Ing. César Reyes Jaramillo
 OBJETIVO
-🌐 www.cesarreyesjaramillo.com
-📱 WhatsApp: +593 96 341 0409
-📧 negocios@cesarreyesjaramillo.com`;
+www.cesarreyesjaramillo.com
+WhatsApp: +593 96 341 0409
+Email: negocios@cesarreyesjaramillo.com`;
 
             setBookingProposalContent(template);
+            setHistorySubTab('propuesta');
             toast.success("Propuesta de Sistema de Reservas generada ✨");
         } catch (error: any) {
             toast.error("Error generando propuesta: " + error.message);
@@ -364,6 +366,7 @@ OBJETIVO
                 if (draft.callOutcome) setCallOutcome(draft.callOutcome);
                 if (draft.callAction) setCallAction(draft.callAction);
                 if (draft.callNotes) setCallNotes(draft.callNotes);
+                if (draft.bookingProposalContent) setBookingProposalContent(draft.bookingProposalContent);
             } catch (e) { console.error("Error loading draft", e); }
         }
     }, [data?.lead]);
@@ -373,9 +376,9 @@ OBJETIVO
         if (!data?.lead) return;
         const draftKey = `lead_draft_${data.lead.id}`;
         localStorage.setItem(draftKey, JSON.stringify({
-            waNumber, waTemplate, waBody, callOutcome, callAction, callNotes
+            waNumber, waTemplate, waBody, callOutcome, callAction, callNotes, bookingProposalContent
         }));
-    }, [data?.lead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes]);
+    }, [data?.lead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes, bookingProposalContent]);
 
     const handleSendWhatsApp = async () => {
         if (!waNumber || !waBody) {
@@ -753,69 +756,95 @@ OBJETIVO
                                                 <Sparkles className="h-4 w-4" />
                                                 <span className="text-xs font-bold uppercase tracking-tighter">Propuesta Sist. Reservas</span>
                                             </Button>
-
-                                            {bookingProposalContent && (
-                                                <PDFDownloadLink
-                                                    document={<QuotationDocument
-                                                        content={bookingProposalContent}
-                                                        logoUrl={typeof window !== 'undefined' ? window.location.origin + "/logo-membrete.png" : ""}
-                                                        footerUrl={typeof window !== 'undefined' ? window.location.origin + "/pie-pagina.png" : ""}
-                                                    />}
-                                                    fileName={`Propuesta_Sistema_Reservas_${lead.businessName.replace(/\s+/g, '_')}.pdf`}
-                                                >
-                                                    {/* @ts-ignore */}
-                                                    {({ loading }) => (
-                                                        <Button variant="default" size="sm" disabled={loading} className="w-full bg-purple-600">
-                                                            {loading ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Download className="h-3 w-3 mr-2" />}
-                                                            Descargar PDF Propuesta
-                                                        </Button>
-                                                    )}
-                                                </PDFDownloadLink>
-                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>
                             </div>
+
                             <div className="lg:col-span-2 space-y-4">
-                                <div className="flex items-center justify-between px-2">
-                                    <h3 className="text-lg font-bold flex items-center gap-2">
-                                        <History className="h-5 w-5 text-primary" /> Línea de Tiempo
-                                    </h3>
-                                </div>
-                                <div className="space-y-3">
-                                    {history.length > 0 ? history.map((interaction: any) => (
-                                        <div key={interaction.id} className="p-4 bg-card rounded-xl border shadow-sm flex gap-4 transition-all hover:shadow-md">
-                                            <div className="p-2 bg-muted rounded-lg h-fit">
-                                                {interaction.type === 'call' && <Phone className="h-4 w-4 text-blue-500" />}
-                                                {interaction.type === 'whatsapp' && <MessageSquare className="h-4 w-4 text-green-500" />}
-                                                {interaction.type === 'note' && <FileText className="h-4 w-4 text-gray-400" />}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                                        {new Date(interaction.performedAt).toLocaleString()}
-                                                    </p>
+                                <Tabs value={historySubTab} onValueChange={setHistorySubTab} className="w-full">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <TabsList className="bg-muted/50 p-1">
+                                            <TabsTrigger value="linea_tiempo" className="text-xs flex items-center gap-2">
+                                                <History className="h-3 w-3" /> Línea de Tiempo
+                                            </TabsTrigger>
+                                            <TabsTrigger value="propuesta" className="text-xs flex items-center gap-2">
+                                                <FileText className="h-3 w-3" /> Propuesta Actual
+                                            </TabsTrigger>
+                                        </TabsList>
+                                    </div>
+
+                                    <TabsContent value="linea_tiempo" className="space-y-4">
+                                        <div className="space-y-3">
+                                            {history.length > 0 ? history.map((interaction: any) => (
+                                                <div key={interaction.id} className="p-4 bg-card rounded-xl border shadow-sm flex gap-4 transition-all hover:shadow-md">
+                                                    <div className="p-2 bg-muted rounded-lg h-fit">
+                                                        {interaction.type === 'call' && <Phone className="h-4 w-4 text-blue-500" />}
+                                                        {interaction.type === 'whatsapp' && <MessageSquare className="h-4 w-4 text-green-500" />}
+                                                        {interaction.type === 'note' && <FileText className="h-4 w-4 text-gray-400" />}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between items-start">
+                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                                                                {new Date(interaction.performedAt).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                        <p className="text-sm mt-1">{interaction.content}</p>
+                                                        {interaction.outcome && (
+                                                            <Badge variant="outline" className="mt-2 text-[10px] opacity-70">
+                                                                Resultado: {interaction.outcome}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <p className="text-sm mt-1">{interaction.content}</p>
-                                                {interaction.outcome && (
-                                                    <Badge variant="outline" className="mt-2 text-[10px] opacity-70">
-                                                        Resultado: {interaction.outcome}
-                                                    </Badge>
+                                            )) : (
+                                                <div className="text-center py-10 border-2 border-dashed rounded-xl opacity-40">
+                                                    Sin historia de contacto aún.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TabsContent>
+
+                                    <TabsContent value="propuesta" className="space-y-4">
+                                        <div className="bg-card rounded-xl border p-4 shadow-sm min-h-[400px] flex flex-col gap-4">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
+                                                    <PenTool className="h-4 w-4" /> Editor de Propuesta
+                                                </h4>
+                                                {bookingProposalContent && (
+                                                    <PDFDownloadLink
+                                                        document={<QuotationDocument
+                                                            content={bookingProposalContent}
+                                                            logoUrl={typeof window !== 'undefined' ? window.location.origin + "/logo-membrete.png" : ""}
+                                                            footerUrl={typeof window !== 'undefined' ? window.location.origin + "/pie-pagina.png" : ""}
+                                                        />}
+                                                        fileName={`Propuesta_Sistema_Reservas_${lead.businessName.replace(/\s+/g, '_')}.pdf`}
+                                                    >
+                                                        {/* @ts-ignore */}
+                                                        {({ loading }) => (
+                                                            <Button variant="default" size="sm" disabled={loading} className="bg-purple-600 h-8 text-[10px]">
+                                                                {loading ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Download className="h-3 w-3 mr-2" />}
+                                                                Descargar PDF
+                                                            </Button>
+                                                        )}
+                                                    </PDFDownloadLink>
                                                 )}
                                             </div>
+                                            <Textarea
+                                                className="flex-1 min-h-[400px] font-mono text-xs leading-relaxed"
+                                                value={bookingProposalContent}
+                                                onChange={(e) => setBookingProposalContent(e.target.value)}
+                                                placeholder="Genera una propuesta usando los botones de la izquierda..."
+                                            />
                                         </div>
-                                    )) : (
-                                        <div className="text-center py-10 border-2 border-dashed rounded-xl opacity-40">
-                                            Sin historia de contacto aún.
-                                        </div>
-                                    )}
-                                </div>
+                                    </TabsContent>
+                                </Tabs>
                             </div>
                         </div>
                     </TabsContent>
 
                     {/* ESTRATEGIA AI TAB */}
-                    <TabsContent value="estrategia" className="space-y-6">
+                    < TabsContent value="estrategia" className="space-y-6" >
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Tactical Pitch Preparation */}
                             <div className="lg:col-span-1 space-y-6">
@@ -866,10 +895,10 @@ OBJETIVO
                                 <StrategicBoard client={lead} />
                             </div>
                         </div>
-                    </TabsContent>
+                    </TabsContent >
 
                     {/* VENTAS TAB (WhatsApp & Proposals) */}
-                    <TabsContent value="ventas" className="space-y-6">
+                    < TabsContent value="ventas" className="space-y-6" >
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* WhatsApp Panel */}
                             <Card className="border-green-100 shadow-md">
@@ -1056,7 +1085,7 @@ OBJETIVO
                                 </CardContent>
                             </Card>
                         </div>
-                    </TabsContent>
+                    </TabsContent >
 
                     {/* TAREAS TAB */}
                     <TabsContent value="tareas" className="space-y-6">
@@ -1086,7 +1115,7 @@ OBJETIVO
                                 )}
                             </CardContent>
                         </Card>
-                    </TabsContent>
+                    </TabsContent >
                 </Tabs>
             </div>
 

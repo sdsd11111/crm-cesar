@@ -1280,7 +1280,7 @@ export default function TrainerPage() {
                                         <Textarea
                                             value={proposalContent}
                                             onChange={(e) => setProposalContent(e.target.value)}
-                                            className="min-h-[300px] w-full resize-none p-3 rounded-lg border border-purple-500/10 bg-background/30 font-mono text-[10px] leading-relaxed custom-scrollbar focus:border-purple-500/30 transition-colors text-slate-900 dark:text-slate-100"
+                                            className="min-h-[300px] w-full resize-none p-3 rounded-lg border border-purple-500/20 bg-white dark:bg-slate-950 font-mono text-[10px] leading-relaxed custom-scrollbar focus:border-purple-500/40 transition-colors text-slate-900 dark:text-slate-50"
                                         />
                                     </CardContent>
                                 </Card>

@@ -57,7 +57,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
-import { WHATSAPP_TEMPLATES, fillWhatsAppTemplate } from '@/lib/templates/whatsapp';
+import { fillWhatsAppTemplate, WHATSAPP_TEMPLATES } from '@/lib/templates/whatsapp';
+import { BookingProposalButton } from '@/components/shared/BookingProposalButton';
 import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
 import { WhatsAppForm } from '@/components/whatsapp/WhatsAppQuickSender';
@@ -113,6 +114,7 @@ export default function TrainerPage() {
     const [proposalVariables, setProposalVariables] = useState<any>(null);
     const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
     const [proposalContent, setProposalContent] = useState<string>('');
+    const [activeActionTab, setActiveActionTab] = useState<string>('whatsapp');
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1215,8 +1217,8 @@ export default function TrainerPage() {
 
                     {/* COLUMN 3: ACTION PANE (WHATSAPP, RESULT, PROPOSAL) (4 Cols) */}
                     <div className="xl:col-span-4 h-full flex flex-col overflow-y-auto pb-20 custom-scrollbar pr-2">
-                        <Tabs defaultValue="whatsapp" className="w-full">
-                            <TabsList className="w-full grid grid-cols-4 bg-background/50 border border-border/50 h-10 mb-4 rounded-xl p-1">
+                        <Tabs value={activeActionTab} onValueChange={setActiveActionTab} className="w-full">
+                            <TabsList className="w-full grid grid-cols-3 bg-background/50 border border-border/50 h-10 mb-4 rounded-xl p-1">
                                 <TabsTrigger value="whatsapp" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-green-600 data-[state=active]:text-white">
                                     <MessageSquare className="h-3 w-3 mr-1" /> WhatsApp
                                 </TabsTrigger>
@@ -1226,10 +1228,63 @@ export default function TrainerPage() {
                                 <TabsTrigger value="result" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                                     <ClipboardList className="h-3 w-3 mr-1" /> Resultado
                                 </TabsTrigger>
-                                <TabsTrigger value="proposal" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-                                    <FileText className="h-3 w-3 mr-1" /> Propuesta
-                                </TabsTrigger>
                             </TabsList>
+
+                            <div className="mb-4">
+                                <BookingProposalButton
+                                    leadData={selectedLead}
+                                    isGenerating={isGeneratingProposal}
+                                    setIsGenerating={setIsGeneratingProposal}
+                                    onProposalGenerated={(content) => {
+                                        setProposalContent(content);
+                                        setActiveActionTab('proposal');
+                                    }}
+                                />
+                            </div>
+
+                            <TabsContent value="proposal" className="mt-0">
+                                <Card className="border border-purple-500/20 bg-purple-500/5 shadow-xl h-full flex flex-col">
+                                    <CardHeader className="py-2 px-4 border-b border-purple-500/10 flex-shrink-0">
+                                        <div className="flex justify-between items-center">
+                                            <CardTitle className="text-[10px] font-bold flex items-center gap-2 text-purple-400 uppercase tracking-widest">
+                                                <Lightbulb className="h-3 w-3" /> Propuesta Generada
+                                            </CardTitle>
+                                            <div className="flex gap-2">
+                                                <Button size="sm" variant="ghost" className="h-7 text-[9px] px-2" onClick={() => {
+                                                    navigator.clipboard.writeText(proposalContent);
+                                                    toast.success("Copiado!");
+                                                }}>
+                                                    <Copy className="h-3 w-3 mr-1" /> Copiar
+                                                </Button>
+                                                <PDFDownloadLink
+                                                    document={
+                                                        <QuotationDocument
+                                                            content={proposalContent}
+                                                            logoUrl={typeof window !== 'undefined' ? window.location.origin + "/logo-membrete.png" : ""}
+                                                            footerUrl={typeof window !== 'undefined' ? window.location.origin + "/pie-pagina.png" : ""}
+                                                        />
+                                                    }
+                                                    fileName={`Propuesta_${selectedLead?.businessName || 'Cliente'}.pdf`}
+                                                >
+                                                    {({ blob, url, loading, error }) => (
+                                                        <Button size="sm" disabled={loading} className="h-7 text-[9px] px-2 bg-purple-600 text-white hover:bg-purple-500">
+                                                            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+                                                            PDF
+                                                        </Button>
+                                                    )}
+                                                </PDFDownloadLink>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-3">
+                                        <Textarea
+                                            value={proposalContent}
+                                            onChange={(e) => setProposalContent(e.target.value)}
+                                            className="min-h-[300px] w-full resize-none p-3 rounded-lg border border-purple-500/10 bg-background/30 font-mono text-[10px] leading-relaxed custom-scrollbar focus:border-purple-500/30 transition-colors"
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
 
                             {/* TAB 1: WHATSAPP */}
                             <TabsContent value="whatsapp">
@@ -1350,87 +1405,6 @@ export default function TrainerPage() {
                                 </Card>
                             </TabsContent>
 
-                            {/* TAB 3: PROPOSAL */}
-                            <TabsContent value="proposal">
-                                <Card className="border border-purple-500/20 bg-purple-500/5 shadow-xl h-full flex flex-col">
-                                    <CardHeader className="py-4 px-5 border-b border-purple-500/10 flex-shrink-0">
-                                        <CardTitle className="text-sm font-bold flex items-center gap-2 text-purple-400">
-                                            <Lightbulb className="h-4 w-4" /> Generador de Propuestas (IA)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-5 flex-1 flex flex-col min-h-0 space-y-4">
-                                        {!proposalContent && !isGeneratingProposal ? (
-                                            <div className="text-center py-10 space-y-4 flex-1 flex flex-col justify-center items-center">
-                                                <div className="h-12 w-12 bg-purple-500/10 rounded-full flex items-center justify-center">
-                                                    <BrainCircuit className="h-6 w-6 text-purple-400" />
-                                                </div>
-                                                <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">
-                                                    Genera una propuesta personalizada basada en la investigación del prospecto.
-                                                </p>
-                                                <Button
-                                                    onClick={handleGenerateProposal}
-                                                    disabled={isGeneratingProposal || !selectedLead}
-                                                    className="bg-purple-600 hover:bg-purple-500 text-white"
-                                                >
-                                                    ✨ Generar Propuesta
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="flex justify-between items-center gap-2 flex-shrink-0">
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            onClick={handleGenerateProposal}
-                                                            disabled={isGeneratingProposal || !selectedLead}
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8 text-xs border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
-                                                        >
-                                                            {isGeneratingProposal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                                                            Regenerar
-                                                        </Button>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => {
-                                                            navigator.clipboard.writeText(proposalContent);
-                                                            toast.success("Propuesta copiada!");
-                                                        }}>
-                                                            <Copy className="h-3 w-3 mr-1" /> Copiar
-                                                        </Button>
-
-                                                        {/* PDF DOWNLOAD BUTTON */}
-                                                        <PDFDownloadLink
-                                                            document={
-                                                                <QuotationDocument
-                                                                    content={proposalContent}
-                                                                    logoUrl={window.location.origin + "/logo-membrete.png"}
-                                                                    footerUrl={window.location.origin + "/pie-pagina.png"}
-                                                                />
-                                                            }
-                                                            fileName={`Propuesta_${selectedLead?.businessName || 'Cliente'}.pdf`}
-                                                        >
-                                                            {({ blob, url, loading, error }) => (
-                                                                <Button size="sm" disabled={loading} className="h-8 text-xs bg-purple-600 text-white hover:bg-purple-500">
-                                                                    {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
-                                                                    {loading ? 'Generando...' : 'Descargar PDF'}
-                                                                </Button>
-                                                            )}
-                                                        </PDFDownloadLink>
-                                                    </div>
-                                                </div>
-
-                                                {/* EDITABLE TEXTAREA */}
-                                                <Textarea
-                                                    value={proposalContent}
-                                                    onChange={(e) => setProposalContent(e.target.value)}
-                                                    className="flex-1 min-h-[400px] w-full resize-none p-4 rounded-lg border border-purple-500/20 bg-background/50 font-mono text-xs leading-relaxed custom-scrollbar focus:border-purple-500/50 transition-colors"
-                                                    placeholder="El contenido de la propuesta aparecerá aquí..."
-                                                />
-                                            </>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
                         </Tabs>
                     </div>
 

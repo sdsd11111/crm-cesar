@@ -1,14 +1,11 @@
 export default {
     id: 'no_answer',
     label: 'No Contestó',
-    text: `Buenos días ((NOMBRE)), intenté contactarle sobre ((HOTEL)).
+    text: `Hola ((NOMBRE)), le intente llamar pero seguramente estuvo ocupada.
+Estuve revisando su ((BIZ_TYPE)) en ((CIUDAD)) antes de llamarla y me llamó mucho la atención el lugar, lo bonito que se ve, los eventos y el servicio de catering que brinda, además del entorno que tienen, se nota que es un sitio especial.
+Quería hacerle una consulta muy puntual sobre cómo le están llegando hoy los turistas.
+Cuando tenga un momento, ¿me escribe por aquí? 😊
+César Reyes
 
-Soy César Reyes. Quería contarle brevemente cómo ayudamos a hoteles a destacar:
-
-✅ Que encuentren fácilmente su propuesta digital y reservas.
-✅ Que aparezcan en Google/ChatGPT al buscar *"((EJEMPLO_BUSQUEDA))"*.
-✅ Estrategias para captar el 57% de reservas que vienen de búsquedas orgánicas.
-
-Si le interesa, aquí puede agendar una breve llamada:
-👉 https://calendar.app.google/wMwRKhv9kB3x3Edz9`
+👉 https://cesarreyesjaramillo.com/motor-reservas-hotel#demo-video`
 };

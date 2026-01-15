@@ -515,6 +515,19 @@ export default function LeadDetailPage() {
                                     </CardHeader>
                                     <CardContent className="space-y-4 text-sm">
                                         <div className="flex items-center gap-3">
+                                            <User className="h-4 w-4 text-primary" />
+                                            <span className="font-semibold">{lead.contactName || lead.ownerName || 'Sin Nombre'}</span>
+                                        </div>
+                                        {lead.ownerName && lead.ownerName !== lead.contactName && (
+                                            <div className="flex items-center gap-3">
+                                                <Building className="h-4 w-4 text-primary opacity-70" />
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Dueño / Razón Social</span>
+                                                    <span className="font-semibold">{lead.ownerName}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-3">
                                             <Phone className="h-4 w-4 text-primary" />
                                             <span className="font-semibold">{lead.phone || 'N/A'}</span>
                                         </div>

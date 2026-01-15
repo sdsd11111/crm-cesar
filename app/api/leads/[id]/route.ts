@@ -33,7 +33,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
   try {
     const { data: lead, error } = await supabase
       .from('contacts')
-      .select('*')
+      .select(`
+        *,
+        discovery_leads:discovery_lead_id (
+          razon_social_propietario
+        )
+      `)
       .eq('id', id)
       .eq('entity_type', 'lead')
       .single();
@@ -90,7 +95,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       source: lead.source,
       notes: lead.notes,
       quotation: lead.quotation,
-      discoveryLeadId: lead.discovery_lead_id
+      discoveryLeadId: lead.discovery_lead_id,
+      ownerName: lead.discovery_leads?.razon_social_propietario
     };
 
     // Fetch related data (interactions, tasks)

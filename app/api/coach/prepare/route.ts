@@ -64,41 +64,22 @@ usted ve si le hace sentido para su hotel, y si no le cierra, no pasa nada.
 [NOMBRE], perfecto. Le envío el link por WhatsApp.
 ¿Tiene alguna pregunta rápida antes de cortar?
 
-### PITCH 2: DUEÑO V2 (COMISIONES + CIUDAD)
+### PITCH 2: DUEÑO V3 (EMPATÍA + CONTROL DEL CLIENTE)
 Buenas, ¿hablo con [NOMBRE]?
-[NOMBRE], un gusto, le saluda César Reyes de la empresa Objetivo.
-Somos consultores para el sector turístico.
-¿Le puedo tomar 30 segundos… y si no le aporta, cortamos sin problema?
-(pausa)
-Gracias.
-Vi que ustedes trabajan con Booking
-y hoy en la mañana hice un análisis de búsquedas en Google
-específicamente para [CIUDAD].
-¿Sabe cuántas personas buscan "hotel en [CIUDAD]" cada día?
-(pausa medio segundo - NO esperes respuesta)
-Entre [X] y [Y] búsquedas diarias.
-Ahora, le voy a hacer una pregunta muy directa:
-De esas búsquedas, ¿cuántas cree que van directo a Booking
-en lugar de encontrar primero SU página?
-(silencio - déjalo procesar)
-Exacto. La mayoría.
-Y ahí está el tema:
-Usted le paga entre 15% y 18% de comisión a Booking
-por clientes que YA lo estaban buscando.
-Mi llamada es solo para esto:
-¿Le interesa captar esas reservas de forma directa,
-quedarse con el 100% del pago
-y seguir usando Booking solo para lo que sí sirve:
-traer clientes nuevos de otros países?
-(pausa)
-Perfecto. Por teléfono es largo de explicar y prefiero no quitarle tiempo.
-Le propongo una videollamada de 15 minutos.
-Yo le muestro exactamente cómo funciona,
-usted decide si le hace sentido, y si no le cierra, no hay problema.
+[NOMBRE], un gusto, le saluda César Reyes estuve revisando su hotel y me llamó mucho la atención [UN DETALLE POSITIVO REAL].
+(AI: Aquí debes generar un breve PARAFRASEO de 1 o 2 líneas sobre su propuesta de valor basado en la investigación).
+Con algo así, me imagino que conseguir turistas debe ser bastante fácil, la mayoría debe llegar directo, ¿no?
+(pausa - déjalo responder)
+•	¿Y la mayoría le reserva por dónde?
+•	¿Y qué porcentaje se le va en comisión más o menos?
+•	¿Y eso lo pueden controlar ustedes o depende de la plataforma?
+(escucha activa)
+Mire qué curioso… tiene un lugar que encanta a la gente,
+pero al mismo tiempo el control del cliente no lo tiene usted.
+Mi recomendación es esta: trabaje con Booking, porque ellos tienen un público difícil de alcanzar,
+pero haga que el turista que ya lo conoce le reserve a usted de forma directa.
+¿Le interesa que le muestre cómo recuperar el control de su cliente en una videollamada de 15 minutos?
 ¿Le viene mejor hoy en la tarde o mañana en la mañana?
-(cuando agende)
-[NOMBRE], perfecto. Le envío el link por WhatsApp.
-¿Tiene alguna pregunta rápida antes de cortar?
 
 ### PITCH 3: DUEÑO ENOJADO / MUY OCUPADO
 [NOMBRE], entiendo que esté ocupado, no le quito más de 20 segundos.

@@ -59,6 +59,12 @@ export async function GET(request: Request) {
         if (col1 && col1 !== 'all') {
             const values = col1.split(',');
             filters.push(inArray(discoveryLeads.columna1, values as any));
+
+            // Smart exclusion: When filtering "Pendientes de Contacto" (no_contactado),
+            // automatically exclude discarded and converted prospects
+            if (values.includes('no_contactado') && (!col2 || col2 === 'all')) {
+                filters.push(sql`${discoveryLeads.columna2} NOT IN ('descartar', 'convertir_a_lead')`);
+            }
         }
         if (col2 && col2 !== 'all') {
             const values = col2.split(',');

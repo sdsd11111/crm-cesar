@@ -498,9 +498,15 @@ export default function DiscoveryPage() {
                                 size="sm"
                                 onClick={() => {
                                     if (filters.columna1.includes('no_contactado')) {
-                                        setFilters({ ...filters, columna1: [] });
+                                        // Clear the filter
+                                        setFilters({ ...filters, columna1: [], columna2: [] });
                                     } else {
-                                        setFilters({ ...filters, columna1: ['no_contactado'] });
+                                        // Set filter for "no_contactado" AND exclude "descartar" and "convertir_a_lead"
+                                        setFilters({
+                                            ...filters,
+                                            columna1: ['no_contactado'],
+                                            columna2: [] // Reset columna2 to show all except what we exclude in API
+                                        });
                                     }
                                 }}
                                 className={cn(
@@ -578,6 +584,32 @@ export default function DiscoveryPage() {
                                 options={facetOptions.clasificaciones}
                                 selected={filters.clasificacion}
                                 onChange={(vals) => setFilters({ ...filters, clasificacion: vals })}
+                            />
+                            <MultiSelectFilter
+                                title="Estado de Acción"
+                                options={['Pendiente', 'En Cola', 'Convertir a Lead', 'Descartar', 'Seguimiento 7d', 'Seguimiento 30d']}
+                                selected={(() => {
+                                    const labels: string[] = [];
+                                    if (filters.columna2.includes('pendiente')) labels.push('Pendiente');
+                                    if (filters.columna2.includes('en_cola')) labels.push('En Cola');
+                                    if (filters.columna2.includes('convertir_a_lead')) labels.push('Convertir a Lead');
+                                    if (filters.columna2.includes('descartar')) labels.push('Descartar');
+                                    if (filters.columna2.includes('seguimiento_7_dias')) labels.push('Seguimiento 7d');
+                                    if (filters.columna2.includes('seguimiento_30_dias')) labels.push('Seguimiento 30d');
+                                    return labels;
+                                })()}
+                                onChange={(vals) => {
+                                    const newCol2: string[] = [];
+                                    vals.forEach(val => {
+                                        if (val === 'Pendiente') newCol2.push('pendiente');
+                                        if (val === 'En Cola') newCol2.push('en_cola');
+                                        if (val === 'Convertir a Lead') newCol2.push('convertir_a_lead');
+                                        if (val === 'Descartar') newCol2.push('descartar');
+                                        if (val === 'Seguimiento 7d') newCol2.push('seguimiento_7_dias');
+                                        if (val === 'Seguimiento 30d') newCol2.push('seguimiento_30_dias');
+                                    });
+                                    setFilters({ ...filters, columna2: newCol2 });
+                                }}
                             />
                         </div>
                     </CardContent>

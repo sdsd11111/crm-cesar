@@ -51,7 +51,7 @@ import { UniversalContactForm } from '@/components/shared/universal-contact-form
 import { StrategicBoard } from '@/components/clients/strategic-board'
 import { ProfileUpdateConfirmation } from '@/components/ai/ProfileUpdateConfirmation'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { cn } from '@/lib/utils'
+import { cn, formatDateSpanish } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { MeetingBriefingCard } from '@/components/donna/MeetingBriefingCard'
@@ -687,7 +687,7 @@ export default function LeadDetailPage() {
                                                     <div className="flex-1">
                                                         <div className="flex justify-between items-start">
                                                             <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                                                {new Date(interaction.performedAt).toLocaleString()}
+                                                                {formatDateSpanish(interaction.performedAt || interaction.performed_at)}
                                                             </p>
                                                         </div>
                                                         <p className="text-sm mt-1">{interaction.content}</p>

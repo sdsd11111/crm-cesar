@@ -1,10 +1,10 @@
 export default {
-    id: 'booking_proposal',
-    label: 'Propuesta Sistema de Reservas',
-    text: `Estimada ((NOMBRE)), muy buen día.
+  id: 'booking_proposal',
+  label: 'Propuesta Sistema de Reservas',
+  text: `Estimada ((NOMBRE)), muy buen día.
 
 Un gusto saludarte.
-Estuve revisando la presencia digital de ((HOTEL)) y, como te comenté, tienen una muy buena propuesta, gran reputación y excelentes comentarios.
+Estuve revisando la presencia digital de ((HOTEL)) y, como te comenté, ((HALAGO)).
 
 Me adelanto en compartirle lo que hacemos y los beneficios para su ((BIZ_TYPE)) tanto en la administración como en las reservaciones.
 

@@ -235,6 +235,7 @@ export default function TrainerPage() {
                 setCallAction(draft.callAction || 'pendiente');
                 setCallNotes(draft.callNotes || '');
                 setPrepResult(draft.prepResult || null);
+                if (draft.pitchHalago) setPitchHalago(draft.pitchHalago);
                 return; // Loaded from draft, skip defaults
             } catch (e) {
                 console.error("Error loading draft", e);
@@ -286,10 +287,11 @@ export default function TrainerPage() {
             callOutcome,
             callAction,
             callNotes,
-            prepResult
+            prepResult,
+            pitchHalago
         };
         localStorage.setItem(draftKey, JSON.stringify(draft));
-    }, [selectedLead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes, prepResult]);
+    }, [selectedLead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes, prepResult, pitchHalago]);
 
     // Update body when template changes manually
     const handleTemplateChange = (val: string) => {
@@ -523,6 +525,7 @@ export default function TrainerPage() {
                             try {
                                 const savedJson = JSON.parse(strategyNote.content.replace('[STRATEGY_PITCH]:', ''));
                                 setPrepResult(savedJson);
+                                if (savedJson.pitchHalago) setPitchHalago(savedJson.pitchHalago);
                             } catch (e) {
                                 console.error("Error parsing saved strategy", e);
                             }
@@ -673,7 +676,7 @@ export default function TrainerPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'note',
-                    content: `[STRATEGY_PITCH]:${JSON.stringify(data)}`,
+                    content: `[STRATEGY_PITCH]:${JSON.stringify({ ...data, pitchHalago })}`,
                     outcome: 'strategy_prepared',
                     discoveryLeadId: selectedLead.source === 'discovery' ? selectedLead.id : null,
                     contactId: selectedLead.source === 'lead' ? selectedLead.id : null,
@@ -1441,6 +1444,7 @@ export default function TrainerPage() {
                             <div className="mb-4">
                                 <BookingProposalButton
                                     leadData={selectedLead}
+                                    compliment={pitchHalago}
                                     isGenerating={isGeneratingProposal}
                                     setIsGenerating={setIsGeneratingProposal}
                                     onProposalGenerated={(content) => {

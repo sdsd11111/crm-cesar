@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 interface BookingProposalButtonProps {
     leadData: any;
     onProposalGenerated: (content: string) => void;
+    compliment?: string;
     isGenerating?: boolean;
     setIsGenerating?: (val: boolean) => void;
 }
@@ -15,6 +16,7 @@ interface BookingProposalButtonProps {
 export const BookingProposalButton: React.FC<BookingProposalButtonProps> = ({
     leadData,
     onProposalGenerated,
+    compliment,
     isGenerating: externalIsGenerating,
     setIsGenerating: externalSetIsGenerating
 }) => {
@@ -55,7 +57,8 @@ export const BookingProposalButton: React.FC<BookingProposalButtonProps> = ({
                 'NOMBRE': rawName || 'Prospecto',
                 'HOTEL': businessName,
                 'CIUDAD': city,
-                'BIZ_TYPE': bizType
+                'BIZ_TYPE': bizType,
+                'HALAGO': compliment || 'tienen una muy buena propuesta, gran reputación y excelentes comentarios'
             };
 
             // Replace all placeholders ((KEY))

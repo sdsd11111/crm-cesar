@@ -428,17 +428,21 @@ export default function DiscoveryPage() {
 
     return (
         <DashboardLayout>
-            <div className="p-8 max-w-7xl mx-auto space-y-6">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h1 className="text-4xl font-extrabold tracking-tight">Discovery & Research</h1>
-                        <p className="text-muted-foreground mt-2">Investigación pre-llamada y gestión de prospección en frío.</p>
+            <div className="p-6 lg:p-10 w-full max-w-[1920px] mx-auto space-y-8 animate-in fade-in duration-700">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2">
+                    <div className="space-y-1">
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent">
+                            Discovery <span className="text-primary">&</span> Research
+                        </h1>
+                        <p className="text-sm text-muted-foreground/60 font-medium tracking-wide uppercase">
+                            Investigación táctica y gestión de prospección en frío.
+                        </p>
                     </div>
 
                     <Dialog>
                         <DialogTrigger asChild>
-                            <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-                                <Plus className="mr-2 h-4 w-4" /> Nuevo Prospecto
+                            <Button className="h-12 px-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-xl shadow-blue-500/20 border-0 transition-all active:scale-95 group">
+                                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-300" /> Nuevo Prospecto
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
@@ -483,7 +487,7 @@ export default function DiscoveryPage() {
                 </div>
 
                 {/* Filters Section */}
-                <Card className="border-primary/20 bg-primary/5">
+                <Card className="border-white/5 bg-slate-950/40 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl">
                     <CardHeader className="pb-4">
                         <div className="flex items-center gap-2">
                             <Filter className="h-5 w-5 text-primary" />
@@ -523,8 +527,8 @@ export default function DiscoveryPage() {
                             )}
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+                    <CardContent className="space-y-6 pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
                             <div className="space-y-2">
                                 <Label>Búsqueda</Label>
                                 <div className="relative">
@@ -649,14 +653,14 @@ export default function DiscoveryPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {leads.map((lead) => (
-                                <Card key={lead.id} className="group overflow-hidden border-primary/10 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 bg-card/50 backdrop-blur-sm">
+                                <Card key={lead.id} className="group flex flex-col h-full overflow-hidden border-white/5 hover:border-blue-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/10 bg-slate-950/40 backdrop-blur-xl rounded-2xl">
                                     <CardHeader className="pb-2">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors">{lead.businessName}</CardTitle>
-                                                <CardDescription>{lead.businessType || 'Giro no especificado'}</CardDescription>
+                                                <CardTitle className="text-xl font-black tracking-tight group-hover:text-blue-400 transition-colors line-clamp-1">{lead.businessName}</CardTitle>
+                                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{lead.businessType || 'Giro no especificado'}</CardDescription>
                                             </div>
                                             {getStatusBadge(lead.status)}
                                             {lead.columna2 === 'en_cola' && (
@@ -682,17 +686,20 @@ export default function DiscoveryPage() {
                                             )}
                                         </div>
 
-                                        <div className="pt-4 flex gap-2">
+                                        <div className="pt-4 mt-auto flex gap-2">
                                             <Button
                                                 variant={lead.researchData ? "secondary" : "default"}
-                                                className="flex-1 text-xs"
+                                                className={cn(
+                                                    "flex-1 h-10 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all",
+                                                    !lead.researchData && "bg-blue-600 hover:bg-blue-500 text-white border-0"
+                                                )}
                                                 onClick={() => handleResearch(lead.id)}
                                                 disabled={isResearching === lead.id}
                                             >
                                                 {isResearching === lead.id ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                                 ) : (
-                                                    <Search className="h-3 w-3 mr-2" />
+                                                    <Search className="h-4 w-4 mr-2" />
                                                 )}
                                                 {lead.researchData ? "Re-investigar" : "Investigar IA"}
                                             </Button>
@@ -700,8 +707,8 @@ export default function DiscoveryPage() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className={cn(
-                                                    "border border-primary/10 transition-all",
-                                                    lead.columna2 === 'en_cola' ? "bg-orange-500/20 text-orange-500 border-orange-500/30" : "hover:bg-primary/5"
+                                                    "h-10 w-10 border border-white/5 transition-all rounded-xl",
+                                                    lead.columna2 === 'en_cola' ? "bg-orange-500/20 text-orange-500 border-orange-500/30" : "hover:bg-white/5"
                                                 )}
                                                 onClick={(e) => {
                                                     e.stopPropagation();

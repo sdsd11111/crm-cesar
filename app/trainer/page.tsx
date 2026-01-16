@@ -964,7 +964,7 @@ export default function TrainerPage() {
 
     return (
         <DashboardLayout>
-            <div className="p-4 w-full max-w-[1920px] mx-auto space-y-4">
+            <div className="p-6 lg:p-10 w-full max-w-[1920px] mx-auto space-y-6">
                 {/* HEADER & FILTERS */}
                 <div className="flex justify-between items-end mb-4">
                     <div>
@@ -1128,8 +1128,8 @@ export default function TrainerPage() {
                         </Card>
                     </div>
 
-                    {/* COLUMN 2: READING PANE (PITCH & RESEARCH) (5 Cols) */}
-                    <div className="xl:col-span-5 h-full flex flex-col overflow-y-auto custom-scrollbar pb-20">
+                    {/* COLUMN 2: READING PANE (PITCH & RESEARCH) (6 Cols) */}
+                    <div className="xl:col-span-6 h-full flex flex-col overflow-y-auto custom-scrollbar pb-20 px-2 lg:px-4">
                         {!prepResult ? (
                             <div className="h-[400px] flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl text-muted-foreground bg-card/50">
                                 <BrainCircuit className="h-12 w-12 mb-4 opacity-20" />
@@ -1207,9 +1207,9 @@ export default function TrainerPage() {
 
                                     <TabsContent value="script" className="mt-0">
                                         <Card className="rounded-2xl border text-card-foreground border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5 overflow-hidden">
-                                            <CardHeader className="border-b border-border/50 py-3 px-5">
+                                            <CardHeader className="border-b border-border/50 py-4 px-6">
                                                 <div className="flex justify-between items-center">
-                                                    <div className="text-xs uppercase tracking-widest text-primary font-bold">Guion por Pasos (Sales Framework)</div>
+                                                    <div className="text-sm uppercase tracking-widest text-primary font-bold">Guion por Pasos (Sales Framework)</div>
                                                     <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">MÉTODO OBJETIVO</Badge>
                                                 </div>
                                             </CardHeader>
@@ -1227,40 +1227,42 @@ export default function TrainerPage() {
                                                             .replace(/\[BIZ_TYPE\]/g, bizType);
 
                                                         return (
-                                                            <AccordionItem key={step.id} value={step.id} className="border-b border-white/5 last:border-0">
-                                                                <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-white/5 transition-all text-left">
-                                                                    <div className="flex flex-col gap-1 w-full pr-4">
-                                                                        <span className="text-xs font-bold text-white uppercase tracking-tight leading-tight">{step.title}</span>
-                                                                        <div className="flex items-center gap-2 mt-1">
-                                                                            <span className="text-[9px] text-primary/70 font-bold uppercase tracking-widest">OBJ: {step.objective}</span>
+                                                            <AccordionItem key={step.id} value={step.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                                                                <AccordionTrigger className="px-6 py-6 hover:no-underline transition-all text-left">
+                                                                    <div className="flex flex-col gap-2 w-full pr-4">
+                                                                        <div className="flex items-center justify-between w-full">
+                                                                            <span className="text-base font-bold text-white uppercase tracking-tight leading-tight">{step.title}</span>
                                                                         </div>
-                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                        <div className="flex items-center gap-3 mt-1">
+                                                                            <span className="text-[10px] text-primary font-extrabold uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded">OBJ: {step.objective}</span>
+                                                                        </div>
+                                                                        <div className="flex flex-wrap gap-1.5 mt-1">
                                                                             {step.keywords.split(' – ').map((kw, kidx) => (
-                                                                                <span key={kidx} className="text-[8px] bg-white/5 border border-white/10 text-slate-400 px-1.5 py-0.5 rounded uppercase">{kw}</span>
+                                                                                <span key={kidx} className="text-[9px] bg-white/5 border border-white/10 text-slate-300 px-2 py-1 rounded-md uppercase font-medium">{kw}</span>
                                                                             ))}
                                                                         </div>
                                                                     </div>
                                                                 </AccordionTrigger>
-                                                                <AccordionContent className="bg-slate-950/50 p-5">
+                                                                <AccordionContent className="bg-slate-950/40 p-6">
                                                                     {finalScript ? (
                                                                         <div className="relative group/script">
                                                                             <div
-                                                                                className="bg-card p-4 rounded-lg border border-primary/20 shadow-inner group-hover:border-primary/50 transition-all cursor-pointer"
+                                                                                className="bg-card p-6 rounded-xl border border-primary/20 shadow-2xl group-hover:border-primary/50 transition-all cursor-pointer"
                                                                                 onClick={() => {
                                                                                     navigator.clipboard.writeText(finalScript);
                                                                                     toast.success("Copiado!");
                                                                                 }}
                                                                             >
-                                                                                <p className="text-sm leading-relaxed text-white whitespace-pre-line font-medium italic">
+                                                                                <p className="text-lg leading-relaxed text-white whitespace-pre-line font-medium italic">
                                                                                     {finalScript}
                                                                                 </p>
-                                                                                <div className="absolute top-2 right-2 opacity-0 group-hover/script:opacity-100 transition-opacity">
-                                                                                    <Badge variant="outline" className="text-[9px] uppercase bg-background border-primary/20">Copiar</Badge>
+                                                                                <div className="absolute top-3 right-3 opacity-0 group-hover/script:opacity-100 transition-opacity">
+                                                                                    <Badge variant="outline" className="text-[10px] uppercase bg-background border-primary/20 py-1 px-2">Copiar</Badge>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="text-center py-4 text-slate-500 italic text-xs">
+                                                                        <div className="text-center py-6 text-slate-500 italic text-sm">
                                                                             Cierre de venta según flujo de la conversación...
                                                                         </div>
                                                                     )}
@@ -1376,8 +1378,8 @@ export default function TrainerPage() {
                         )}
                     </div>
 
-                    {/* COLUMN 3: ACTION PANE (WHATSAPP, RESULT, PROPOSAL) (4 Cols) */}
-                    <div className="xl:col-span-4 h-full flex flex-col overflow-y-auto pb-20 custom-scrollbar pr-2">
+                    {/* COLUMN 3: ACTION PANE (WHATSAPP, RESULT, PROPOSAL) (3 Cols) */}
+                    <div className="xl:col-span-3 h-full flex flex-col overflow-y-auto pb-20 custom-scrollbar pr-2">
                         <Tabs value={activeActionTab} onValueChange={setActiveActionTab} className="w-full">
                             <TabsList className="w-full grid grid-cols-3 bg-background/50 border border-border/50 h-10 mb-4 rounded-xl p-1">
                                 <TabsTrigger value="whatsapp" className="rounded-lg text-[10px] font-bold uppercase tracking-wide data-[state=active]:bg-green-600 data-[state=active]:text-white">

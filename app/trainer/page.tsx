@@ -171,6 +171,7 @@ export default function TrainerPage() {
     const [prepResult, setPrepResult] = useState<any>(null);
     const [isPreparing, setIsPreparing] = useState(false);
     const [pitchViewMode, setPitchViewMode] = useState<'ai' | 'script'>('ai');
+    const [pitchHalago, setPitchHalago] = useState<string>('');
 
     // Call Result Form State
     const [callOutcome, setCallOutcome] = useState<string>('no_contesto');
@@ -637,7 +638,8 @@ export default function TrainerPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     entityId: selectedLead.id,
-                    entityType: selectedLead.source
+                    entityType: selectedLead.source,
+                    compliment: pitchHalago
                 })
             });
 
@@ -1124,6 +1126,18 @@ export default function TrainerPage() {
                                 >
                                     {isPreparing ? "Procesando..." : "PREPARAR PITCH"}
                                 </Button>
+
+                                {selectedLead && (
+                                    <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-2">
+                                        <Label className="text-[10px] uppercase font-bold text-primary/70">Añadir Halago / Detalle Positivo</Label>
+                                        <Textarea
+                                            placeholder="Ej: Tienen una vista increíble del valle, les vi en el reportaje de..."
+                                            className="text-xs bg-background/50 border-border/50 focus:border-blue-500/50 min-h-[80px] rounded-xl resize-none"
+                                            value={pitchHalago}
+                                            onChange={(e) => setPitchHalago(e.target.value)}
+                                        />
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -1224,7 +1238,8 @@ export default function TrainerPage() {
                                                         let finalScript = step.script
                                                             .replace(/\[NOMBRE\]/g, contactName)
                                                             .replace(/\[HOTEL\]/g, bizName)
-                                                            .replace(/\[BIZ_TYPE\]/g, bizType);
+                                                            .replace(/\[BIZ_TYPE\]/g, bizType)
+                                                            .replace(/\[HALAGO CONCRETO:.*?\]/g, pitchHalago || "[HALAGO CONCRETO]");
 
                                                         return (
                                                             <AccordionItem key={step.id} value={step.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">

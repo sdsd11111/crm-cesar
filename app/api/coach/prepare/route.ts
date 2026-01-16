@@ -116,7 +116,7 @@ Devuelve un JSON con esta estructura exacta:
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { entityId, entityType } = body;
+        const { entityId, entityType, compliment } = body;
 
         if (!entityId || !entityType) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -173,16 +173,20 @@ export async function POST(req: Request) {
             `;
         }
 
-        // 2. Build Prompt
         const finalPrompt = `
             ${MASTER_PROMPT}
 
             CONTEXTO DEL INTERLOCUTOR:
             ${contextData}
+
+            HALAGO / DETALLE ESPECÍFICO PROPORCIONADO POR EL USUARIO:
+            ${compliment || 'Ninguno (puedes generar uno basado en la investigación si lo consideras mejor)'}
+            
+            REGLA ADICIONAL: Si el usuario proporcionó un halago arriba, DEBES integrarlo en el[UN DETALLE POSITIVO REAL] del PITCH 2.
         `;
 
         // 3. Generate using Standard Model (Faster for templates)
-        console.log(`🤖 Strategy Coach Request (Fast/Standard) for ${entityType} ${entityId}`);
+        console.log(`🤖 Strategy Coach Request(Fast / Standard) for ${entityType} ${entityId} `);
 
         const client = getAIClient('STANDARD');
         const model = getModelId('STANDARD');

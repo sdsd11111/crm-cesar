@@ -234,6 +234,7 @@ export default function TrainerPage() {
                 setCallOutcome(draft.callOutcome || 'no_contesto');
                 setCallAction(draft.callAction || 'pendiente');
                 setCallNotes(draft.callNotes || '');
+                setPrepResult(draft.prepResult || null);
                 return; // Loaded from draft, skip defaults
             } catch (e) {
                 console.error("Error loading draft", e);
@@ -284,10 +285,11 @@ export default function TrainerPage() {
             waBody,
             callOutcome,
             callAction,
-            callNotes
+            callNotes,
+            prepResult
         };
         localStorage.setItem(draftKey, JSON.stringify(draft));
-    }, [selectedLead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes]);
+    }, [selectedLead, waNumber, waTemplate, waBody, callOutcome, callAction, callNotes, prepResult]);
 
     // Update body when template changes manually
     const handleTemplateChange = (val: string) => {
@@ -509,10 +511,23 @@ export default function TrainerPage() {
                 const param = selectedLead.source === 'discovery'
                     ? `discoveryLeadId=${selectedLead.id}`
                     : `contactId=${selectedLead.id}`;
-                const res = await fetch(`/api/interactions?${param}&limit=1`);
+                const res = await fetch(`/api/interactions?${param}&limit=10`); // Fetch more to find strategy
                 if (res.ok) {
                     const data = await res.json();
                     setLastInteraction(data[0] || null);
+
+                    // SEARCH FOR SAVED STRATEGY if not already in result or localStorage
+                    if (!prepResult) {
+                        const strategyNote = data.find((i: any) => i.content?.startsWith('[STRATEGY_PITCH]:'));
+                        if (strategyNote) {
+                            try {
+                                const savedJson = JSON.parse(strategyNote.content.replace('[STRATEGY_PITCH]:', ''));
+                                setPrepResult(savedJson);
+                            } catch (e) {
+                                console.error("Error parsing saved strategy", e);
+                            }
+                        }
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching interaction:", error);
@@ -651,7 +666,22 @@ export default function TrainerPage() {
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             setPrepResult(data);
-            toast.success("Estrategia generada");
+
+            // SAVE TO INTERACTIONS for permanent persistence
+            await fetch('/api/interactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'note',
+                    content: `[STRATEGY_PITCH]:${JSON.stringify(data)}`,
+                    outcome: 'strategy_prepared',
+                    discoveryLeadId: selectedLead.source === 'discovery' ? selectedLead.id : null,
+                    contactId: selectedLead.source === 'lead' ? selectedLead.id : null,
+                    performedAt: new Date().toISOString()
+                })
+            });
+
+            toast.success("Estrategia generada y guardada 💾");
         } catch (error: any) {
             console.error("Coach Prep Failure:", error);
             toast.error(`Error generando estrategia: ${error.message}`);

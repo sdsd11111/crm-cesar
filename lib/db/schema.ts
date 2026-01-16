@@ -239,6 +239,8 @@ export const leads = pgTable('leads', {
   // Discovery link
   discoveryLeadId: uuid('discovery_lead_id').references(() => discoveryLeads.id),
 
+
+
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -579,6 +581,8 @@ export const discoveryLeads = pgTable('discovery_leads', {
   status: text('status', {
     enum: ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted']
   }).default('pending'),
+
+
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

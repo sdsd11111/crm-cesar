@@ -55,9 +55,87 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { PROPOSAL_TEMPLATE_HOTEL } from '@/app/lib/templates/proposal_hotel';
 import { fillWhatsAppTemplate, WHATSAPP_TEMPLATES } from '@/lib/templates/whatsapp';
+
+const STRUCTURED_GUION_DATA = [
+    {
+        id: "step-1",
+        title: "1️⃣ IDENTIDAD – “¿Con quién hablo?”",
+        objective: "saber si es dueño, administrador o recepcionista.",
+        keywords: "confirmar – rol – respeto – tiempo",
+        script: `Buenas, ¿hablo con [NOMBRE]?
+
+[NOMBRE], un gusto, le saluda César Reyes, de la empresa Objetivo.
+¿Podemos hablar un par de minutos?`
+    },
+    {
+        id: "step-2",
+        title: "2️⃣ RAPPORT – “Lo vi / lo investigué”",
+        objective: "bajar defensas + demostrar interés real.",
+        keywords: "vi – me llamó la atención – específico – elogio",
+        script: `Gracias, don [NOMBRE].
+Mire, antes de llamarle estuve revisando [su hotel / su perfil / sus fotos / su ubicación] y me llamó mucho la atención [HALAGO CONCRETO: vista, ubicación, concepto, comentarios, entorno].
+
+Con algo así, me imagino que atraer turistas debe ser relativamente fácil… muchos deben llegar casi solos, ¿no?
+
+(👉 Te callas. Lo dejas hablar. Parafraseas algo de lo que diga.)
+
+“Claro, entiendo… o sea que [paráfrasis corta de lo que te dijo].”`
+    },
+    {
+        id: "step-3",
+        title: "3️⃣ CONTEXTO – “Que él se DESCRIBA”",
+        objective: "que empiece a hablar de su realidad.",
+        keywords: "normalmente – hoy en día – cómo manejan – cuénteme",
+        script: `De hecho, le comento algo curioso…
+He escuchado a varios dueños de hoteles —clientes y amigos— que manejar un hotel en realidad es bastante sencillo…
+que con WhatsApp, algunos apuntes y la memoria, ya saben cuántas habitaciones tienen, reservan y listo.`
+    },
+    {
+        id: "step-4",
+        title: "4️⃣ PROVOCACIÓN – “No debería doler”",
+        objective: "activar corrección, explicación o queja.",
+        keywords: "he escuchado – muchos dicen – en teoría – debería ser fácil",
+        script: `¿Qué es lo que más se les complica en la práctica?
+
+¿En qué momento siente usted que más se pierde el control?
+
+(👉 Lo dejas profundizar.)`
+    },
+    {
+        id: "step-5",
+        title: "5️⃣ GRIETA – “PRESIONA SU DOLOR”",
+        objective: "que note falta de control, datos o orden.",
+        keywords: "exactamente – hoy – en frío – control – números",
+        script: `Claro… y por ejemplo, así sin revisar nada,
+¿usted hoy podría decirme cuántas noches se ocuparon la semana pasada?
+
+(pausa)
+
+“¿Y si yo le preguntara cuál fue el porcentaje de ocupación de 2025 frente a 2024?”
+
+(pausa)
+
+“¿Eso hoy lo tienen en algún sistema… o habría que ponerse a revisar chats y apuntes?”
+
+👉 Aquí casi siempre aparece el “no exactamente”, “habría que ver”, “eso no tenemos claro”.`
+    },
+    {
+        id: "step-6",
+        title: "6️⃣ PROFUNDIZACIÓN – “CONSECUENCIAS”",
+        objective: "que él mismo valore el problema.",
+        keywords: "qué pasa cuando – les ha ocurrido – consecuencias – estrés",
+        script: ""
+    }
+];
 import { BookingProposalButton } from '@/components/shared/BookingProposalButton';
 import { formatContactName } from '@/lib/utils/name-utils';
 import { QuotationDocument } from "@/components/pdf/QuotationDocument";
@@ -92,6 +170,7 @@ export default function TrainerPage() {
     const [prepMode, setPrepMode] = useState<string>('asesor');
     const [prepResult, setPrepResult] = useState<any>(null);
     const [isPreparing, setIsPreparing] = useState(false);
+    const [pitchViewMode, setPitchViewMode] = useState<'ai' | 'script'>('ai');
 
     // Call Result Form State
     const [callOutcome, setCallOutcome] = useState<string>('no_contesto');
@@ -1061,57 +1140,139 @@ export default function TrainerPage() {
                             </div>
                         ) : (
                             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <Card className="border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5">
-                                    <CardHeader className="pb-2 border-b border-border/50 py-3 px-5">
-                                        <div className="flex justify-between items-center">
-                                            <CardTitle className="text-xs uppercase tracking-widest text-primary font-bold">
-                                                Pitch de Venta Personalizado
-                                            </CardTitle>
-                                            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
-                                                {prepMode.toUpperCase()}
-                                            </Badge>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-5">
-                                        <div
-                                            className="bg-card p-5 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
-                                            onClick={() => {
-                                                const textToCopy = prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch;
-                                                navigator.clipboard.writeText(textToCopy);
-                                                toast.success("Pitch copiado al portapapeles");
-                                            }}
-                                        >
-                                            <p className="text-base leading-relaxed text-white whitespace-pre-line">
-                                                {prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch}
-                                            </p>
-                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Badge variant="outline" className="text-[9px] uppercase">Copiar</Badge>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                {/* VIEW SELECTOR */}
+                                <Tabs value={pitchViewMode} onValueChange={(val: any) => setPitchViewMode(val)} className="w-full">
+                                    <TabsList className="w-full grid grid-cols-2 bg-background/50 border border-border/50 h-10 mb-2 rounded-xl p-1">
+                                        <TabsTrigger value="ai" className="rounded-lg text-[10px] font-bold uppercase tracking-wide">
+                                            <BrainCircuit className="h-3 w-3 mr-1 text-primary" /> Pitch IA
+                                        </TabsTrigger>
+                                        <TabsTrigger value="script" className="rounded-lg text-[10px] font-bold uppercase tracking-wide">
+                                            <FileText className="h-3 w-3 mr-1 text-green-500" /> Guion Pasos
+                                        </TabsTrigger>
+                                    </TabsList>
 
-                                {/* Trigger Keywords */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    {prepResult.disparadores?.map((d: any, i: number) => (
-                                        <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
-                                            <CardHeader className="p-3 pb-1">
-                                                <CardTitle className="text-[9px] uppercase font-black text-indigo-400 truncate">{d.titulo || 'MANTRA'}</CardTitle>
+                                    <TabsContent value="ai" className="mt-0 space-y-4">
+                                        <Card className="border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5">
+                                            <CardHeader className="pb-2 border-b border-border/50 py-3 px-5">
+                                                <div className="flex justify-between items-center">
+                                                    <CardTitle className="text-xs uppercase tracking-widest text-primary font-bold">
+                                                        Pitch de Venta Personalizado
+                                                    </CardTitle>
+                                                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
+                                                        {prepMode.toUpperCase()}
+                                                    </Badge>
+                                                </div>
                                             </CardHeader>
-                                            <CardContent className="p-3 pt-1">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {Array.isArray(d.keywords) ? d.keywords.map((kw: string, j: number) => (
-                                                        <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[8px] px-1 py-0">
-                                                            {kw}
-                                                        </Badge>
-                                                    )) : (
-                                                        <span className="text-[8px] text-indigo-300/50 italic">Analizando...</span>
-                                                    )}
+                                            <CardContent className="p-5">
+                                                <div
+                                                    className="bg-card p-5 rounded-xl border border-border shadow-inner cursor-pointer hover:border-primary transition-all relative group"
+                                                    onClick={() => {
+                                                        const textToCopy = prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch;
+                                                        navigator.clipboard.writeText(textToCopy);
+                                                        toast.success("Pitch copiado al portapapeles");
+                                                    }}
+                                                >
+                                                    <p className="text-base leading-relaxed text-white whitespace-pre-line">
+                                                        {prepResult.pitches ? prepResult.pitches[prepMode] : prepResult.pitch}
+                                                    </p>
+                                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Badge variant="outline" className="text-[9px] uppercase">Copiar</Badge>
+                                                    </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
-                                    ))}
-                                </div>
+
+                                        {/* Trigger Keywords */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {prepResult.disparadores?.map((d: any, i: number) => (
+                                                <Card key={i} className="border-indigo-500/20 bg-indigo-500/5">
+                                                    <CardHeader className="p-3 pb-1">
+                                                        <CardTitle className="text-[9px] uppercase font-black text-indigo-400 truncate">{d.titulo || 'MANTRA'}</CardTitle>
+                                                    </CardHeader>
+                                                    <CardContent className="p-3 pt-1">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {Array.isArray(d.keywords) ? d.keywords.map((kw: string, j: number) => (
+                                                                <Badge key={j} variant="secondary" className="bg-indigo-500/10 text-indigo-200 border-indigo-500/30 text-[8px] px-1 py-0">
+                                                                    {kw}
+                                                                </Badge>
+                                                            )) : (
+                                                                <span className="text-[8px] text-indigo-300/50 italic">Analizando...</span>
+                                                            )}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    </TabsContent>
+
+                                    <TabsContent value="script" className="mt-0">
+                                        <Card className="rounded-2xl border text-card-foreground border-primary/30 shadow-2xl shadow-primary/10 bg-primary/5 overflow-hidden">
+                                            <CardHeader className="border-b border-border/50 py-3 px-5">
+                                                <div className="flex justify-between items-center">
+                                                    <div className="text-xs uppercase tracking-widest text-primary font-bold">Guion por Pasos (Sales Framework)</div>
+                                                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">MÉTODO OBJETIVO</Badge>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="p-0">
+                                                <Accordion type="single" collapsible className="w-full">
+                                                    {STRUCTURED_GUION_DATA.map((step, idx) => {
+                                                        // Resolve placeholders
+                                                        const contactName = selectedLead.contactName || selectedLead.personaContacto || selectedLead.representative || selectedLead.razonSocialPropietario || "[NOMBRE]";
+                                                        const bizName = selectedLead.businessName || selectedLead.nombre_comercial || "su hotel";
+                                                        const bizType = selectedLead.businessType || selectedLead.actividadModalidad || "su hotel";
+
+                                                        let finalScript = step.script
+                                                            .replace(/\[NOMBRE\]/g, contactName)
+                                                            .replace(/\[HOTEL\]/g, bizName)
+                                                            .replace(/\[BIZ_TYPE\]/g, bizType);
+
+                                                        return (
+                                                            <AccordionItem key={step.id} value={step.id} className="border-b border-white/5 last:border-0">
+                                                                <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-white/5 transition-all text-left">
+                                                                    <div className="flex flex-col gap-1 w-full pr-4">
+                                                                        <span className="text-xs font-bold text-white uppercase tracking-tight leading-tight">{step.title}</span>
+                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                            <span className="text-[9px] text-primary/70 font-bold uppercase tracking-widest">OBJ: {step.objective}</span>
+                                                                        </div>
+                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                            {step.keywords.split(' – ').map((kw, kidx) => (
+                                                                                <span key={kidx} className="text-[8px] bg-white/5 border border-white/10 text-slate-400 px-1.5 py-0.5 rounded uppercase">{kw}</span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="bg-slate-950/50 p-5">
+                                                                    {finalScript ? (
+                                                                        <div className="relative group/script">
+                                                                            <div
+                                                                                className="bg-card p-4 rounded-lg border border-primary/20 shadow-inner group-hover:border-primary/50 transition-all cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    navigator.clipboard.writeText(finalScript);
+                                                                                    toast.success("Copiado!");
+                                                                                }}
+                                                                            >
+                                                                                <p className="text-sm leading-relaxed text-white whitespace-pre-line font-medium italic">
+                                                                                    {finalScript}
+                                                                                </p>
+                                                                                <div className="absolute top-2 right-2 opacity-0 group-hover/script:opacity-100 transition-opacity">
+                                                                                    <Badge variant="outline" className="text-[9px] uppercase bg-background border-primary/20">Copiar</Badge>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-center py-4 text-slate-500 italic text-xs">
+                                                                            Cierre de venta según flujo de la conversación...
+                                                                        </div>
+                                                                    )}
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+                                                        );
+                                                    })}
+                                                </Accordion>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                </Tabs>
 
                                 {/* Quick Info Tabs in Middle Column */}
                                 <Tabs defaultValue="investigation" className="w-full">

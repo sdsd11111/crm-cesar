@@ -1132,7 +1132,7 @@ export default function TrainerPage() {
                                         <Label className="text-[10px] uppercase font-bold text-primary/70">Añadir Halago / Detalle Positivo</Label>
                                         <Textarea
                                             placeholder="Ej: Tienen una vista increíble del valle, les vi en el reportaje de..."
-                                            className="text-xs bg-background/50 border-border/50 focus:border-blue-500/50 min-h-[80px] rounded-xl resize-none"
+                                            className="text-sm font-medium text-white placeholder:text-white/20 bg-slate-900 border-white/10 focus:border-blue-500/50 min-h-[100px] rounded-xl resize-none shadow-2xl"
                                             value={pitchHalago}
                                             onChange={(e) => setPitchHalago(e.target.value)}
                                         />

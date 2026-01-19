@@ -1,14 +1,12 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Edit } from 'lucide-react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { RestaurantContractPDF } from '@/components/contracts/restaurant-contract-pdf';
-import type { RestaurantContractData } from '@/lib/contracts/restaurant-schema';
+import { RawTextPDF } from '@/components/contracts/RawTextPDF';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -24,7 +22,7 @@ interface Contract {
 export default function ContractViewPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const [contract, setContract] = useState<Contract | null>(null);
-    const [contractData, setContractData] = useState<RestaurantContractData | null>(null);
+    const [contractData, setContractData] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -39,8 +37,6 @@ export default function ContractViewPage({ params }: { params: { id: string } })
 
             // Parse contract data
             const parsed = JSON.parse(data.contractData);
-            // Convert date string back to Date object
-            parsed.fechaFirma = new Date(parsed.fechaFirma);
             setContractData(parsed);
         } catch (error) {
             console.error('Error fetching contract:', error);
@@ -69,14 +65,30 @@ export default function ContractViewPage({ params }: { params: { id: string } })
         return <div className="p-8">Contrato no encontrado</div>;
     }
 
-    const pagoContraEntrega = contractData.precioTotal - contractData.anticipo;
+    // Determine if it's the new format (with finalContent) or legacy
+    const isNewFormat = !!contractData.finalContent;
+    const isRestaurantLegacy = !isNewFormat && contractData.nombreRestaurante;
+
+    const renderPDF = () => {
+        if (isNewFormat) {
+            return <RawTextPDF content={contractData.finalContent} title={contract.title} />;
+        }
+        if (isRestaurantLegacy) {
+            // Restore Date object for legacy restaurant template
+            const legacyData = { ...contractData, fechaFirma: new Date(contractData.fechaFirma) };
+            return <RestaurantContractPDF data={legacyData} />;
+        }
+        return null;
+    };
+
+    const fileName = contract.title.toLowerCase().replace(/\s+/g, '-') + '.pdf';
 
     return (
         <div className="p-8 max-w-5xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/contratos')}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
@@ -88,96 +100,52 @@ export default function ContractViewPage({ params }: { params: { id: string } })
                 </div>
                 <div className="flex items-center gap-4">
                     {getStatusBadge(contract.status)}
-                    <PDFDownloadLink
-                        document={<RestaurantContractPDF data={contractData} />}
-                        fileName={`contrato-${contractData.nombreRestaurante.toLowerCase().replace(/\s+/g, '-')}.pdf`}
-                    >
-                        {({ loading }) => (
-                            <Button disabled={loading}>
-                                <Download className="mr-2 h-4 w-4" />
-                                {loading ? 'Generando PDF...' : 'Descargar PDF'}
-                            </Button>
-                        )}
-                    </PDFDownloadLink>
+                    {renderPDF() && (
+                        <PDFDownloadLink
+                            document={renderPDF()!}
+                            fileName={fileName}
+                        >
+                            {({ loading }) => (
+                                <Button disabled={loading}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    {loading ? 'Generando PDF...' : 'Descargar PDF'}
+                                </Button>
+                            )}
+                        </PDFDownloadLink>
+                    )}
                 </div>
             </div>
 
-            {/* Contract Preview */}
+            {/* Contract Content */}
             <Card>
-                <CardHeader>
-                    <CardTitle>Vista Previa del Contrato</CardTitle>
-                    <CardDescription>Revisa los datos antes de generar el PDF final</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Contenido del Contrato</CardTitle>
+                        <CardDescription>
+                            {isNewFormat ? 'Este texto aparecerá en el PDF final' : 'Vista estructurada (Legacy)'}
+                        </CardDescription>
+                    </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    {/* Contractor Info */}
-                    <div>
-                        <h3 className="font-semibold text-lg mb-3">Información del Contratante</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span className="font-medium">Nombre:</span> {contractData.nombreContratante}
-                            </div>
-                            <div>
-                                <span className="font-medium">{contractData.tipoIdentificacion}:</span> {contractData.numeroIdentificacion}
-                            </div>
-                            <div>
-                                <span className="font-medium">Restaurante:</span> {contractData.nombreRestaurante}
-                            </div>
-                            <div>
-                                <span className="font-medium">Ciudad:</span> {contractData.ciudad}
-                            </div>
+                <CardContent>
+                    {isNewFormat ? (
+                        <div className="bg-muted p-6 rounded-md whitespace-pre-wrap font-mono text-sm leading-relaxed border">
+                            {contractData.finalContent}
                         </div>
-                    </div>
-
-                    {/* Project Info */}
-                    <div>
-                        <h3 className="font-semibold text-lg mb-3">Información del Proyecto</h3>
-                        <div className="space-y-2 text-sm">
-                            <div>
-                                <span className="font-medium">Dominio Web:</span> {contractData.dominioWeb}
+                    ) : isRestaurantLegacy ? (
+                        <div className="space-y-6">
+                            {/* Short summary of legacy data */}
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div><span className="font-medium">Cliente:</span> {contractData.nombreContratante}</div>
+                                <div><span className="font-medium">Negocio:</span> {contractData.nombreRestaurante}</div>
+                                <div><span className="font-medium">Monto:</span> ${contractData.precioTotal}</div>
                             </div>
-                            <div>
-                                <span className="font-medium">Estructura del Menú:</span>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                    {contractData.estructuraMenu.map((item, i) => (
-                                        <Badge key={i} variant="outline">{item}</Badge>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                                <span className="font-medium">Platos Destacados:</span>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                    {contractData.platosDestacados.map((item, i) => (
-                                        <Badge key={i} variant="outline">{item}</Badge>
-                                    ))}
-                                </div>
-                            </div>
+                            <p className="text-sm italic text-muted-foreground">
+                                Este contrato usa una plantilla antigua. Se recomienda descargar el PDF para ver el contenido completo.
+                            </p>
                         </div>
-                    </div>
-
-                    {/* Commercial Conditions */}
-                    <div>
-                        <h3 className="font-semibold text-lg mb-3">Condiciones Comerciales</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span className="font-medium">Precio Total:</span> ${contractData.precioTotal} USD
-                            </div>
-                            <div>
-                                <span className="font-medium">Anticipo:</span> ${contractData.anticipo} USD
-                            </div>
-                            <div>
-                                <span className="font-medium">Pago Contra Entrega:</span> ${pagoContraEntrega} USD
-                            </div>
-                            <div>
-                                <span className="font-medium">Plazo:</span> {contractData.plazoDias} días hábiles
-                            </div>
-                            <div>
-                                <span className="font-medium">Garantía:</span> {contractData.periodoGarantia}
-                            </div>
-                            <div>
-                                <span className="font-medium">Fecha de Firma:</span> {format(contractData.fechaFirma, 'dd MMM yyyy', { locale: es })}
-                            </div>
-                        </div>
-                    </div>
+                    ) : (
+                        <p>No se puede previsualizar el contenido.</p>
+                    )}
                 </CardContent>
             </Card>
 
@@ -186,18 +154,20 @@ export default function ContractViewPage({ params }: { params: { id: string } })
                 <Button variant="outline" onClick={() => router.push('/contratos')} className="flex-1">
                     Volver al Listado
                 </Button>
-                <PDFDownloadLink
-                    document={<RestaurantContractPDF data={contractData} />}
-                    fileName={`contrato-${contractData.nombreRestaurante.toLowerCase().replace(/\s+/g, '-')}.pdf`}
-                    className="flex-1"
-                >
-                    {({ loading }) => (
-                        <Button disabled={loading} className="w-full">
-                            <FileText className="mr-2 h-4 w-4" />
-                            {loading ? 'Generando...' : 'Generar PDF Final'}
-                        </Button>
-                    )}
-                </PDFDownloadLink>
+                {renderPDF() && (
+                    <PDFDownloadLink
+                        document={renderPDF()!}
+                        fileName={fileName}
+                        className="flex-1"
+                    >
+                        {({ loading }) => (
+                            <Button disabled={loading} className="w-full">
+                                <FileText className="mr-2 h-4 w-4" />
+                                {loading ? 'Generando...' : 'Ver PDF Completo'}
+                            </Button>
+                        )}
+                    </PDFDownloadLink>
+                )}
             </div>
         </div>
     );

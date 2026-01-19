@@ -179,6 +179,9 @@ export function getHotelContract(variables: ContractVariables, plan: PlanType = 
     // Defaults para campos geográficos si faltan (Fallback a la ciudad de firma si es razonable, o vacio)
     if (!finalVariables.CIUDAD_NEGOCIO) finalVariables.CIUDAD_NEGOCIO = finalVariables.CIUDAD_FIRMA || '((CIUDAD_NEGOCIO))';
     if (!finalVariables.PROVINCIA_NEGOCIO) finalVariables.PROVINCIA_NEGOCIO = '((PROVINCIA_NEGOCIO))';
+    if (!finalVariables.NOMBRE_CONTRATISTA) finalVariables.NOMBRE_CONTRATISTA = 'CÉSAR REYES';
+    if (!finalVariables.RUC_CONTRATISTA) finalVariables.RUC_CONTRATISTA = '1103421531001';
+    if (!finalVariables.DOMICILIO_CONTRATISTA) finalVariables.DOMICILIO_CONTRATISTA = 'Loja, Ecuador';
     if (!finalVariables.PROFESION_CONTRATISTA) finalVariables.PROFESION_CONTRATISTA = 'Consultor Tecnológico';
 
     // Rellenar variables

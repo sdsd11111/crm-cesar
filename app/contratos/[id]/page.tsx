@@ -5,12 +5,20 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, FileText, Edit } from 'lucide-react';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ArrowLeft, Download, FileText, Edit, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { RestaurantContractPDF } from '@/components/contracts/restaurant-contract-pdf';
 import { RawTextPDF } from '@/components/contracts/RawTextPDF';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+const PDFDownloadLink = dynamic(
+    () => import('@react-pdf/renderer').then((mod) => mod.PDFDownloadLink),
+    {
+        ssr: false,
+        loading: () => <Button disabled><Loader2 className="animate-spin mr-2 h-4 w-4" /> Cargando...</Button>,
+    }
+);
 
 interface Contract {
     id: string;
@@ -26,8 +34,10 @@ export default function ContractViewPage({ params }: { params: { id: string } })
     const [contract, setContract] = useState<Contract | null>(null);
     const [contractData, setContractData] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        setIsMounted(true);
         fetchContract();
     }, []);
 
@@ -37,9 +47,15 @@ export default function ContractViewPage({ params }: { params: { id: string } })
             const data = await res.json();
             setContract(data);
 
-            // Parse contract data
-            const parsed = JSON.parse(data.contractData);
-            setContractData(parsed);
+            if (data?.contractData) {
+                // Parse contract data
+                try {
+                    const parsed = JSON.parse(data.contractData);
+                    setContractData(parsed);
+                } catch (e) {
+                    console.error('Error parsing contractData:', e);
+                }
+            }
         } catch (error) {
             console.error('Error fetching contract:', error);
         } finally {

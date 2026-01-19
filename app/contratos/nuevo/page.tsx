@@ -71,9 +71,15 @@ export default function NewContractPage() {
         try {
             const res = await fetch('/api/clients');
             const data = await res.json();
-            setClients(data);
+            if (Array.isArray(data)) {
+                setClients(data);
+            } else {
+                console.error('Expected clients array but got:', data);
+                setClients([]);
+            }
         } catch (error) {
             console.error('Error fetching clients:', error);
+            setClients([]);
         }
     }
 
@@ -179,7 +185,7 @@ export default function NewContractPage() {
                                     <SelectValue placeholder="Busca un cliente..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {clients.map((client) => (
+                                    {Array.isArray(clients) && clients.map((client) => (
                                         <SelectItem key={client.id} value={client.id}>
                                             {client.businessName} - {client.contactName}
                                         </SelectItem>

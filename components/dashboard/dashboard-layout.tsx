@@ -25,6 +25,7 @@ import {
   Search,
   Mic,
   Sparkles,
+  FileSignature,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -97,7 +98,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Eventos", icon: Calendar, href: "/events" },
     { name: "Finanzas", icon: MessageSquare, href: "/finance" }, // Usando MessageSquare temporalmente, cambiar a Banknote si disponible
     { name: "Cotizaciones", icon: FileText, href: "/cotizaciones" },
-    { name: "Contratos", icon: FileText, href: "/contratos" },
+    { name: "Contratos", icon: FileSignature, href: "/contratos" },
     { name: "Discovery", icon: Search, href: "/discovery" },
     { name: "Entrenador", icon: Mic, href: "/trainer" },
     { name: "Donna", icon: Sparkles, href: "/donna", badge: "AI" },

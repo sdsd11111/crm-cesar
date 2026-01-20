@@ -14,7 +14,7 @@ import { CalendarIcon, ArrowLeft, FileText, Wand2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { CONTRACT_TEMPLATES } from '@/lib/templates/Contrato/registry';
+import { fillTemplate, calculateDerivedFields } from '@/lib/contracts/utils';
 
 interface Client {
     id: string;
@@ -29,34 +29,56 @@ interface Client {
 
 export default function NewContractPage() {
     const router = useRouter();
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
     const [clients, setClients] = useState<Client[]>([]);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('hotel');
     const [formValues, setFormValues] = useState<Record<string, any>>({});
     const [draftContent, setDraftContent] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [step, setStep] = useState<1 | 2>(1); // 1: Form, 2: Review/Edit
 
-    const selectedTemplate = CONTRACT_TEMPLATES[selectedTemplateId];
-
     useEffect(() => {
         fetchClients();
+        fetchTemplates();
     }, []);
+
+    useEffect(() => {
+        if (selectedTemplateId) {
+            const template = templates.find(t => t.id === selectedTemplateId || t.slug === selectedTemplateId);
+            setSelectedTemplate(template || null);
+        }
+    }, [selectedTemplateId, templates]);
+
+    async function fetchTemplates() {
+        try {
+            const res = await fetch('/api/contract-templates');
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setTemplates(data);
+                if (data.length > 0) setSelectedTemplateId(data[0].slug || data[0].id);
+            }
+        } catch (error) {
+            console.error('Error fetching templates:', error);
+        }
+    }
 
     useEffect(() => {
         // Initialize default values for the template
         if (selectedTemplate) {
             const defaults: Record<string, any> = {};
-            selectedTemplate.fields.forEach(f => {
+            const fields = Array.isArray(selectedTemplate.fields) ? selectedTemplate.fields : [];
+            fields.forEach((f: any) => {
                 if (f.defaultValue !== undefined) defaults[f.id] = f.defaultValue;
             });
             setFormValues(defaults);
         }
-    }, [selectedTemplateId]);
+    }, [selectedTemplate]);
 
     useEffect(() => {
-        if (selectedClient && selectedTemplateId === 'hotel') {
+        if (selectedClient && selectedTemplate?.slug === 'hotel') {
             setFormValues(prev => ({
                 ...prev,
                 NOMBRE_CONTRATANTE: selectedClient.contactName,
@@ -65,7 +87,7 @@ export default function NewContractPage() {
                 CEDULA_CONTRATANTE: selectedClient.ruc || '',
             }));
         }
-    }, [selectedClient, selectedTemplateId]);
+    }, [selectedClient, selectedTemplate]);
 
     async function fetchClients() {
         try {
@@ -88,9 +110,11 @@ export default function NewContractPage() {
     };
 
     const generateDraft = () => {
+        if (!selectedTemplate) return;
         setIsGenerating(true);
         try {
-            const content = selectedTemplate.generate(formValues);
+            const derivedFields = calculateDerivedFields(selectedTemplate.slug, formValues);
+            const content = fillTemplate(selectedTemplate.contentTemplate, derivedFields);
             setDraftContent(content);
             setStep(2);
         } catch (error) {
@@ -162,8 +186,8 @@ export default function NewContractPage() {
                                     <SelectValue placeholder="Selecciona una plantilla" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Object.values(CONTRACT_TEMPLATES).map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                    {templates.map(t => (
+                                        <SelectItem key={t.id} value={t.slug || t.id}>{t.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -204,7 +228,7 @@ export default function NewContractPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {selectedTemplate.fields.map(field => (
+                                    {(selectedTemplate.fields || []).map((field: any) => (
                                         <div key={field.id} className="space-y-2">
                                             <Label htmlFor={field.id}>{field.label} {field.required && '*'}</Label>
 
@@ -225,7 +249,7 @@ export default function NewContractPage() {
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {field.options?.map(opt => (
+                                                        {field.options?.map((opt: any) => (
                                                             <SelectItem key={opt.value} value={opt.value}>
                                                                 {opt.label}
                                                             </SelectItem>

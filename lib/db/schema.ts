@@ -494,6 +494,26 @@ export const contracts = pgTable('contracts', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Contract Templates Table (NEW)
+export const contractTemplates = pgTable('contract_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(), // e.g. 'hotel', 'restaurant'
+  name: text('name').notNull(),
+  description: text('description'),
+
+  // Array of TemplateField objects: { id, label, type, options, defaultValue, placeholder, required }
+  fields: jsonb('fields').notNull().default([]),
+
+  // The Markdown/Text with {{PLACEHOLDERS}}
+  contentTemplate: text('content_template').notNull(),
+
+  // Logic for derived fields (optional, stored as a script string if needed, but for now simple replacement)
+  // For now we'll handle complex logic in the code, but basic fields in the template.
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Discovery Module (NEW)
 // Discovery Module - Full CSV Structure
 export const discoveryLeads = pgTable('discovery_leads', {

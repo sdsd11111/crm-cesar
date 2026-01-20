@@ -56,7 +56,7 @@ export const BookingProposalButton: React.FC<BookingProposalButtonProps> = ({
             const placeholders: Record<string, string> = {
                 'NOMBRE': rawName || 'Prospecto',
                 'HOTEL': businessName,
-                'CIUDAD': city,
+                'UBICACION': city,
                 'BIZ_TYPE': bizType,
                 'HALAGO': compliment || 'tienen una muy buena propuesta, gran reputación y excelentes comentarios'
             };

@@ -50,7 +50,8 @@ export const BookingProposalButton: React.FC<BookingProposalButtonProps> = ({
             else if (activity.includes('motel')) bizType = 'motel';
 
             // NEW: Use template from lib/templates
-            const { default: proposalTemplate } = await import('@/lib/templates/booking/proposal');
+            const { default: proposalTemplate } = await import('@/lib/templates/booking/proposal_v2');
+            console.log("Loaded template content first 100 chars:", proposalTemplate.text.substring(0, 100));
 
             let template = proposalTemplate.text;
             const placeholders: Record<string, string> = {

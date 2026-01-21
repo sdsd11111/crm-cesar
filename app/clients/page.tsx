@@ -151,7 +151,7 @@ export default function ClientsPage() {
                                     <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background border-none shadow-2xl">
+                            <DialogContent className="max-w-4xl p-0 max-h-[90vh] overflow-y-auto bg-background border-none shadow-2xl">
                                 <UniversalContactForm
                                     mode="client"
                                     onSave={() => {

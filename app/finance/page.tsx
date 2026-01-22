@@ -11,9 +11,13 @@ import { PersonalLiabilitiesCard } from "@/components/finance/personal-liabiliti
 import { HealthSemaphore } from "@/components/finance/health-semaphore"
 import { ForecastChart } from "@/components/finance/forecast-chart"
 import { BreakEvenCard } from "@/components/finance/break-even-card"
-import { format, isBefore, addDays } from "date-fns"
+import { format, isBefore, addDays, isSameDay, startOfMonth, endOfMonth, isWithinInterval, subDays } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { CalendarDays, FilterX } from "lucide-react"
 
 interface Metrics {
     cashFlow: number
@@ -43,10 +47,14 @@ interface Transaction {
     client_id?: string
 }
 
+type FilterType = 'all' | 'today' | 'yesterday' | 'month' | 'custom'
+
 export default function FinancePage() {
     const [metrics, setMetrics] = useState<Metrics | null>(null)
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [loading, setLoading] = useState(true)
+    const [filterType, setFilterType] = useState<FilterType>('all')
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 
     const fetchData = async () => {
         try {
@@ -90,6 +98,25 @@ export default function FinancePage() {
         isBefore(new Date(tx.dueDate), addDays(new Date(), 7))
     )
 
+    // Filtering Logic
+    const filteredTransactions = transactions.filter(tx => {
+        const txDate = new Date(tx.date)
+        const today = new Date()
+
+        if (filterType === 'today') return isSameDay(txDate, today)
+        if (filterType === 'yesterday') return isSameDay(txDate, subDays(today, 1))
+        if (filterType === 'month') {
+            return isWithinInterval(txDate, {
+                start: startOfMonth(today),
+                end: endOfMonth(today)
+            })
+        }
+        if (filterType === 'custom' && selectedDate) {
+            return isSameDay(txDate, selectedDate)
+        }
+        return true // 'all'
+    })
+
     return (
         <DashboardLayout>
             <div className="flex flex-col gap-6">
@@ -125,42 +152,128 @@ export default function FinancePage() {
 
                     {/* Ledger Tab (Now First) */}
                     <TabsContent value="ledger" className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Libro Diario Operativo</CardTitle>
-                                <CardDescription>Registro completo de entradas y salidas de negocio.</CardDescription>
+                        <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
+                            <CardHeader className="pb-3 border-b mb-4">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <CardTitle className="text-xl font-black uppercase tracking-tight">Libro Diario Operativo</CardTitle>
+                                        <CardDescription className="text-xs font-medium">Historial detallado del flujo de caja del negocio.</CardDescription>
+                                    </div>
+
+                                    {/* FILTERS UI */}
+                                    <div className="flex flex-wrap items-center gap-2 bg-muted/30 p-1 rounded-xl border border-white/10">
+                                        <Button
+                                            variant={filterType === 'all' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            className="h-8 text-[11px] font-bold uppercase tracking-wider px-2"
+                                            onClick={() => setFilterType('all')}
+                                        >
+                                            Todo
+                                        </Button>
+                                        <Button
+                                            variant={filterType === 'today' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            className="h-8 text-[11px] font-bold uppercase tracking-wider px-2"
+                                            onClick={() => setFilterType('today')}
+                                        >
+                                            Hoy
+                                        </Button>
+                                        <Button
+                                            variant={filterType === 'yesterday' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            className="h-8 text-[11px] font-bold uppercase tracking-wider px-2"
+                                            onClick={() => setFilterType('yesterday')}
+                                        >
+                                            Ayer
+                                        </Button>
+
+                                        <div className="h-4 w-[1px] bg-muted-foreground/20 mx-1" />
+
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant={filterType === 'custom' ? 'default' : 'outline'}
+                                                    size="sm"
+                                                    className="h-8 text-[11px] font-bold uppercase tracking-wider px-2 gap-2"
+                                                >
+                                                    <CalendarDays className="h-3 w-3" />
+                                                    {selectedDate ? format(selectedDate, 'dd/MM/yy') : 'Calendario'}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="end">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={selectedDate}
+                                                    onSelect={(date) => {
+                                                        setSelectedDate(date);
+                                                        if (date) setFilterType('custom');
+                                                    }}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 {loading ? (
-                                    <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                                    <div className="flex justify-center p-12 transition-all opacity-100"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                                 ) : (
-                                    <div className="space-y-2">
-                                        {transactions.map((tx) => (
-                                            <div key={tx.id} className="flex items-center justify-between p-3 border rounded-xl hover:bg-muted/50 transition-colors">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`p-2 rounded-full ${tx.type === 'INCOME' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                                        {tx.type === 'INCOME' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                    <div className="space-y-3 min-h-[400px]">
+                                        {filteredTransactions.length > 0 ? (
+                                            filteredTransactions.map((tx, idx) => (
+                                                <div
+                                                    key={tx.id}
+                                                    className="group flex items-center justify-between p-4 border rounded-2xl hover:bg-muted/80 hover:border-primary/20 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+                                                    style={{ animationDelay: `${idx * 30}ms` }}
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${tx.type === 'INCOME' ? 'bg-green-500/10 text-green-500 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'bg-red-500/10 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.1)]'}`}>
+                                                            {tx.type === 'INCOME' ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-[15px] tracking-tight leading-none mb-1 lowercase first-letter:uppercase">{tx.description}</p>
+                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                                                                <span className="bg-muted px-1.5 py-0.5 rounded uppercase tracking-tighter text-[9px] opacity-70">{tx.category}</span>
+                                                                <span className="opacity-40">•</span>
+                                                                <span>{format(new Date(tx.date), 'dd MMMM, yyyy')}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-bold text-sm lowercase first-letter:uppercase">{tx.description}</p>
-                                                        <p className="text-xs text-muted-foreground">{tx.category} • {format(new Date(tx.date), 'dd/MM/yyyy')}</p>
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="text-right">
+                                                            <span className={`text-lg font-black tracking-tighter block leading-none ${tx.type === 'INCOME' ? 'text-green-500' : 'text-foreground'}`}>
+                                                                {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                                            </span>
+                                                            <Badge variant={tx.status === 'PAID' ? 'default' : tx.status === 'OVERDUE' ? 'destructive' : 'secondary'} className="text-[9px] h-4 mt-1 px-1 font-black uppercase tracking-widest leading-none border-none">
+                                                                {tx.status}
+                                                            </Badge>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-4">
-                                                    <span className={`font-black ${tx.type === 'INCOME' ? 'text-green-600' : 'text-foreground'}`}>
-                                                        {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
-                                                    </span>
-                                                    <Badge variant={tx.status === 'PAID' ? 'default' : tx.status === 'OVERDUE' ? 'destructive' : 'secondary'} className="text-[10px] uppercase">
-                                                        {tx.status}
-                                                    </Badge>
+                                            ))
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center p-20 text-center animate-in zoom-in-95 duration-500">
+                                                <div className="p-4 bg-muted/50 rounded-full mb-4">
+                                                    <FilterX className="h-10 w-10 text-muted-foreground/30" />
                                                 </div>
+                                                <h3 className="text-lg font-black uppercase tracking-tighter text-muted-foreground">No se encontraron movimientos</h3>
+                                                <p className="text-sm text-muted-foreground/60 max-w-[250px] mx-auto mt-2 font-medium">Prueba cambiando los filtros o selecciona otra fecha en el calendario.</p>
+                                                <Button
+                                                    variant="link"
+                                                    className="mt-4 text-primary font-black uppercase text-xs tracking-widest underline decoration-2 underline-offset-4"
+                                                    onClick={() => setFilterType('all')}
+                                                >
+                                                    Ver todo el historial
+                                                </Button>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
                         </Card>
                     </TabsContent>
+
 
                     {/* TAB Content: Overview / Mission Control */}
                     <TabsContent value="overview" className="space-y-6">

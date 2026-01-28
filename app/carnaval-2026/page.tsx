@@ -210,7 +210,7 @@ export default function LeadCaptureDemo() {
 
                                 <Button
                                     onClick={handleNext}
-                                    disabled={isSubmitting || (currentStepData.field && !formData[currentStepData.field as string])}
+                                    disabled={isSubmitting || (!!currentStepData.field && !formData[currentStepData.field as string])}
                                     className="w-full h-16 bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xl rounded-xl shadow-[0_0_20px_rgba(250,204,21,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
                                 >
                                     Siguiente

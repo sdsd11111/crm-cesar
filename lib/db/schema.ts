@@ -767,3 +767,24 @@ export const systemSettings = pgTable('system_settings', {
   value: jsonb('value').notNull().default({}),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+// ============================================
+// LEADS CAPTURAR CLIENTES - From PDF QR Multi-step Form
+// ============================================
+export const leadsCapturarClientes = pgTable('leads_capturar_clientes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fullName: text('full_name'),
+  phone: text('phone'),
+  location: text('location'),
+  referralSource: text('referral_source'),
+  birthDate: text('birth_date'), // Store as text or date
+  suggestions: text('suggestions'),
+  currentStep: integer('current_step').default(1),
+  status: text('status', { enum: ['incomplete', 'completed'] }).default('incomplete'),
+
+  // Metadata & Tracking
+  source: text('source').default('pdf_qr_carnaval'),
+  metadata: jsonb('metadata').default({}),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

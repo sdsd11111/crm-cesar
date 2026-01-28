@@ -3,12 +3,7 @@ import type { Metadata } from "next"
 import { Poppins } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
-import dynamic from "next/dynamic"
-
-// Lazy load heavy components
-const AIChatDrawer = dynamic(() => import("@/components/ai/ai-chat-drawer").then(mod => mod.AIChatDrawer), {
-  ssr: false,
-})
+import { GlobalWidgetsWrapper } from "@/components/layout/global-widgets-wrapper"
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -23,8 +18,6 @@ export const metadata: Metadata = {
   generator: "v0.app",
 }
 
-import { CalendarBookingButton } from "@/components/shared/CalendarBookingButton"
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,8 +27,7 @@ export default function RootLayout({
     <html lang="es" className={`${poppins.variable} antialiased dark`} suppressHydrationWarning>
       <body className="font-poppins bg-gray-900 text-white" suppressHydrationWarning>
         {children}
-        <AIChatDrawer />
-        <CalendarBookingButton />
+        <GlobalWidgetsWrapper />
         <Toaster />
       </body>
     </html>

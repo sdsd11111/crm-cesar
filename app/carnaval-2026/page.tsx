@@ -227,12 +227,17 @@ export default function LeadCaptureDemo() {
                                 </div>
 
                                 {/* Button 1: Save Contact (VCF) */}
-                                <Button
-                                    onClick={() => window.location.href = '/api/contact/vcard'}
-                                    className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3 animate-pulse ring-2 ring-white/20"
+                                <a
+                                    href="/contacto_objetivo.vcf"
+                                    download="Contacto_Objetivo_CRM.vcf"
+                                    className="w-full"
                                 >
-                                    📲 1. Guardar Contacto
-                                </Button>
+                                    <Button
+                                        className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3 animate-pulse ring-2 ring-white/20 pointer-events-none"
+                                    >
+                                        📲 1. Guardar Contacto
+                                    </Button>
+                                </a>
                                 <p className="text-white/60 text-xs mb-2">
                                     *Necesario para asegurar tu recompensa
                                 </p>

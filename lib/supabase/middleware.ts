@@ -35,12 +35,18 @@ export async function updateSession(request: NextRequest) {
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
   const isPublicApi = request.nextUrl.pathname.startsWith('/api/webhooks')
   const isHomePage = request.nextUrl.pathname === '/'
+  const isCarnavalPage = request.nextUrl.pathname.startsWith('/carnaval-2026')
+  const isCarnavalApi = request.nextUrl.pathname.startsWith('/api/leads/capture')
+  const isVcfDownload = request.nextUrl.pathname.endsWith('.vcf')
 
   if (
     !user &&
     !isAuthPage &&
     !isHomePage &&
-    !isPublicApi
+    !isPublicApi &&
+    !isCarnavalPage &&
+    !isCarnavalApi &&
+    !isVcfDownload
   ) {
     if (isApiRoute) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

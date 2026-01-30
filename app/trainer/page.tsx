@@ -757,8 +757,8 @@ export default function TrainerPage() {
                 body: JSON.stringify({
                     columna1: selectedLead.source === 'discovery' ? callOutcome : undefined,
                     columna2: selectedLead.source === 'discovery' ? callAction : undefined,
-                    status: selectedLead.source === 'discovery' && callAction === 'convertir_a_lead'
-                        ? 'converted'
+                    status: selectedLead.source === 'discovery'
+                        ? (callAction === 'convertir_a_lead' ? 'converted' : (callAction === 'descartar' ? 'discarded' : undefined))
                         : (selectedLead.source === 'lead' ? callOutcome : undefined)
                 })
             });

@@ -599,7 +599,7 @@ export const discoveryLeads = pgTable('discovery_leads', {
   googleInfo: text('google_info'),
   investigacion: text('investigacion'), // Added based on user feedback
   status: text('status', {
-    enum: ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted']
+    enum: ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted', 'discarded']
   }).default('pending'),
 
 

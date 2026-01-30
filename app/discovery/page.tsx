@@ -188,7 +188,7 @@ interface DiscoveryLead {
     email: string | null;
     address: string | null;
     researchData: string | null;
-    status: 'pending' | 'investigated' | 'no_answer' | 'not_interested' | 'sent_info' | 'converted';
+    status: 'pending' | 'investigated' | 'no_answer' | 'not_interested' | 'sent_info' | 'converted' | 'discarded';
     columna1: 'no_contactado' | 'no_contesto' | 'contesto_interesado' | 'contesto_no_interesado' | 'buzon_voz' | 'numero_invalido';
     columna2: 'pendiente' | 'en_cola' | 'convertir_a_lead' | 'descartar' | 'seguimiento_7_dias' | 'seguimiento_30_dias';
     clasificacion: string | null;
@@ -406,6 +406,7 @@ export default function DiscoveryPage() {
             not_interested: { label: 'No Interesado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
             sent_info: { label: 'Info Enviada', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
             converted: { label: 'Convertido', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
+            discarded: { label: 'Descartado', color: 'bg-red-500/10 text-red-500 border-red-500/20' },
         };
         const { label, color } = config[status] || config.pending;
         return <Badge className={`${color} border`}>{label}</Badge>;
@@ -416,11 +417,12 @@ export default function DiscoveryPage() {
         return value !== '';
     }).length;
 
-    const statusOptions = ["Pendiente", "Investigado", "No contestó", "Contestó / Interesado", "Contestó / No interesa hoy", "Convertido"];
+    const statusOptions = ["Pendiente", "Investigado", "No contestó", "Contestó / Interesado", "Contestó / No interesa hoy", "Convertido", "Descartado"];
     const selectedStatusLabels = [
         ...(filters.status.includes('pending') ? ["Pendiente"] : []),
         ...(filters.status.includes('investigated') ? ["Investigado"] : []),
         ...(filters.status.includes('converted') ? ["Convertido"] : []),
+        ...(filters.status.includes('discarded') ? ["Descartado"] : []),
         ...(filters.columna1.includes('no_contesto') ? ["No contestó"] : []),
         ...(filters.columna1.includes('contesto_interesado') ? ["Contestó / Interesado"] : []),
         ...(filters.columna1.includes('contesto_no_interesado') ? ["Contestó / No interesa hoy"] : []),
@@ -552,6 +554,7 @@ export default function DiscoveryPage() {
                                         if (val === "Pendiente") newStatus.push("pending");
                                         if (val === "Investigado") newStatus.push("investigated");
                                         if (val === "Convertido") newStatus.push("converted");
+                                        if (val === "Descartado") newStatus.push("discarded");
                                         if (val === "No contestó") newCol1.push("no_contesto");
                                         if (val === "Contestó / Interesado") newCol1.push("contesto_interesado");
                                         if (val === "Contestó / No interesa hoy") newCol1.push("contesto_no_interesado");

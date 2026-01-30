@@ -26,28 +26,28 @@ export async function GET(request: Request) {
             const conditions = [];
 
             if (provincia && provincia !== 'all' && excludeField !== 'provincia') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.provincia})`, provincia.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.provincia})`, provincia.split('|').map(v => v.toLowerCase()) as any));
             }
             if (canton && canton !== 'all' && excludeField !== 'canton') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.canton})`, canton.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.canton})`, canton.split('|').map(v => v.toLowerCase()) as any));
             }
             if (actividad && actividad !== 'all' && excludeField !== 'actividad') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.actividadModalidad})`, actividad.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.actividadModalidad})`, actividad.split('|').map(v => v.toLowerCase()) as any));
             }
             if (categoria && categoria !== 'all' && excludeField !== 'categoria') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.categoria})`, categoria.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.categoria})`, categoria.split('|').map(v => v.toLowerCase()) as any));
             }
             if (clasificacion && clasificacion !== 'all' && excludeField !== 'clasificacion') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.clasificacion})`, clasificacion.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.clasificacion})`, clasificacion.split('|').map(v => v.toLowerCase()) as any));
             }
             if (status && status !== 'all' && excludeField !== 'status') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.status})`, status.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.status})`, status.split('|').map(v => v.toLowerCase()) as any));
             }
             if (col1 && col1 !== 'all' && excludeField !== 'col1') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.columna1})`, col1.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.columna1})`, col1.split('|').map(v => v.toLowerCase()) as any));
             }
             if (col2 && col2 !== 'all' && excludeField !== 'col2') {
-                conditions.push(inArray(sql`lower(${discoveryLeads.columna2})`, col2.split(',').map(v => v.toLowerCase()) as any));
+                conditions.push(inArray(sql`lower(${discoveryLeads.columna2})`, col2.split('|').map(v => v.toLowerCase()) as any));
             }
 
             return conditions.length > 0 ? and(...conditions) : undefined;

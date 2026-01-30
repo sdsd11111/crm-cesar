@@ -253,14 +253,14 @@ export default function DiscoveryPage() {
     async function fetchFacets() {
         try {
             const params = new URLSearchParams();
-            if (filters.provincia && filters.provincia.length > 0) params.append('provincia', filters.provincia.join(','));
-            if (filters.canton && filters.canton.length > 0) params.append('canton', filters.canton.join(','));
-            if (filters.actividad_modalidad && filters.actividad_modalidad.length > 0) params.append('actividad_modalidad', filters.actividad_modalidad.join(','));
-            if (filters.categoria && filters.categoria.length > 0) params.append('categoria', filters.categoria.join(','));
-            if (filters.clasificacion && filters.clasificacion.length > 0) params.append('clasificacion', filters.clasificacion.join(','));
-            if (filters.status && filters.status.length > 0) params.append('status', filters.status.join(','));
-            if (filters.columna1 && filters.columna1.length > 0) params.append('columna1', filters.columna1.join(','));
-            if (filters.columna2 && filters.columna2.length > 0) params.append('columna2', filters.columna2.join(','));
+            if (filters.provincia && filters.provincia.length > 0) params.append('provincia', filters.provincia.join('|'));
+            if (filters.canton && filters.canton.length > 0) params.append('canton', filters.canton.join('|'));
+            if (filters.actividad_modalidad && filters.actividad_modalidad.length > 0) params.append('actividad_modalidad', filters.actividad_modalidad.join('|'));
+            if (filters.categoria && filters.categoria.length > 0) params.append('categoria', filters.categoria.join('|'));
+            if (filters.clasificacion && filters.clasificacion.length > 0) params.append('clasificacion', filters.clasificacion.join('|'));
+            if (filters.status && filters.status.length > 0) params.append('status', filters.status.join('|'));
+            if (filters.columna1 && filters.columna1.length > 0) params.append('columna1', filters.columna1.join('|'));
+            if (filters.columna2 && filters.columna2.length > 0) params.append('columna2', filters.columna2.join('|'));
 
             const res = await fetch(`/api/discovery/facets?${params.toString()}`);
             const data = await res.json();
@@ -286,14 +286,14 @@ export default function DiscoveryPage() {
         try {
             setLoading(true);
             const params = new URLSearchParams();
-            if (filters.provincia && filters.provincia.length > 0) params.append('provincia', filters.provincia.join(','));
-            if (filters.canton && filters.canton.length > 0) params.append('canton', filters.canton.join(','));
-            if (filters.actividad_modalidad && filters.actividad_modalidad.length > 0) params.append('actividad_modalidad', filters.actividad_modalidad.join(','));
-            if (filters.categoria && filters.categoria.length > 0) params.append('categoria', filters.categoria.join(','));
-            if (filters.clasificacion && filters.clasificacion.length > 0) params.append('clasificacion', filters.clasificacion.join(','));
-            if (filters.status && filters.status.length > 0) params.append('status', filters.status.join(','));
-            if (filters.columna1 && filters.columna1.length > 0) params.append('columna1', filters.columna1.join(','));
-            if (filters.columna2 && filters.columna2.length > 0) params.append('columna2', filters.columna2.join(','));
+            if (filters.provincia && filters.provincia.length > 0) params.append('provincia', filters.provincia.join('|'));
+            if (filters.canton && filters.canton.length > 0) params.append('canton', filters.canton.join('|'));
+            if (filters.actividad_modalidad && filters.actividad_modalidad.length > 0) params.append('actividad_modalidad', filters.actividad_modalidad.join('|'));
+            if (filters.categoria && filters.categoria.length > 0) params.append('categoria', filters.categoria.join('|'));
+            if (filters.clasificacion && filters.clasificacion.length > 0) params.append('clasificacion', filters.clasificacion.join('|'));
+            if (filters.status && filters.status.length > 0) params.append('status', filters.status.join('|'));
+            if (filters.columna1 && filters.columna1.length > 0) params.append('columna1', filters.columna1.join('|'));
+            if (filters.columna2 && filters.columna2.length > 0) params.append('columna2', filters.columna2.join('|'));
             if (filters.search) params.append('search', filters.search);
             params.append('page', (pagination?.page || 1).toString());
             params.append('limit', (pagination?.limit || 50).toString());

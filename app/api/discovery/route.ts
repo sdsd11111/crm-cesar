@@ -27,23 +27,23 @@ export async function GET(request: Request) {
         const filters: any[] = [];
 
         if (provincia && provincia !== 'all') {
-            const values = provincia.split(',').map(v => v.toLowerCase());
+            const values = provincia.split('|').map(v => v.toLowerCase());
             filters.push(inArray(sql`lower(${discoveryLeads.provincia})`, values));
         }
         if (canton && canton !== 'all') {
-            const values = canton.split(',').map(v => v.toLowerCase());
+            const values = canton.split('|').map(v => v.toLowerCase());
             filters.push(inArray(sql`lower(${discoveryLeads.canton})`, values));
         }
         if (actividadModalidad && actividadModalidad !== 'all') {
-            const values = actividadModalidad.split(',').map(v => v.toLowerCase());
+            const values = actividadModalidad.split('|').map(v => v.toLowerCase());
             filters.push(inArray(sql`lower(${discoveryLeads.actividadModalidad})`, values));
         }
         if (categoria && categoria !== 'all') {
-            const values = categoria.split(',').map(v => v.toLowerCase());
+            const values = categoria.split('|').map(v => v.toLowerCase());
             filters.push(inArray(sql`lower(${discoveryLeads.categoria})`, values));
         }
         if (clasificacion && clasificacion !== 'all') {
-            const values = clasificacion.split(',').map(v => v.toLowerCase());
+            const values = clasificacion.split('|').map(v => v.toLowerCase());
             filters.push(inArray(sql`lower(${discoveryLeads.clasificacion})`, values));
         }
         if (web) {
@@ -53,11 +53,11 @@ export async function GET(request: Request) {
             filters.push(ilike(discoveryLeads.correoElectronico, `%${email}%`));
         }
         if (status && status !== 'all') {
-            const values = status.split(',');
+            const values = status.split('|');
             filters.push(inArray(discoveryLeads.status, values as any));
         }
         if (col1 && col1 !== 'all') {
-            const values = col1.split(',');
+            const values = col1.split('|');
             filters.push(inArray(discoveryLeads.columna1, values as any));
 
             // Smart exclusion: When filtering "Pendientes de Contacto" (no_contactado),
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
             }
         }
         if (col2 && col2 !== 'all') {
-            const values = col2.split(',');
+            const values = col2.split('|');
             filters.push(inArray(discoveryLeads.columna2, values as any));
         }
         if (search) {

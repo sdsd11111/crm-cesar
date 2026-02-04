@@ -865,7 +865,13 @@ export default function ChatCenterPage() {
                                                         </Badge>
                                                     </div>
 
-                                                    <div className="flex justify-between items-center bg-purple-500/10 p-2 px-3 rounded-lg border border-purple-500/20">
+                                                    <div className="flex items-center gap-3 bg-purple-500/10 p-2 px-3 rounded-lg border border-purple-500/20">
+                                                        <Switch
+                                                            checked={fullDetails.botMode === 'active'}
+                                                            onCheckedChange={handleToggleBot}
+                                                            disabled={isSavingDetails}
+                                                            className="data-[state=checked]:bg-purple-600"
+                                                        />
                                                         <div className="flex items-center gap-2">
                                                             <Bot size={14} className={fullDetails.botMode === 'active' ? "text-purple-400" : "text-gray-500"} />
                                                             <div className="flex flex-col">
@@ -873,12 +879,6 @@ export default function ChatCenterPage() {
                                                                 <span className="text-[9px] text-gray-500 font-medium">{fullDetails.botMode === 'active' ? 'ENCENDIDO' : 'PAUSADO'}</span>
                                                             </div>
                                                         </div>
-                                                        <Switch
-                                                            checked={fullDetails.botMode === 'active'}
-                                                            onCheckedChange={handleToggleBot}
-                                                            disabled={isSavingDetails}
-                                                            className="data-[state=checked]:bg-purple-600"
-                                                        />
                                                     </div>
                                                     <Button
                                                         onClick={handleGenerateProposal}

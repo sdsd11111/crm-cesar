@@ -12,9 +12,9 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "auth:create-admin": "tsx scripts/create-admin-user.ts",
-    "worker:notifications": "tsx scripts/notification_worker.ts",
-    "worker:messages": "tsx scripts/message_worker.ts",
-    "sync:discovery": "tsx scripts/discovery_batch_sync.ts"
+    "worker:notifications": "tsx --env-file=.env.local scripts/notification_worker.ts",
+    "worker:messages": "tsx --env-file=.env.local scripts/message_worker.ts",
+    "sync:discovery": "tsx --env-file=.env.local scripts/discovery_batch_sync.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

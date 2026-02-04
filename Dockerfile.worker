@@ -20,9 +20,8 @@ RUN npm install
 # Copiar el resto del código
 COPY . .
 
-# El worker no necesita exponer puertos, pero algunos servicios de hosting
-# requieren que escuches en uno. Si Render lo pide, podrías descomentar esto:
-# EXPOSE 3000
+# El worker necesita exponer un puerto para Render Free Tier
+EXPOSE 10000
 
 # Comando para ejecutar el worker
 # Nota: En producción usaremos variables de entorno del dashboard de Render

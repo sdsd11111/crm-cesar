@@ -1,0 +1,30 @@
+# Usar una imagen de Node ligera
+FROM node:20-slim
+
+# Directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias necesarias para compilar algunos paquetes si fuera necesario
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar dependencias (incluyendo devDependencies para poder usar tsx)
+RUN npm install
+
+# Copiar el resto del código
+COPY . .
+
+# El worker no necesita exponer puertos, pero algunos servicios de hosting
+# requieren que escuches en uno. Si Render lo pide, podrías descomentar esto:
+# EXPOSE 3000
+
+# Comando para ejecutar el worker
+# Nota: En producción usaremos variables de entorno del dashboard de Render
+# No cargaremos el .env.local físicamente.
+CMD ["npx", "tsx", "scripts/message_worker.ts"]

@@ -2,14 +2,32 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 import { db } from '../lib/db';
 import { pendingMessagesQueue } from '../lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, or, desc } from 'drizzle-orm';
 import { cortexRouter } from '../lib/donna/services/CortexRouterService';
 
 const ACCUMULATION_WINDOW_MS = 25000; // 25 seconds
 const POLL_INTERVAL_MS = 5000; // 5 seconds
+const OFFICE_HOURS_START = 8; // 8 AM
+const OFFICE_HOURS_END = 20; // 8 PM (20:00)
+
+function isOfficeHours() {
+    const now = new Date();
+    // Use local time for business hours
+    const hour = now.getHours();
+    return hour >= OFFICE_HOURS_START && hour < OFFICE_HOURS_END;
+}
 
 async function processQueue() {
     try {
+        // Only process if within business hours
+        if (!isOfficeHours()) {
+            // Optional: You could still keep the queue but not process
+            // For now, let's just log and skip
+            // console.log(`😴 Outside office hours (${new Date().getHours()}h). Donna is sleeping...`);
+            setTimeout(processQueue, POLL_INTERVAL_MS * 12); // Poll less frequently at night (every 1 min)
+            return;
+        }
+
         // 1. Get unique chatIds that have pending messages
         const pendingChats = await db.select({
             chatId: pendingMessagesQueue.chatId,
@@ -29,14 +47,13 @@ async function processQueue() {
             const timeDiff = now.getTime() - firstReceived.getTime();
 
             if (timeDiff >= ACCUMULATION_WINDOW_MS) {
-                readyChats.push(chat);
+                readyChats.push({ ...chat, firstReceived });
             } else {
                 typingRefreshChats.push(chat);
             }
         }
 
         // 3. Process READY chats in PARALLEL
-        // This ensures that 100 people don't wait for each other's AI to finish
         if (readyChats.length > 0) {
             console.log(`🚀 Processing batch for ${readyChats.length} chats in parallel...`);
             await Promise.all(readyChats.map(async (chat) => {
@@ -51,18 +68,69 @@ async function processQueue() {
                     const messageIds = messages.map(m => m.id);
                     const unifiedContent = messages.map(m => m.content).join('\n');
 
-                    // B. Trigger Donna
-                    const { contacts, contactChannels } = await import('../lib/db/schema');
+                    // B. Trigger Donna with Safety Checks
+                    const { contacts, contactChannels, discoveryLeads, interactions } = await import('../lib/db/schema');
                     const [contact] = await db.select()
                         .from(contacts)
                         .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
                         .where(eq(contactChannels.identifier, chat.chatId))
                         .limit(1);
 
+                    let finalContactId = contact?.contacts?.id;
+                    let finalDiscoveryLeadId = null;
+                    let botMode = contact?.contacts?.botMode || 'active';
+
+                    if (!finalContactId) {
+                        const [discovery] = await db.select()
+                            .from(discoveryLeads)
+                            .where(eq(discoveryLeads.telefonoPrincipal, chat.chatId))
+                            .limit(1);
+                        if (discovery) {
+                            finalDiscoveryLeadId = discovery.id;
+                            botMode = discovery.botMode || 'active';
+                        }
+                    }
+
+                    // 1. Check Bot Mode
+                    if (botMode !== 'active') {
+                        console.log(`🔕 Bot is ${botMode} for ${chat.chatId}. Aborting and clearing queue.`);
+                        await db.delete(pendingMessagesQueue).where(sql`id IN ${messageIds}`);
+                        return;
+                    }
+
+                    // 2. Check for Human Intervention (Handover)
+                    const [lastOutbound] = await db.select()
+                        .from(interactions)
+                        .where(
+                            and(
+                                eq(interactions.direction, 'outbound'),
+                                or(
+                                    finalContactId ? eq(interactions.contactId, finalContactId) : sql`false`,
+                                    finalDiscoveryLeadId ? eq(interactions.discoveryLeadId, finalDiscoveryLeadId) : sql`false`,
+                                    sql`metadata->>'phoneNumber' = ${chat.chatId}`
+                                )
+                            )
+                        )
+                        .orderBy(desc(interactions.performedAt))
+                        .limit(1);
+
+                    if (lastOutbound) {
+                        const lastOutboundTime = new Date(lastOutbound.performedAt).getTime();
+                        const firstMessageTime = chat.firstReceived.getTime();
+
+                        // If a human responded AFTER the first message was received in this batch
+                        // AND the response doesn't contain the Donna prefix (meaning it's manual)
+                        if (lastOutboundTime > firstMessageTime && !lastOutbound.content?.includes('Donna:')) {
+                            console.log(`👤 Human intervention detected for ${chat.chatId}. Donna aborts.`);
+                            await db.delete(pendingMessagesQueue).where(sql`id IN ${messageIds}`);
+                            return;
+                        }
+                    }
+
                     await cortexRouter.processInput({
                         text: unifiedContent,
                         source: 'client',
-                        contactId: contact?.contacts?.id,
+                        contactId: finalContactId,
                         chatId: chat.chatId
                     });
 

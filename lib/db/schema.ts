@@ -602,6 +602,7 @@ export const discoveryLeads = pgTable('discovery_leads', {
   status: text('status', {
     enum: ['pending', 'investigated', 'no_answer', 'not_interested', 'sent_info', 'converted', 'discarded']
   }).default('pending'),
+  botMode: text('bot_mode', { enum: ['active', 'paused', 'disabled'] }).default('active'),
 
 
 

@@ -1,0 +1,23 @@
+services:
+  - type: worker
+    name: crm-message-worker
+    runtime: docker
+    dockerfilePath: Dockerfile.worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: # Si usas base de datos interna de Render, si no pon el valor directo
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: META_WA_ACCESS_TOKEN
+        sync: false
+      - key: META_WA_PHONE_NUMBER_ID
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

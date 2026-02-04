@@ -63,6 +63,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 // Definición de las columnas lógicas
@@ -179,6 +180,35 @@ export default function ChatCenterPage() {
             console.error('Error fetching details:', error);
         } finally {
             setIsFetchingDetails(false);
+        }
+    };
+
+    const handleToggleBot = async (checked: boolean) => {
+        if (!selectedChat || !fullDetails) return;
+        const newMode = checked ? 'active' : 'paused';
+
+        setIsSavingDetails(true);
+        try {
+            const res = await fetch(`/api/whatsapp/chats/${selectedChat.id}/details`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: selectedChat.entityType,
+                    botMode: newMode
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setFullDetails(data.data);
+                toast({
+                    title: newMode === 'active' ? "Donna Activada" : "Donna Pausada",
+                    description: `El asistente ${newMode === 'active' ? 'ahora responderá' : 'ya no responderá'} a este chat.`
+                });
+            }
+        } catch (error: any) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        } finally {
+            setIsSavingDetails(false);
         }
     };
 
@@ -833,6 +863,22 @@ export default function ChatCenterPage() {
                                                         <Badge className="bg-amber-500 text-black font-extrabold h-6">
                                                             ${selectedChat.debts || 0}
                                                         </Badge>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center bg-purple-500/10 p-2 px-3 rounded-lg border border-purple-500/20">
+                                                        <div className="flex items-center gap-2">
+                                                            <Bot size={14} className={fullDetails.botMode === 'active' ? "text-purple-400" : "text-gray-500"} />
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] font-bold text-purple-300 uppercase leading-tight">Asistente Donna</span>
+                                                                <span className="text-[9px] text-gray-500 font-medium">{fullDetails.botMode === 'active' ? 'ENCENDIDO' : 'PAUSADO'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <Switch
+                                                            checked={fullDetails.botMode === 'active'}
+                                                            onCheckedChange={handleToggleBot}
+                                                            disabled={isSavingDetails}
+                                                            className="data-[state=checked]:bg-purple-600"
+                                                        />
                                                     </div>
                                                     <Button
                                                         onClick={handleGenerateProposal}

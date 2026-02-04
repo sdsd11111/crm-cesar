@@ -257,8 +257,45 @@ export class CortexRouterService {
 
             // Wait, if it's a client, Donna should just talk.
             if (input.source === 'client' && parsed.intent === 'CHAT') {
-                await this.sendMessage(parsed.data?.response || parsed.reasoning, replyContext, 'whatsapp');
-                return { status: 'success', response: parsed.data?.response };
+                const responseText = parsed.data?.response || parsed.reasoning || '';
+
+                // 🎥 VIDEO INTERCEPTION LOGIC
+                if (responseText.includes('[SEND_VIDEO_CARNAVAL]')) {
+                    const parts = responseText.split('[SEND_VIDEO_CARNAVAL]');
+
+                    // Part 1: Intro Text
+                    if (parts[0].trim()) {
+                        await this.sendMessage(parts[0].trim(), replyContext, 'whatsapp');
+                    }
+
+                    // Part 2: The Video (César's Video)
+                    // We assume the app is deployed on a public URL.
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://crm-objetivo.vercel.app';
+                    const videoUrl = `${baseUrl}/assets/carnaval_2026_video.mp4`;
+
+                    await messagingService.send(input.chatId || '', '',
+                        { type: 'system_video' },
+                        {
+                            type: 'video',
+                            url: videoUrl,
+                            caption: '🎬 Estrategia Carnaval 2026 - César Reyes'
+                        }
+                    ).catch(e => {
+                        console.error('Failed to send video:', e);
+                        this.sendMessage(`(No se pudo cargar el video, pero aquí está el enlace: ${videoUrl})`, replyContext, 'whatsapp');
+                    });
+
+                    // Part 3: Closing Text + Link
+                    if (parts[1] && parts[1].trim()) {
+                        await this.sendMessage(parts[1].trim(), replyContext, 'whatsapp');
+                    }
+
+                } else {
+                    // Normal Text Response
+                    await this.sendMessage(responseText, replyContext, 'whatsapp');
+                }
+
+                return { status: 'success', response: responseText };
             }
 
             // --- ENTITY RESOLUTION ---

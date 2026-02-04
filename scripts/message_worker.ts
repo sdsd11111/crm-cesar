@@ -1,6 +1,6 @@
 import { db } from '../lib/db';
 import { pendingMessagesQueue } from '../lib/db/schema';
-import { eq, sql, lt } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { cortexRouter } from '../lib/donna/services/CortexRouterService';
 
 const ACCUMULATION_WINDOW_MS = 25000; // 25 seconds
@@ -25,37 +25,44 @@ async function processQueue() {
             if (timeDiff >= ACCUMULATION_WINDOW_MS) {
                 console.log(`🚀 Processing batch for ${chat.chatId} (Accumulated for ${timeDiff}ms)`);
 
-                // A. Fetch all messages for this chat
+                // A. Fetch all message IDs for this chat to avoid race conditions
                 const messages = await db.select()
                     .from(pendingMessagesQueue)
                     .where(eq(pendingMessagesQueue.chatId, chat.chatId))
                     .orderBy(pendingMessagesQueue.receivedAt);
 
                 if (messages.length === 0) continue;
+                const messageIds = messages.map(m => m.id);
 
                 // B. Construct unified content
                 const unifiedContent = messages.map(m => m.content).join('\n');
 
                 // C. Trigger Donna
-                // We need to resolve the contactId if possible
-                const { contacts } = await import('../lib/db/schema');
-                const [contact] = await db.select().from(contacts)
-                    .where(sql`${contacts.phone} LIKE ${'%' + chat.chatId.slice(-9)}`)
+                const { contacts, contactChannels } = await import('../lib/db/schema');
+                const [contact] = await db.select()
+                    .from(contacts)
+                    .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
+                    .where(eq(contactChannels.identifier, chat.chatId))
                     .limit(1);
 
                 await cortexRouter.processInput({
                     text: unifiedContent,
                     source: 'client',
-                    contactId: contact?.id,
+                    contactId: contact?.contacts?.id,
                     chatId: chat.chatId
                 }).catch(e => console.error(`Cortex error for ${chat.chatId}:`, e));
 
-                // D. CLEAR QUEUE (Critical: physically delete records)
+                // D. CLEAR QUEUE (ONLY processed IDs)
                 await db.delete(pendingMessagesQueue)
-                    .where(eq(pendingMessagesQueue.chatId, chat.chatId));
+                    .where(sql`id IN ${messageIds}`);
 
-                console.log(`✅ Batch processed and queue cleared for ${chat.chatId}`);
+                console.log(`✅ Batch processed and queue cleared for ${chat.chatId} (${messageIds.length} msgs)`);
             } else {
+                // E. REFRESH TYPING INDICATOR while waiting
+                // Dynamically import to avoid circular dependencies if any
+                import('../lib/whatsapp/WhatsAppService').then(({ whatsappService }) => {
+                    whatsappService.sendTypingAction(chat.chatId).catch(() => { });
+                });
                 console.log(`⏳ Waiting for ${chat.chatId} (${ACCUMULATION_WINDOW_MS - timeDiff}ms left)`);
             }
         }

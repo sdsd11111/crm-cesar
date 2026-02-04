@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { contacts, events, interactions, tasks } from '@/lib/db/schema';
+import { contacts, events, interactions, tasks, contactChannels } from '@/lib/db/schema';
 import { conversationStates, discoveryLeads, donnaChatMessages } from '../../db/schema';
 import { messagingService } from '@/lib/messaging/MessagingService';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';

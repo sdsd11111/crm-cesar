@@ -38,11 +38,9 @@ export class WhatsAppService {
         }
 
         try {
-            // 1. Clean phone number
             const cleanPhone = phone.replace(/\D/g, '');
             const last9 = cleanPhone.slice(-9);
 
-            // 2. Flexible Match for Contact/Opt-Out
             const [contact] = await db
                 .select()
                 .from(contacts)
@@ -54,7 +52,6 @@ export class WhatsAppService {
                 return { success: false, error: 'Contact opted out' };
             }
 
-            // 3. Build Meta Payload
             let payload: any = {
                 messaging_product: "whatsapp",
                 recipient_type: "individual",
@@ -76,7 +73,6 @@ export class WhatsAppService {
                 };
             }
 
-            // 4. Send via Meta API
             const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
             const response = await axios.post(url, payload, {
                 headers: {
@@ -85,7 +81,6 @@ export class WhatsAppService {
                 }
             });
 
-            // 5. LOG SUCCESS (DB Interactions & Logs)
             try {
                 let contactId = contact?.id || null;
                 let discoveryLeadId = null;
@@ -98,7 +93,6 @@ export class WhatsAppService {
                     if (lead) {
                         discoveryLeadId = lead.id;
                     } else {
-                        console.log(`👤 [Outbound] Creating Ghost Prospect for unknown number: ${cleanPhone}`);
                         const [newContact] = await db.insert(contacts).values({
                             businessName: `WhatsApp ${cleanPhone.slice(-4)}`,
                             contactName: 'Nuevo Contacto (WhatsApp)',
@@ -114,7 +108,6 @@ export class WhatsAppService {
 
                 const logContent = media ? `[Multimedia: ${media.type}] ${media.caption || ''}` : text;
 
-                // A. Insert into Interactions (Audit)
                 await db.insert(interactions).values({
                     contactId: contactId,
                     discoveryLeadId: discoveryLeadId,
@@ -130,7 +123,6 @@ export class WhatsAppService {
                     }
                 });
 
-                // B. Insert into WhatsApp Logs (Technical Audit)
                 await db.insert(whatsappLogs).values({
                     contactId: contactId,
                     trigger: metadata.type || 'system',
@@ -151,9 +143,6 @@ export class WhatsAppService {
         }
     }
 
-    /**
-     * Uploads media to Meta Cloud API to get a media_id
-     */
     async uploadMedia(fileBuffer: Buffer, fileName: string, mimeType: string, type: string) {
         const { accessToken, phoneNumberId } = this.getCredentials();
         const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/media`;
@@ -169,7 +158,6 @@ export class WhatsAppService {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
-                    // fetch automatically sets boundary for FormData
                 },
                 body: formData
             });
@@ -187,13 +175,9 @@ export class WhatsAppService {
         }
     }
 
-    /**
-     * Downloads media from Meta Cloud API
-     */
     async getMedia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
         const { accessToken } = this.getCredentials();
         try {
-            // 1. Get the media URL from the ID
             const infoUrl = `https://graph.facebook.com/${this.version}/${mediaId}`;
             const infoRes = await axios.get(infoUrl, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -204,7 +188,6 @@ export class WhatsAppService {
 
             if (!mediaUrl) return null;
 
-            // 2. Download the actual binary
             const downloadRes = await axios.get(mediaUrl, {
                 headers: { 'Authorization': `Bearer ${accessToken}` },
                 responseType: 'arraybuffer'
@@ -220,9 +203,6 @@ export class WhatsAppService {
         }
     }
 
-    /**
-     * Sends a template message
-     */
     async sendTemplate(phone: string, templateName: string, languageCode: string = 'es_ES', components: any[] = []): Promise<any> {
         const { accessToken, phoneNumberId } = this.getCredentials();
         const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
@@ -249,40 +229,32 @@ export class WhatsAppService {
             const errorData = error.response?.data?.error || { message: error.message };
             return { success: false, error: errorData.message, details: errorData };
         }
-    /**
-     * Sends a typing/composing indicator to WhatsApp
-     * @param phone Phone number
-     * @param action 'typing' or 'typing_on' (Meta uses "typing" as a reading indicator or specific mark)
-     * For "typing..." indicator Meta uses mark_as_read or specific status setters.
-     * Note: Meta Cloud API status "typing" is often triggered via specific endpoints.
-     */
-    async sendTypingAction(phone: string): Promise < any > {
-            const { accessToken, phoneNumberId } = this.getCredentials();
-            const cleanPhone = phone.replace(/\D/g, '');
-            const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
-
-            try {
-                const payload = {
-                    messaging_product: "whatsapp",
-                    recipient_type: "individual",
-                    to: cleanPhone,
-                    sender_action: "typing_on" // some versions of API support this
-                };
-
-                const response = await axios.post(url, payload, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                return { success: true, data: response.data };
-            } catch(error: any) {
-                // Some API versions don't support sender_action directly or require different endpoints.
-                // We'll log it but not fail the main flow.
-                console.warn('⚠️ sendTypingAction might not be supported on this Meta version/account');
-                return { success: false };
-            }
-        }
     }
 
-    export const whatsappService = new WhatsAppService();
+    async sendTypingAction(phone: string): Promise<any> {
+        const { accessToken, phoneNumberId } = this.getCredentials();
+        const cleanPhone = phone.replace(/\D/g, '');
+        const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
+
+        try {
+            const payload = {
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: cleanPhone,
+                sender_action: "typing_on"
+            };
+
+            const response = await axios.post(url, payload, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            return { success: true, data: response.data };
+        } catch (error: any) {
+            return { success: false };
+        }
+    }
+}
+
+export const whatsappService = new WhatsAppService();

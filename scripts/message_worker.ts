@@ -19,14 +19,11 @@ function isOfficeHours() {
 
 async function processQueue() {
     try {
-        // Only process if within business hours
-        if (!isOfficeHours()) {
-            // Optional: You could still keep the queue but not process
-            // For now, let's just log and skip
-            // console.log(`😴 Outside office hours (${new Date().getHours()}h). Donna is sleeping...`);
-            setTimeout(processQueue, POLL_INTERVAL_MS * 12); // Poll less frequently at night (every 1 min)
-            return;
-        }
+        // TEMPORARILY DISABLED - Processing all messages immediately
+        // if (!isOfficeHours()) {
+        //     setTimeout(processQueue, POLL_INTERVAL_MS * 12);
+        //     return;
+        // }
 
         // 1. Get unique chatIds that have pending messages
         const pendingChats = await db.select({

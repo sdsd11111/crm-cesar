@@ -20,58 +20,77 @@ async function processQueue() {
 
         const now = new Date();
 
+        // 2. Filter chats that are ready and chats that need a typing refresh
+        const readyChats = [];
+        const typingRefreshChats = [];
+
         for (const chat of pendingChats) {
-            const firstReceived = new Date(chat.firstUpdate);
+            const firstReceived = new Date(chat.firstUpdate + 'Z');
             const timeDiff = now.getTime() - firstReceived.getTime();
 
             if (timeDiff >= ACCUMULATION_WINDOW_MS) {
-                console.log(`🚀 Processing batch for ${chat.chatId} (Accumulated for ${timeDiff}ms)`);
-
-                // A. Fetch all message IDs for this chat to avoid race conditions
-                const messages = await db.select()
-                    .from(pendingMessagesQueue)
-                    .where(eq(pendingMessagesQueue.chatId, chat.chatId))
-                    .orderBy(pendingMessagesQueue.receivedAt);
-
-                if (messages.length === 0) continue;
-                const messageIds = messages.map(m => m.id);
-
-                // B. Construct unified content
-                const unifiedContent = messages.map(m => m.content).join('\n');
-
-                // C. Trigger Donna
-                const { contacts, contactChannels } = await import('../lib/db/schema');
-                const [contact] = await db.select()
-                    .from(contacts)
-                    .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
-                    .where(eq(contactChannels.identifier, chat.chatId))
-                    .limit(1);
-
-                await cortexRouter.processInput({
-                    text: unifiedContent,
-                    source: 'client',
-                    contactId: contact?.contacts?.id,
-                    chatId: chat.chatId
-                }).catch(e => console.error(`Cortex error for ${chat.chatId}:`, e));
-
-                // D. CLEAR QUEUE (ONLY processed IDs)
-                await db.delete(pendingMessagesQueue)
-                    .where(sql`id IN ${messageIds}`);
-
-                console.log(`✅ Batch processed and queue cleared for ${chat.chatId} (${messageIds.length} msgs)`);
+                readyChats.push(chat);
             } else {
-                // E. REFRESH TYPING INDICATOR while waiting
-                // Dynamically import to avoid circular dependencies if any
-                import('../lib/whatsapp/WhatsAppService').then(({ whatsappService }) => {
-                    whatsappService.sendTypingAction(chat.chatId).catch(() => { });
-                });
-                console.log(`⏳ Waiting for ${chat.chatId} (${ACCUMULATION_WINDOW_MS - timeDiff}ms left)`);
+                typingRefreshChats.push(chat);
             }
         }
+
+        // 3. Process READY chats in PARALLEL
+        // This ensures that 100 people don't wait for each other's AI to finish
+        if (readyChats.length > 0) {
+            console.log(`🚀 Processing batch for ${readyChats.length} chats in parallel...`);
+            await Promise.all(readyChats.map(async (chat) => {
+                try {
+                    // A. Fetch all message IDs for this chat
+                    const messages = await db.select()
+                        .from(pendingMessagesQueue)
+                        .where(eq(pendingMessagesQueue.chatId, chat.chatId))
+                        .orderBy(pendingMessagesQueue.receivedAt);
+
+                    if (messages.length === 0) return;
+                    const messageIds = messages.map(m => m.id);
+                    const unifiedContent = messages.map(m => m.content).join('\n');
+
+                    // B. Trigger Donna
+                    const { contacts, contactChannels } = await import('../lib/db/schema');
+                    const [contact] = await db.select()
+                        .from(contacts)
+                        .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
+                        .where(eq(contactChannels.identifier, chat.chatId))
+                        .limit(1);
+
+                    await cortexRouter.processInput({
+                        text: unifiedContent,
+                        source: 'client',
+                        contactId: contact?.contacts?.id,
+                        chatId: chat.chatId
+                    });
+
+                    // C. Clear ONLY processed IDs
+                    await db.delete(pendingMessagesQueue)
+                        .where(sql`id IN ${messageIds}`);
+
+                    console.log(`✅ Batch processed for ${chat.chatId}`);
+                } catch (e) {
+                    console.error(`❌ Parallel Error for ${chat.chatId}:`, e);
+                }
+            }));
+        }
+
+        // 4. Refresh TYPING for waiting chats
+        typingRefreshChats.map(chat => {
+            import('../lib/whatsapp/WhatsAppService').then(({ whatsappService }) => {
+                whatsappService.sendTypingAction(chat.chatId).catch(() => { });
+            });
+        });
+
     } catch (error) {
         console.error('Worker Error:', error);
+    } finally {
+        // Recursive timeout to prevent stacking if a poll takes too long
+        setTimeout(processQueue, POLL_INTERVAL_MS);
     }
 }
 
-console.log('👷 Message Worker started...');
-setInterval(processQueue, POLL_INTERVAL_MS);
+console.log('👷 Message Worker started (High Concurrency Ready)...');
+processQueue();

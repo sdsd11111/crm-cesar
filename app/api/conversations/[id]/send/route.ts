@@ -15,6 +15,17 @@ export async function POST(
             return NextResponse.json({ error: 'Message content required' }, { status: 400 });
         }
 
+        // --- HANDOVER LOGIC ---
+        // When a human sends a message from the CRM, pause the bot automatically
+        const { db } = await import('@/lib/db');
+        const { contacts } = await import('@/lib/db/schema');
+        const { eq } = await import('drizzle-orm');
+
+        await db.update(contacts)
+            .set({ botMode: 'paused', updatedAt: new Date() })
+            .where(eq(contacts.id, id))
+            .catch(err => console.error('Failed to pause bot:', err));
+
         const result = await messagingService.send(id, message, metadata);
 
         if (result.success) {

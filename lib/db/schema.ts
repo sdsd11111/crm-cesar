@@ -94,6 +94,7 @@ export const contacts = pgTable('contacts', {
   // Identity Merging & Omnichannel
   clientId: uuid('client_id').references(() => clients.id), // ✅ THE LINK: Multiple contacts -> One Client
   channelSource: text('channel_source').default('whatsapp'), // 'whatsapp', 'telegram'
+  botMode: text('bot_mode', { enum: ['active', 'paused', 'disabled'] }).default('active'), // ✅ HANDOVER: Bot status for this contact
   lastActivityAt: timestamp('last_activity_at'), // For inbox sorting
   unreadCount: integer('unread_count').default(0),
 

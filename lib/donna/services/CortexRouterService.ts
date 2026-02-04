@@ -179,6 +179,19 @@ export class CortexRouterService {
         let prompt = input.promptOverride;
         if (!prompt) {
             if (input.source === 'client') {
+                // HANDOVER CHECK: Check if bot is paused for this contact
+                if (input.chatId) {
+                    const contactResult = await db.select().from(contacts)
+                        .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
+                        .where(eq(contactChannels.identifier, input.chatId))
+                        .limit(1);
+
+                    if (contactResult.length > 0 && contactResult[0].contacts.botMode !== 'active') {
+                        console.log(`🔇 Bot is ${contactResult[0].contacts.botMode} for this contact. Skipping.`);
+                        return { status: 'paused', reason: contactResult[0].contacts.botMode };
+                    }
+                }
+
                 // Determine if it's the Carnaval campaign (Default for clients for now)
                 prompt = this.getCampaignPrompt('carnaval_2026');
             } else {
@@ -189,7 +202,7 @@ export class CortexRouterService {
         // Fetch Last Action Context
         const lastActionContext = context.lastAction || { intent: 'null', summary: 'null', timestamp: null };
         let timeDiffStr = 'Indefinido';
-        let historyLimit = 5;
+        let historyLimit = 10; // Rule of 10
 
         if (lastActionContext.timestamp) {
             const lastAt = new Date(lastActionContext.timestamp);
@@ -198,9 +211,6 @@ export class CortexRouterService {
             if (seconds < 60) timeDiffStr = `${seconds} segundos`;
             else if (seconds < 3600) timeDiffStr = `${Math.floor(seconds / 60)} minutos`;
             else timeDiffStr = `${Math.floor(seconds / 3600)} horas`;
-
-            // Always use 10 messages if possible to follow "hasta 10" rule
-            historyLimit = 10;
         }
 
         // Inject Conversational Memory Placeholders
@@ -221,7 +231,7 @@ export class CortexRouterService {
         prompt = prompt.replace('{{INPUT}}', input.text);
 
         try {
-            // Updated to use FAST model (gpt-4o-mini) for Campaign Responses as requested
+            // Optimized AI Call (FAST model)
             const aiClient = getAIClient('FAST');
             const modelId = getModelId('FAST');
 
@@ -249,64 +259,76 @@ export class CortexRouterService {
                 return { status: 'needs_clarification', message: parsed.clarification_question };
             }
 
-            // If it's a client, we might want to just return the response directly if it's not a structured intent
-            // But for now, let's see if the campaign prompt produces a 'response' or similar.
-            // Actually, the campaign prompt doesn't strictly follow the router JSON schema.
-            // Let's check the campaign prompt I created. It doesn't specify JSON output.
-            // I should probably adjust the campaign prompt to output JSON or handle raw text.
-
-            // Wait, if it's a client, Donna should just talk.
+            // --- FRACTIONATED MESSAGING & VIDEO LOGIC ---
             if (input.source === 'client' && parsed.intent === 'CHAT') {
                 const responseText = parsed.data?.response || parsed.reasoning || '';
 
-                // 🎥 VIDEO INTERCEPTION LOGIC
                 if (responseText.includes('[SEND_VIDEO_CARNAVAL]')) {
                     const parts = responseText.split('[SEND_VIDEO_CARNAVAL]');
 
-                    // Part 1: Intro Text
+                    // 1. Part One (Intro)
                     if (parts[0].trim()) {
-                        await this.sendMessage(parts[0].trim(), replyContext, 'whatsapp');
+                        await this.sendFractionatedMessage(parts[0].trim(), replyContext, 'whatsapp');
                     }
 
-                    // Part 2: The Video (YouTube Short with preview)
+                    // 2. The Video link (YouTube with thumbnail)
                     const videoUrl = 'https://youtube.com/shorts/RC1vVm24Ha0?si=kZzDb2xyYvVWFm1G';
-
-                    // Send YouTube link (WhatsApp will show preview with thumbnail)
                     await this.sendMessage(videoUrl, replyContext, 'whatsapp');
 
-                    // Part 3: Closing Text + Link (SEPARATED for preview)
+                    // Small human-like delay
+                    await new Promise(r => setTimeout(r, 1000));
+
+                    // 3. Closing Text + Link (Split into 2 messages for preview)
                     if (parts[1] && parts[1].trim()) {
                         const closingText = parts[1].trim();
-
-                        // Extract URL from the closing text
                         const urlMatch = closingText.match(/(https?:\/\/[^\s]+)/);
 
                         if (urlMatch) {
                             const url = urlMatch[0];
                             const textWithoutUrl = closingText.replace(url, '').trim();
 
-                            // Send text first (if any)
                             if (textWithoutUrl) {
-                                await this.sendMessage(textWithoutUrl, replyContext, 'whatsapp');
+                                await this.sendFractionatedMessage(textWithoutUrl, replyContext, 'whatsapp');
                             }
-
-                            // Send URL alone for preview
+                            // Link alone for full preview
                             await this.sendMessage(url, replyContext, 'whatsapp');
                         } else {
-                            // No URL found, send as is
-                            await this.sendMessage(closingText, replyContext, 'whatsapp');
+                            await this.sendFractionatedMessage(closingText, replyContext, 'whatsapp');
                         }
-                    }
 
+                        // 🔥 CONVERSION NOTIFICATION TO CÉSAR
+                        await this.notifyCesarConversion(input.chatId || '', context.contact_name || 'Nuevo Lead');
+                    }
                 } else {
-                    // Normal Text Response
-                    await this.sendMessage(responseText, replyContext, 'whatsapp');
+                    // Normal chat messages (send in fractions)
+                    await this.sendFractionatedMessage(responseText, replyContext, 'whatsapp');
+                }
+
+                // 5. AUTO-DISCOVERY (Fire & Forget)
+                // Optimize: only extract if name/city/business are not in current context
+                const needsExtr = !context.contact_name || !context.business_name || !context.city;
+                if (input.chatId && needsExtr) {
+                    this.extractDiscoveryLead(input.chatId, input.text, input.source === 'client' ? 'whatsapp' : 'telegram')
+                        .catch(err => console.error('🕵️ Auto-Discovery Error:', err));
+                }
+
+                // Update context
+                if (input.chatId) {
+                    const actionSummary = `${parsed.intent}: ${responseText.substring(0, 30)}...`;
+                    await this.saveContext(input.chatId, {
+                        ...context,
+                        lastAction: {
+                            intent: parsed.intent,
+                            summary: actionSummary,
+                            timestamp: new Date().toISOString()
+                        }
+                    });
                 }
 
                 return { status: 'success', response: responseText };
             }
 
-            // --- ENTITY RESOLUTION ---
+            // --- ROUTING (For Internal/Telegram commands) ---
             const rawName = parsed.data?.contact_name;
             const isQuery = parsed.intent.includes('QUERY');
             const isSchedule = parsed.intent.includes('SCHEDULE');
@@ -316,45 +338,13 @@ export class CortexRouterService {
                 const { contactId: resolvedId } = await entityResolver.resolve(
                     rawName,
                     (msg: string) => {
-                        // Only send clarification if NOT a schedule or if explicitly needed
-                        if (!isSchedule) this.sendMessage(msg, replyContext, input.source === 'client' ? 'whatsapp' : 'telegram');
+                        if (!isSchedule) this.sendMessage(msg, replyContext, 'telegram');
                     }
                 );
-
-                if (resolvedId) {
-                    input.contactId = resolvedId;
-                } else if (!isSchedule) {
-                    // Critical for other intents: contact resolution is mandatory
-                    console.log(`⚠️ Resolution pending for "${rawName}". Stopping route.`);
-                    return { status: 'pending_resolution', entity: rawName };
-                } else {
-                    // For SCHEDULE: we proceed with the rawName if no match found
-                    console.log(`ℹ️ No contact found for "${rawName}", proceeding with raw name for Agenda.`);
-                }
+                if (resolvedId) input.contactId = resolvedId;
             }
 
-            // --- ROUTING ---
-            await this.routeToTable(parsed, input.contactId, input.text, { ...replyContext, platform: input.source === 'client' ? 'whatsapp' : 'telegram' });
-
-            // Update Last Action in Context
-            if (input.chatId && !parsed.needs_clarification) {
-                const actionSummary = `${parsed.intent}${parsed.subtype ? `_${parsed.subtype}` : ''}: ${parsed.data?.title || input.text.substring(0, 30)}`;
-                await this.saveContext(input.chatId, {
-                    ...context,
-                    lastAction: {
-                        intent: parsed.intent,
-                        summary: actionSummary,
-                        timestamp: new Date().toISOString()
-                    }
-                });
-            }
-
-            // 5. AUTO-DISCOVERY (Fire & Forget)
-            // We don't await this so it doesn't block the main response
-            if (input.chatId) {
-                this.extractDiscoveryLead(input.chatId, input.text, input.source === 'client' ? 'whatsapp' : 'telegram')
-                    .catch(err => console.error('🕵️ Auto-Discovery Error:', err));
-            }
+            await this.routeToTable(parsed, input.contactId, input.text, { ...replyContext, platform: 'telegram' });
 
             return {
                 status: 'success',
@@ -366,8 +356,7 @@ export class CortexRouterService {
 
         } catch (error: any) {
             console.error('❌ Cortex Router Error:', error);
-            await this.sendMessage(`❌ Error: ${error.message}`, replyContext, input.source === 'client' ? 'whatsapp' : 'telegram');
-            return { status: 'error', error };
+            return { status: 'error', error: error.message };
         }
     }
 
@@ -379,7 +368,6 @@ export class CortexRouterService {
             switch (intent) {
                 case 'SCHEDULE':
                     if (!data.date || !data.time) {
-                        // This shouldn't normally happen if needs_clarification is true, but for safety:
                         await this.sendTelegramMessage(`Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`, context);
                         return;
                     }
@@ -427,7 +415,7 @@ export class CortexRouterService {
                         }
                     }
 
-                    const newTask = await db.insert(tasks).values({
+                    await db.insert(tasks).values({
                         title: data.title || 'Nueva tarea',
                         description: data.notes || originalText,
                         dueDate: finalDueDate,
@@ -435,31 +423,17 @@ export class CortexRouterService {
                         priority: 'medium',
                         contactId: contactId || null,
                         assignedTo: 'César',
-                    }).returning();
-
-                    if (subtype === 'reminder' && data.date) {
-                        // Implement simple reminder creation logic
-                        const offsets = data.reminder_minutes || [15];
-                        for (const offset of offsets) {
-                            // Simplified logic: set reminder for the target date minus offset
-                            // Real production would need a more complex time parser
-                        }
-                    }
+                    });
 
                     await this.sendTelegramMessage(`✅ Tarea/Recordatorio guardado: **${data.title}**`, context);
                     break;
 
                 case 'QUERY':
-                    // Critical: Resolve dates into an array (even if it's just one)
                     const dateInput = data.date;
                     let datesToQuery: string[] = [];
-
-                    if (Array.isArray(dateInput)) {
-                        datesToQuery = dateInput;
-                    } else if (typeof dateInput === 'string' && dateInput.trim()) {
-                        datesToQuery = [dateInput];
-                    } else {
-                        // Default to today if null
+                    if (Array.isArray(dateInput)) datesToQuery = dateInput;
+                    else if (typeof dateInput === 'string' && dateInput.trim()) datesToQuery = [dateInput];
+                    else {
                         const nowUTC = new Date();
                         const nowZoned = toZonedTime(nowUTC, TIMEZONE);
                         datesToQuery = [format(nowZoned, "yyyy-MM-dd")];
@@ -468,37 +442,25 @@ export class CortexRouterService {
                     for (const dateStr of datesToQuery) {
                         try {
                             const searchDate = fromZonedTime(`${dateStr} 12:00:00`, TIMEZONE);
-
-                            // Create date range in Ecuador Time
                             const baseDate = toZonedTime(searchDate, TIMEZONE);
-
-                            const startOfDay = new Date(baseDate);
-                            startOfDay.setHours(0, 0, 0, 0);
-                            const startOfDayUTC = fromZonedTime(startOfDay, TIMEZONE);
-
-                            const endOfDay = new Date(baseDate);
-                            endOfDay.setHours(23, 59, 59, 999);
-                            const endOfDayUTC = fromZonedTime(endOfDay, TIMEZONE);
+                            const startOfDay = new Date(baseDate); startOfDay.setHours(0, 0, 0, 0);
+                            const endOfDay = new Date(baseDate); endOfDay.setHours(23, 59, 59, 999);
 
                             await this.sendTelegramMessage(`📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`, context);
 
                             const cal = await this.getCalendarService();
-                            const agenda = await cal.listEvents(startOfDayUTC.toISOString(), endOfDayUTC.toISOString());
+                            const agenda = await cal.listEvents(fromZonedTime(startOfDay, TIMEZONE).toISOString(), fromZonedTime(endOfDay, TIMEZONE).toISOString());
 
                             if (!agenda || agenda.length === 0) {
                                 await this.sendTelegramMessage(`✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`, context);
                             } else {
                                 const list = agenda.map((e: any) => {
-                                    const eventDate = e.start?.dateTime ? new Date(e.start.dateTime) : new Date(e.start.date);
-                                    const zonedEventTime = toZonedTime(eventDate, TIMEZONE);
-                                    const timeLabel = e.start?.dateTime ? format(zonedEventTime, 'HH:mm') : 'Todo el día';
-                                    return `• ${timeLabel}: ${e.summary}`;
+                                    const eventTime = e.start?.dateTime ? format(toZonedTime(new Date(e.start.dateTime), TIMEZONE), 'HH:mm') : 'Todo el día';
+                                    return `• ${eventTime}: ${e.summary}`;
                                 }).join('\n');
-                                await this.sendTelegramMessage(`📅 Eventos encontrados el ${format(baseDate, 'EEEE', { locale: es })}:\n\n${list}`, context);
+                                await this.sendTelegramMessage(`📅 Eventos encontrados:\n\n${list}`, context);
                             }
-                        } catch (err) {
-                            console.error(`Error querying agenda for date ${dateStr}:`, err);
-                        }
+                        } catch (err) { console.error(err); }
                     }
                     break;
 
@@ -512,15 +474,6 @@ export class CortexRouterService {
                             source: 'donna_telegram',
                         });
                         await this.sendTelegramMessage(`✅ Contacto **${data.contact_name}** registrado.`, context);
-                    } else if (subtype === 'note') {
-                        if (contactId) {
-                            await db.insert(interactions).values({
-                                contactId,
-                                type: 'note',
-                                content: data.notes || originalText,
-                            });
-                            await this.sendTelegramMessage(`🧠 Nota guardada para el contacto.`, context);
-                        }
                     }
                     break;
 
@@ -528,23 +481,10 @@ export class CortexRouterService {
                     if (contactId && data.notes) {
                         const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (c?.phone) {
-                            // Uses unified messaging service
                             await messagingService.send(c.id, data.notes, { type: 'manual_via_donna' });
                             await this.sendMessage(`📨 WhatsApp enviado a ${c.contactName}.`, context, 'telegram');
                         }
                     }
-                    break;
-
-                case 'CANCEL':
-                    await this.sendMessage(`🔕 Cancelado.`, context, 'telegram');
-                    break;
-
-                case 'STRATEGIC':
-                    await db.insert(interactions).values({
-                        type: 'note',
-                        content: `[ESTRATÉGICO] ${data.title}: ${data.notes || originalText}`,
-                    });
-                    await this.sendMessage(`💡 Insight estratégico guardado.`, context, 'telegram');
                     break;
 
                 default:
@@ -556,28 +496,42 @@ export class CortexRouterService {
         }
     }
 
+    private async sendFractionatedMessage(message: string, context: any, platform: 'telegram' | 'whatsapp') {
+        const sentences = message.split('\n\n').filter(s => s.trim().length > 0);
+        for (const sentence of sentences) {
+            await this.sendMessage(sentence.trim(), context, platform);
+            // Simulate human delay: 100ms per character, max 2s
+            const delay = Math.min(sentence.length * 20, 1500);
+            await new Promise(r => setTimeout(r, delay));
+        }
+    }
+
+    private async notifyCesarConversion(chatId: string, leadName: string) {
+        const cesarNumber = '593963410409';
+        const alertText = `*⚡ DONNA CONVERSION ALERT*\n\n` +
+            `👤 *Lead:* ${leadName}\n` +
+            `📱 *Chat:* https://wa.me/${chatId.replace(/\D/g, '')}\n\n` +
+            `Donna ha entregado los links. ¡Es momento de que César cierre la venta! 🚀`;
+
+        await messagingService.send(cesarNumber, alertText, 'whatsapp')
+            .catch(err => console.warn('⚠️ Cesar notification failed:', err));
+    }
+
     private async sendMessage(message: string, context: { chatId?: string, onReply?: (text: string) => void, platform?: 'telegram' | 'whatsapp' }, platformOverride?: 'telegram' | 'whatsapp') {
         const platform = platformOverride || context.platform || 'telegram';
-
-        if (platform === 'whatsapp') {
-            await this.sendWhatsAppMessage(message, context);
-        } else {
-            await this.sendTelegramMessage(message, context);
-        }
+        if (platform === 'whatsapp') await this.sendWhatsAppMessage(message, context);
+        else await this.sendTelegramMessage(message, context);
     }
 
     private async sendWhatsAppMessage(message: string, context: { chatId?: string }) {
         const { chatId } = context;
         if (!chatId) return;
-
-        // Save as assistant message in DB
         await this.saveMessage(chatId, 'assistant', message, 'whatsapp');
-
         try {
             const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
             await whatsappService.sendMessage(chatId, message);
         } catch (error) {
-            console.error('WhatsApp API Error in CortexRouter:', error);
+            console.error('WhatsApp Error:', error);
         }
     }
 
@@ -585,92 +539,43 @@ export class CortexRouterService {
         const { chatId } = context;
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         const targetChatId = chatId || process.env.TELEGRAM_CHAT_ID;
-
         if (targetChatId) {
-            // Save as assistant message in DB
             await this.saveMessage(targetChatId, 'assistant', message, 'telegram');
-
             if (botToken) {
                 fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: targetChatId, text: message, parse_mode: 'Markdown' })
-                }).catch(e => console.error('Telegram API Error during async send:', e));
+                }).catch(e => console.error('Telegram Error:', e));
             }
         }
     }
-    /**
-     * AUTO-DISCOVERY SYSTEM
-     * Extracts lead data in background using FAST model
-     */
+
     private async extractDiscoveryLead(chatId: string, text: string, platform: string) {
-        // Only run if text length is sufficient to contain info
         if (!text || text.length < 5) return;
-
         try {
-            const aiClient = getAIClient('FAST'); // Cheap model
+            const aiClient = getAIClient('FAST');
             const modelId = getModelId('FAST');
-
-            // Minimal prompt for speed
-            const extractionPrompt = `
-            Analyze this message from a user in a Chat context.
-            Extract any of the following if present explicitly:
-            - Name (person)
-            - Business Name
-            - City/Location
-            - Email
-            
-            Return ONLY a valid JSON:
-            {
-               "found": boolean,
-               "name": string | null,
-               "business": string | null,
-               "city": string | null,
-               "email": string | null
-            }
-            
-            Message: "${text}"
-            `;
-
+            const extractionPrompt = `Extract Lead info from: "${text}". Return JSON with {found:bool, name, business, city, email}.`;
             const completion = await aiClient.chat.completions.create({
                 model: modelId,
                 messages: [{ role: 'user', content: extractionPrompt }],
                 temperature: 0,
                 response_format: { type: 'json_object' }
             });
-
             const result = JSON.parse(completion.choices[0].message.content || '{}');
 
             if (result.found) {
-                console.log('🕵️ Auto-Discovery extracted:', result);
-
-                // Upsert into discoveryLeads
-                // We try to match by phone (chatId) assuming chatId IS the phone number for WhatsApp
-                // For now, we just INSERT or UPDATE based on a hypothetical unique constraint or check existing
-                // But schema says id is primary key. We need to query first.
-
-                // IMPORTANT: In production schema, chatId might not be enough if it's not a phone number.
-                // Assuming chatId for WhatsApp is the phone number.
-
-                // Check if lead exists for this phone/chatId
-                // Note: The schema for discovery_leads has 'telefono_principal' which fits chatId
-
-                const existing = await db.select().from(discoveryLeads)
-                    .where(eq(discoveryLeads.telefonoPrincipal, chatId))
-                    .limit(1);
-
+                const existing = await db.select().from(discoveryLeads).where(eq(discoveryLeads.telefonoPrincipal, chatId)).limit(1);
                 if (existing.length > 0) {
-                    // Update ONLY if we have new data and the field was empty
-                    // Or just overwrite? Let's overwrite for now as "latest info"
                     await db.update(discoveryLeads).set({
                         nombreComercial: result.business || existing[0].nombreComercial,
                         personaContacto: result.name || existing[0].personaContacto,
-                        canton: result.city || existing[0].canton, // Mapping City -> Canton
+                        canton: result.city || existing[0].canton,
                         correoElectronico: result.email || existing[0].correoElectronico,
                         updatedAt: new Date()
                     }).where(eq(discoveryLeads.id, existing[0].id));
                 } else {
-                    // Insert new
                     await db.insert(discoveryLeads).values({
                         telefonoPrincipal: chatId,
                         nombreComercial: result.business || 'Sin Nombre',
@@ -681,25 +586,11 @@ export class CortexRouterService {
                         status: 'pending'
                     });
                 }
-
-                // 🔔 NOTIFY CÉSAR (Internal Alert)
-                const cesarNumber = '593963410409';
-                const emoji = existing.length > 0 ? '🔄' : '✨';
-                const alertText = `*${emoji} DONNA ALERT: Nuevo Lead Detectado*\n\n` +
-                    `👤 *Nombre:* ${result.name || 'N/A'}\n` +
-                    `🏢 *Negocio:* ${result.business || 'N/A'}\n` +
-                    `📍 *Ciudad:* ${result.city || 'N/A'}\n` +
-                    `📱 *Chat:* https://wa.me/${chatId.replace(/\D/g, '')}\n\n` +
-                    `_Atiéndelo pronto para asegurar la venta._`;
-
-                await messagingService.send(cesarNumber, alertText, 'whatsapp')
-                    .catch(err => console.warn('⚠️ Failed to notify César:', err));
             }
         } catch (e) {
-            console.error('Extraction Failed:', e);
+            console.error('Lead Extraction Failed:', e);
         }
     }
-
 }
 
 export const cortexRouter = new CortexRouterService();

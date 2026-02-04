@@ -196,9 +196,6 @@ export async function POST(req: Request) {
                 // 4. TRIGGER AI BRAIN (Cortex Router)
                 // This will handle the automatic response using the campaign prompt
                 try {
-                    // PROVISIONAL: Test actual connectivity as requested by user
-                    await whatsappService.sendMessage(from, "CONEXIÓN CORRECTA");
-                    console.log(`✅ Webhook: Provisional answer sent to ${from}`);
 
                     // We don't await this to keep the webhook response fast
                     cortexRouter.processInput({

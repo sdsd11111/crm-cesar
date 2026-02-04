@@ -39,7 +39,13 @@ export class MessagingService {
             let requestedChannel = 'whatsapp';
             let contactId: string | null = null;
 
-            const [contact] = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+            let contact: any = null;
+
+            if (isUUID) {
+                const [result] = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1);
+                contact = result;
+            }
 
             if (contact) {
                 contactId = contact.id;
@@ -59,8 +65,13 @@ export class MessagingService {
 
                 destination = channelEntry?.identifier || contact.phone;
             } else {
-                // Check Discovery Lead
-                const [discovery] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, id)).limit(1);
+                // Check Discovery Lead (only if UUID)
+                let discovery: any = null;
+                if (isUUID) {
+                    const [res] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, id)).limit(1);
+                    discovery = res;
+                }
+
                 if (discovery) {
                     destination = discovery.telefonoPrincipal;
                     requestedChannel = 'whatsapp';

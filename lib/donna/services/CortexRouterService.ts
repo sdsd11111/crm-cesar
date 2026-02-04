@@ -295,7 +295,7 @@ export class CortexRouterService {
         }
     }
 
-    private async routeToTable(parsed: any, contactId: string | undefined, originalText: string, context: { chatId?: string, onReply?: (text: string) => void }) {
+    private async routeToTable(parsed: any, contactId: string | undefined, originalText: string, context: { chatId?: string, onReply?: (text: string) => void, platform?: 'telegram' | 'whatsapp' }) {
         const { intent, subtype, data } = parsed;
         console.log(`📍 Action: ${intent} (${subtype})`);
 

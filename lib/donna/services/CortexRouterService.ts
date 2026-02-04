@@ -273,7 +273,9 @@ export class CortexRouterService {
                     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://crm-objetivo.vercel.app';
                     const videoUrl = `${baseUrl}/assets/carnaval_2026_video.mp4`;
 
-                    await messagingService.send(input.chatId || '', '',
+                    // Direct call to WhatsAppService to support Media (MessagingService wrapper misses the 4th arg)
+                    const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
+                    await whatsappService.sendMessage(input.chatId || '', '',
                         { type: 'system_video' },
                         {
                             type: 'video',

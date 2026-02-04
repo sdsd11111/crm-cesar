@@ -247,8 +247,8 @@ export default function ChatCenterPage() {
             if (res.success) setIsMetaConfigured(res.isConfigured);
         });
 
-        // Intervalo para la lista de chats: 4 segundos
-        const chatListInterval = setInterval(fetchChats, 4000);
+        // Intervalo para la lista de chats: 10 segundos (Prevención de saltos de ventana)
+        const chatListInterval = setInterval(fetchChats, 10000);
 
         // Intervalo para los mensajes del chat activo
         const messageInterval = setInterval(() => {

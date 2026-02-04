@@ -287,9 +287,28 @@ export class CortexRouterService {
                         this.sendMessage(`(No se pudo cargar el video, pero aquí está el enlace: ${videoUrl})`, replyContext, 'whatsapp');
                     });
 
-                    // Part 3: Closing Text + Link
+                    // Part 3: Closing Text + Link (SEPARATED for preview)
                     if (parts[1] && parts[1].trim()) {
-                        await this.sendMessage(parts[1].trim(), replyContext, 'whatsapp');
+                        const closingText = parts[1].trim();
+
+                        // Extract URL from the closing text
+                        const urlMatch = closingText.match(/(https?:\/\/[^\s]+)/);
+
+                        if (urlMatch) {
+                            const url = urlMatch[0];
+                            const textWithoutUrl = closingText.replace(url, '').trim();
+
+                            // Send text first (if any)
+                            if (textWithoutUrl) {
+                                await this.sendMessage(textWithoutUrl, replyContext, 'whatsapp');
+                            }
+
+                            // Send URL alone for preview
+                            await this.sendMessage(url, replyContext, 'whatsapp');
+                        } else {
+                            // No URL found, send as is
+                            await this.sendMessage(closingText, replyContext, 'whatsapp');
+                        }
                     }
 
                 } else {

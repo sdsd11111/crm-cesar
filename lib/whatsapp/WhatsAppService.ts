@@ -165,15 +165,24 @@ export class WhatsAppService {
             formData.append('messaging_product', 'whatsapp');
             formData.append('type', type);
 
-            const response = await axios.post(url, formData, {
+            const response = await fetch(url, {
+                method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
+                    'Authorization': `Bearer ${accessToken}`,
+                    // fetch automatically sets boundary for FormData
+                },
+                body: formData
             });
 
-            return { success: true, mediaId: response.data.id };
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error?.message || 'Upload failed');
+            }
+
+            return { success: true, mediaId: data.id };
         } catch (error: any) {
-            console.error('❌ uploadMedia Error:', error.response?.data || error.message);
+            console.error('❌ uploadMedia Error:', error.message);
             return { success: false, error: error.message };
         }
     }

@@ -158,4 +158,14 @@ async function processQueue() {
 }
 
 console.log('👷 Message Worker started (High Concurrency Ready)...');
+
+// Required for Render Free Tier (Web Service needs to listen on a port)
+import http from 'http';
+const port = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Worker Active');
+});
+server.listen(port, () => console.log(`🌍 Health Check Server running on port ${port}`));
+
 processQueue();

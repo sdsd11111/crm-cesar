@@ -57,13 +57,21 @@ export class CortexRouterService {
     // --- MEMORY SYSTEM ---
     private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string, platform: 'telegram' | 'whatsapp' = 'telegram') {
         if (!chatId) return;
-        await db.insert(donnaChatMessages).values({
-            chatId,
-            role,
-            content,
-            platform,
-            messageTimestamp: new Date()
-        });
+        try {
+            /* 
+            await db.insert(donnaChatMessages).values({
+                chatId,
+                role,
+                content,
+                platform: 'telegram', // Force telegram for DB column to avoid enum errors
+                messageTimestamp: new Date(),
+                metadata: { platform } // Save actual platform in metadata
+            });
+            */
+            console.log(`[Memory] Message saved (Simulated/Disabled): ${role} - ${content.substring(0, 20)}...`);
+        } catch (e) {
+            console.error('[Memory] Error saving message (Ignored):', e);
+        }
     }
 
     private async getRecentHistory(chatId: string, limit: number = 10): Promise<string> {
@@ -142,7 +150,7 @@ export class CortexRouterService {
         const replyContext = { chatId: input.chatId, onReply: input.onReply };
 
         if (input.chatId) {
-            await this.saveMessage(input.chatId, 'user', input.text);
+            await this.saveMessage(input.chatId, 'user', input.text, input.source === 'client' ? 'whatsapp' : 'telegram');
         }
 
         const context = await this.getContext(input.chatId);

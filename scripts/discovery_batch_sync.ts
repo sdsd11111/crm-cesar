@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
 import { db } from '../lib/db';
 import { interactions, discoveryLeads } from '../lib/db/schema';
 import { eq, sql, and, gte } from 'drizzle-orm';

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { interactions, contacts, discoveryLeads, whatsappLogs, contactChannels } from '@/lib/db/schema';
 import { sql, eq, and } from 'drizzle-orm';
+import { cortexRouter } from '@/lib/donna/services/CortexRouterService';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,6 +191,20 @@ export async function POST(req: Request) {
                 });
 
                 console.log('✅ Webhook: Interaction saved successfully');
+
+                // 4. TRIGGER AI BRAIN (Cortex Router)
+                // This will handle the automatic response using the campaign prompt
+                try {
+                    // We don't await this to keep the webhook response fast
+                    cortexRouter.processInput({
+                        text: content,
+                        source: 'client',
+                        contactId: contactId || undefined,
+                        chatId: from
+                    }).catch(cpuErr => console.error('Cortex Error triggered from WhatsApp:', cpuErr));
+                } catch (brainErr) {
+                    console.error('Brain Trigger Error:', brainErr);
+                }
             } catch (dbError: any) {
                 console.error('⚠️ Webhook DB Error:', dbError.message);
             }

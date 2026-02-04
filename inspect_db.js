@@ -1,4 +1,5 @@
 const postgres = require('postgres');
+require('dotenv').config({ path: '.env.local' });
 const sql = postgres(process.env.DATABASE_URL, { prepare: false });
 
 async function check() {

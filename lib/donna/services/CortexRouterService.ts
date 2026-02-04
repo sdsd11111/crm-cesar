@@ -35,6 +35,16 @@ export class CortexRouterService {
         return this.promptTemplate;
     }
 
+    private getCampaignPrompt(campaign: string): string {
+        try {
+            const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', `${campaign}.md`);
+            return fs.readFileSync(promptPath, 'utf-8');
+        } catch (error) {
+            console.error(`❌ Error loading campaign prompt (${campaign}):`, error);
+            return this.getPromptTemplate();
+        }
+    }
+
     private async getCalendarService() {
         if (!this.calendarService) {
             const { GoogleCalendarService } = await import('@/lib/google/CalendarService');
@@ -45,13 +55,13 @@ export class CortexRouterService {
     }
 
     // --- MEMORY SYSTEM ---
-    private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string) {
+    private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string, platform: 'telegram' | 'whatsapp' = 'telegram') {
         if (!chatId) return;
         await db.insert(donnaChatMessages).values({
             chatId,
             role,
             content,
-            platform: 'telegram',
+            platform,
             messageTimestamp: new Date()
         });
     }
@@ -143,7 +153,15 @@ export class CortexRouterService {
         const nowZoned = toZonedTime(nowUTC, TIMEZONE);
 
         // 1. Prepare Prompt
-        let prompt = input.promptOverride || this.getPromptTemplate();
+        let prompt = input.promptOverride;
+        if (!prompt) {
+            if (input.source === 'client') {
+                // Determine if it's the Carnaval campaign (Default for clients for now)
+                prompt = this.getCampaignPrompt('carnaval_2026');
+            } else {
+                prompt = this.getPromptTemplate();
+            }
+        }
 
         // Fetch Last Action Context
         const lastActionContext = context.lastAction || { intent: 'null', summary: 'null', timestamp: null };
@@ -203,8 +221,20 @@ export class CortexRouterService {
 
             // --- CLARIFICATION FLOW ---
             if (parsed.needs_clarification && parsed.clarification_question) {
-                await this.sendTelegramMessage(parsed.clarification_question, replyContext);
+                await this.sendMessage(parsed.clarification_question, replyContext, input.source === 'client' ? 'whatsapp' : 'telegram');
                 return { status: 'needs_clarification', message: parsed.clarification_question };
+            }
+
+            // If it's a client, we might want to just return the response directly if it's not a structured intent
+            // But for now, let's see if the campaign prompt produces a 'response' or similar.
+            // Actually, the campaign prompt doesn't strictly follow the router JSON schema.
+            // Let's check the campaign prompt I created. It doesn't specify JSON output.
+            // I should probably adjust the campaign prompt to output JSON or handle raw text.
+
+            // Wait, if it's a client, Donna should just talk.
+            if (input.source === 'client' && parsed.intent === 'CHAT') {
+                await this.sendMessage(parsed.data?.response || parsed.reasoning, replyContext, 'whatsapp');
+                return { status: 'success', response: parsed.data?.response };
             }
 
             // --- ENTITY RESOLUTION ---
@@ -218,7 +248,7 @@ export class CortexRouterService {
                     rawName,
                     (msg: string) => {
                         // Only send clarification if NOT a schedule or if explicitly needed
-                        if (!isSchedule) this.sendTelegramMessage(msg, replyContext);
+                        if (!isSchedule) this.sendMessage(msg, replyContext, input.source === 'client' ? 'whatsapp' : 'telegram');
                     }
                 );
 
@@ -235,7 +265,7 @@ export class CortexRouterService {
             }
 
             // --- ROUTING ---
-            await this.routeToTable(parsed, input.contactId, input.text, replyContext);
+            await this.routeToTable(parsed, input.contactId, input.text, { ...replyContext, platform: input.source === 'client' ? 'whatsapp' : 'telegram' });
 
             // Update Last Action in Context
             if (input.chatId && !parsed.needs_clarification) {
@@ -260,7 +290,7 @@ export class CortexRouterService {
 
         } catch (error: any) {
             console.error('❌ Cortex Router Error:', error);
-            await this.sendTelegramMessage(`❌ Error: ${error.message}`, replyContext);
+            await this.sendMessage(`❌ Error: ${error.message}`, replyContext, input.source === 'client' ? 'whatsapp' : 'telegram');
             return { status: 'error', error };
         }
     }
@@ -424,13 +454,13 @@ export class CortexRouterService {
                         if (c?.phone) {
                             // Uses unified messaging service
                             await messagingService.send(c.id, data.notes, { type: 'manual_via_donna' });
-                            await this.sendTelegramMessage(`📨 WhatsApp enviado a ${c.contactName}.`, context);
+                            await this.sendMessage(`📨 WhatsApp enviado a ${c.contactName}.`, context, 'telegram');
                         }
                     }
                     break;
 
                 case 'CANCEL':
-                    await this.sendTelegramMessage(`🔕 Cancelado.`, context);
+                    await this.sendMessage(`🔕 Cancelado.`, context, 'telegram');
                     break;
 
                 case 'STRATEGIC':
@@ -438,11 +468,11 @@ export class CortexRouterService {
                         type: 'note',
                         content: `[ESTRATÉGICO] ${data.title}: ${data.notes || originalText}`,
                     });
-                    await this.sendTelegramMessage(`💡 Insight estratégico guardado.`, context);
+                    await this.sendMessage(`💡 Insight estratégico guardado.`, context, 'telegram');
                     break;
 
                 default:
-                    await this.sendTelegramMessage(`Entiendo, lo proceso enseguida.`, context);
+                    await this.sendMessage(`Entiendo, lo proceso enseguida.`, context, context.platform || 'telegram');
             }
         } catch (error) {
             console.error('❌ Error in routeToTable:', error);
@@ -450,19 +480,41 @@ export class CortexRouterService {
         }
     }
 
-    private async sendTelegramMessage(message: string, context: { chatId?: string, onReply?: (text: string) => void }) {
-        const { chatId } = context;
-        // NOTE: Redundant onReply(message) removed to prevent double-sending from Webhook
+    private async sendMessage(message: string, context: { chatId?: string, onReply?: (text: string) => void, platform?: 'telegram' | 'whatsapp' }, platformOverride?: 'telegram' | 'whatsapp') {
+        const platform = platformOverride || context.platform || 'telegram';
 
+        if (platform === 'whatsapp') {
+            await this.sendWhatsAppMessage(message, context);
+        } else {
+            await this.sendTelegramMessage(message, context);
+        }
+    }
+
+    private async sendWhatsAppMessage(message: string, context: { chatId?: string }) {
+        const { chatId } = context;
+        if (!chatId) return;
+
+        // Save as assistant message in DB
+        await this.saveMessage(chatId, 'assistant', message, 'whatsapp');
+
+        try {
+            const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
+            await whatsappService.sendMessage(chatId, message);
+        } catch (error) {
+            console.error('WhatsApp API Error in CortexRouter:', error);
+        }
+    }
+
+    private async sendTelegramMessage(message: string, context: { chatId?: string }) {
+        const { chatId } = context;
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         const targetChatId = chatId || process.env.TELEGRAM_CHAT_ID;
 
         if (targetChatId) {
-            // Save as bot message in DB
-            await this.saveMessage(targetChatId, 'assistant', message);
+            // Save as assistant message in DB
+            await this.saveMessage(targetChatId, 'assistant', message, 'telegram');
 
             if (botToken) {
-                // Return the fetch promise to ensure we can await if needed, but here we fire and forget or trace error
                 fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

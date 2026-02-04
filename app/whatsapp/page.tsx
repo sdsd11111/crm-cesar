@@ -247,8 +247,8 @@ export default function ChatCenterPage() {
             if (res.success) setIsMetaConfigured(res.isConfigured);
         });
 
-        // Intervalo para la lista de chats
-        const chatListInterval = setInterval(fetchChats, 10000);
+        // Intervalo para la lista de chats: 4 segundos
+        const chatListInterval = setInterval(fetchChats, 4000);
 
         // Intervalo para los mensajes del chat activo
         const messageInterval = setInterval(() => {
@@ -1064,13 +1064,15 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
                             </div>
                         )}
                     </div>
-                    <div className="overflow-hidden">
-                        <p className={cn(
-                            "font-bold text-[12px] truncate w-28",
-                            chat.isGhost ? "text-amber-400" : "text-[#e9edef]"
-                        )}>
-                            {chat.contactName}
-                        </p>
+                    <div className="overflow-hidden min-w-0 flex-1">
+                        <div className="flex justify-between items-baseline gap-2">
+                            <p className={cn(
+                                "font-bold text-[12px] truncate",
+                                chat.isGhost ? "text-amber-400" : "text-[#e9edef]"
+                            )}>
+                                {chat.contactName}
+                            </p>
+                        </div>
                         <div className="flex flex-col">
                             <p className="text-[10px] text-[#8696a0] flex items-center gap-1 font-medium italic truncate">
                                 {chat.isGhost && <span className="text-amber-500/70 not-italic mr-1">(Ghost)</span>}

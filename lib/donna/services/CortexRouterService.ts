@@ -268,24 +268,11 @@ export class CortexRouterService {
                         await this.sendMessage(parts[0].trim(), replyContext, 'whatsapp');
                     }
 
-                    // Part 2: The Video (César's Video)
-                    // We assume the app is deployed on a public URL.
-                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://crm-objetivo.vercel.app';
-                    const videoUrl = `${baseUrl}/assets/carnaval_2026_video.mp4`;
+                    // Part 2: The Video (YouTube Short with preview)
+                    const videoUrl = 'https://youtube.com/shorts/RC1vVm24Ha0?si=kZzDb2xyYvVWFm1G';
 
-                    // Direct call to WhatsAppService to support Media (MessagingService wrapper misses the 4th arg)
-                    const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
-                    await whatsappService.sendMessage(input.chatId || '', '',
-                        { type: 'system_video' },
-                        {
-                            type: 'video',
-                            url: videoUrl,
-                            caption: '🎬 Estrategia Carnaval 2026 - César Reyes'
-                        }
-                    ).catch(e => {
-                        console.error('Failed to send video:', e);
-                        this.sendMessage(`(No se pudo cargar el video, pero aquí está el enlace: ${videoUrl})`, replyContext, 'whatsapp');
-                    });
+                    // Send YouTube link (WhatsApp will show preview with thumbnail)
+                    await this.sendMessage(videoUrl, replyContext, 'whatsapp');
 
                     // Part 3: Closing Text + Link (SEPARATED for preview)
                     if (parts[1] && parts[1].trim()) {

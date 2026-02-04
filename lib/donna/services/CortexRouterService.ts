@@ -304,15 +304,22 @@ export class CortexRouterService {
                     await this.sendFractionatedMessage(responseText, replyContext, 'whatsapp');
                 }
 
-                // 5. AUTO-DISCOVERY (DEFERRED to Nightly Batch)
-                // Extraction moved to scripts/discovery_batch_sync.ts for performance.
-                /*
-                const needsExtr = !context.contact_name || !context.business_name || !context.city;
-                if (input.chatId && needsExtr) {
-                    this.extractDiscoveryLead(input.chatId, input.text, input.source === 'client' ? 'whatsapp' : 'telegram')
-                        .catch(err => console.error('🕵️ Auto-Discovery Error:', err));
+                // 4. --- HANDOVER LOGIC (Automatic Pause) ---
+                if (parsed.handover === true || parsed.handover === 'true') {
+                    console.log(`🤝 [HANDOVER] Automatic takeover triggered for ${input.chatId}. Pausing bot.`);
+                    if (input.chatId) {
+                        try {
+                            await db.update(contacts)
+                                .set({ botMode: 'paused' } as any)
+                                .where(sql`id = (SELECT contact_id FROM contact_channels WHERE identifier = ${input.chatId} AND platform = 'whatsapp' LIMIT 1)`);
+
+                            // Notify César via conversion notification
+                            await this.notifyCesarConversion(input.chatId, context.contact_name || 'Prospecto', "Toma de control automática (Preguntó precio/detalles)");
+                        } catch (err) {
+                            console.error('Handover Update Error:', err);
+                        }
+                    }
                 }
-                */
 
                 // Update context
                 if (input.chatId) {
@@ -508,12 +515,13 @@ export class CortexRouterService {
         }
     }
 
-    private async notifyCesarConversion(chatId: string, leadName: string) {
+    private async notifyCesarConversion(chatId: string, leadName: string, reason?: string) {
         const cesarNumber = '593963410409';
+        const customContext = reason ? `\n\n📌 *Motivo:* ${reason}` : '';
         const alertText = `*⚡ DONNA CONVERSION ALERT*\n\n` +
             `👤 *Lead:* ${leadName}\n` +
-            `📱 *Chat:* https://wa.me/${chatId.replace(/\D/g, '')}\n\n` +
-            `Donna ha entregado los links. ¡Es momento de que César cierre la venta! 🚀`;
+            `📱 *Chat:* https://wa.me/${chatId.replace(/\D/g, '')}${customContext}\n\n` +
+            `¡Es momento de que César cierre la venta! 🚀`;
 
         await messagingService.send(cesarNumber, alertText, 'whatsapp')
             .catch(err => console.warn('⚠️ Cesar notification failed:', err));

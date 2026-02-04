@@ -193,19 +193,26 @@ export async function POST(req: Request) {
 
                 console.log('✅ Webhook: Interaction saved successfully');
 
-                // 4. TRIGGER AI BRAIN (Cortex Router)
-                // This will handle the automatic response using the campaign prompt
+                // 4. QUEUE FOR ACCUMULATION (Debouncing)
+                // Instead of triggering Donna immediately, we save to the queue.
+                // The worker will pick it up after the accumulation window (20-30s).
                 try {
+                    const { pendingMessagesQueue } = await import('@/lib/db/schema');
+                    await db.insert(pendingMessagesQueue).values({
+                        chatId: from,
+                        content: content,
+                        platform: 'whatsapp',
+                        receivedAt: new Date()
+                    });
 
-                    // We don't await this to keep the webhook response fast
-                    cortexRouter.processInput({
-                        text: content,
-                        source: 'client',
-                        contactId: contactId || undefined,
-                        chatId: from
-                    }).catch(cpuErr => console.error('Cortex Error triggered from WhatsApp:', cpuErr));
-                } catch (brainErr) {
-                    console.error('Brain Trigger Error:', brainErr);
+                    // 5. TRIGGER TYING INDICATOR
+                    // Give immediate feedback that the bot is "there"
+                    await whatsappService.sendTypingAction(from).catch(() => { });
+
+                    console.log(`📥 Message queued for ${from}. Accumulation in progress.`);
+                } catch (queueErr) {
+                    console.error('Queue Error:', queueErr);
+                    // Fallback to immediate if queue fails? (Optional)
                 }
             } catch (dbError: any) {
                 console.error('⚠️ Webhook DB Error:', dbError.message);

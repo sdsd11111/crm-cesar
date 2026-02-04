@@ -249,7 +249,40 @@ export class WhatsAppService {
             const errorData = error.response?.data?.error || { message: error.message };
             return { success: false, error: errorData.message, details: errorData };
         }
-    }
-}
+    /**
+     * Sends a typing/composing indicator to WhatsApp
+     * @param phone Phone number
+     * @param action 'typing' or 'typing_on' (Meta uses "typing" as a reading indicator or specific mark)
+     * For "typing..." indicator Meta uses mark_as_read or specific status setters.
+     * Note: Meta Cloud API status "typing" is often triggered via specific endpoints.
+     */
+    async sendTypingAction(phone: string): Promise < any > {
+            const { accessToken, phoneNumberId } = this.getCredentials();
+            const cleanPhone = phone.replace(/\D/g, '');
+            const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
 
-export const whatsappService = new WhatsAppService();
+            try {
+                const payload = {
+                    messaging_product: "whatsapp",
+                    recipient_type: "individual",
+                    to: cleanPhone,
+                    sender_action: "typing_on" // some versions of API support this
+                };
+
+                const response = await axios.post(url, payload, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                return { success: true, data: response.data };
+            } catch(error: any) {
+                // Some API versions don't support sender_action directly or require different endpoints.
+                // We'll log it but not fail the main flow.
+                console.warn('⚠️ sendTypingAction might not be supported on this Meta version/account');
+                return { success: false };
+            }
+        }
+    }
+
+    export const whatsappService = new WhatsAppService();

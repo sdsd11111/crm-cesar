@@ -304,13 +304,15 @@ export class CortexRouterService {
                     await this.sendFractionatedMessage(responseText, replyContext, 'whatsapp');
                 }
 
-                // 5. AUTO-DISCOVERY (Fire & Forget)
-                // Optimize: only extract if name/city/business are not in current context
+                // 5. AUTO-DISCOVERY (DEFERRED to Nightly Batch)
+                // Extraction moved to scripts/discovery_batch_sync.ts for performance.
+                /*
                 const needsExtr = !context.contact_name || !context.business_name || !context.city;
                 if (input.chatId && needsExtr) {
                     this.extractDiscoveryLead(input.chatId, input.text, input.source === 'client' ? 'whatsapp' : 'telegram')
                         .catch(err => console.error('🕵️ Auto-Discovery Error:', err));
                 }
+                */
 
                 // Update context
                 if (input.chatId) {

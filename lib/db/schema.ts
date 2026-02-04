@@ -789,3 +789,13 @@ export const leadsCapturarClientes = pgTable('leads_capturar_clientes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+// ============================================
+// MESSAGE QUEUE (For Debouncing/Accumulation)
+// ============================================
+export const pendingMessagesQueue = pgTable('pending_messages_queue', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  chatId: text('chat_id').notNull(),
+  content: text('content').notNull(),
+  platform: text('platform').default('whatsapp'),
+  receivedAt: timestamp('received_at').defaultNow().notNull(),
+});

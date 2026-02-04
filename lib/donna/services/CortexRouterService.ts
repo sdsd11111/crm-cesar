@@ -1,13 +1,14 @@
 import { db } from '@/lib/db';
-import { conversationStates, contacts, events, interactions, tasks, discoveryLeads, donnaChatMessages } from '@/lib/db/schema';
+import { contacts, events, interactions, tasks } from '@/lib/db/schema';
+import { conversationStates, discoveryLeads, donnaChatMessages } from '../../db/schema';
 import { messagingService } from '@/lib/messaging/MessagingService';
-import { eq, desc, and, gte, lte } from 'drizzle-orm';
+import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getAIClient, getModelId } from '@/lib/ai/client';
+import { getAIClient, getModelId } from '../../ai/client';
 
 const TIMEZONE = 'America/Guayaquil';
 
@@ -58,7 +59,6 @@ export class CortexRouterService {
     private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string, platform: 'telegram' | 'whatsapp' = 'telegram') {
         if (!chatId) return;
         try {
-            /* 
             await db.insert(donnaChatMessages).values({
                 chatId,
                 role,
@@ -67,8 +67,6 @@ export class CortexRouterService {
                 messageTimestamp: new Date(),
                 metadata: { platform } // Save actual platform in metadata
             });
-            */
-            console.log(`[Memory] Message saved (Simulated/Disabled): ${role} - ${content.substring(0, 20)}...`);
         } catch (e) {
             console.error('[Memory] Error saving message (Ignored):', e);
         }
@@ -82,42 +80,59 @@ export class CortexRouterService {
         const nowZoned = toZonedTime(nowUTC, TIMEZONE);
 
         const startOfToday = new Date(nowZoned);
-        startOfToday.setHours(0, 0, 0, 0);
-        const startOfTodayUTC = fromZonedTime(startOfToday, TIMEZONE);
+        try {
+            if (!chatId) return '';
 
-        const fourHoursAgoUTC = new Date(nowUTC.getTime() - 4 * 60 * 60000);
+            // Relaxed Filter: Last 4 hours OR Same Day (Ecuador)
+            const nowUTC = new Date();
+            const nowZoned = toZonedTime(nowUTC, TIMEZONE);
 
-        // We use the EARLIER of 4 hours ago or start of today to ensure continuity
-        const effectiveStartUTC = fourHoursAgoUTC < startOfTodayUTC ? fourHoursAgoUTC : startOfTodayUTC;
+            const startOfToday = new Date(nowZoned);
+            startOfToday.setHours(0, 0, 0, 0);
+            const startOfTodayUTC = fromZonedTime(startOfToday, TIMEZONE);
 
-        const history = await db.select()
-            .from(donnaChatMessages)
-            .where(
-                and(
-                    eq(donnaChatMessages.chatId, chatId),
-                    gte(donnaChatMessages.messageTimestamp, effectiveStartUTC)
+            const fourHoursAgoUTC = new Date(nowUTC.getTime() - 4 * 60 * 60000);
+
+            // We use the EARLIER of 4 hours ago or start of today to ensure continuity
+            const effectiveStartUTC = fourHoursAgoUTC < startOfTodayUTC ? fourHoursAgoUTC : startOfTodayUTC;
+
+            const history = await db.select()
+                .from(donnaChatMessages)
+                .where(
+                    and(
+                        eq(donnaChatMessages.chatId, chatId),
+                        gte(donnaChatMessages.messageTimestamp, new Date(Date.now() - 24 * 60 * 60 * 1000)) // Only last 24h
+                    )
                 )
-            )
-            .orderBy(desc(donnaChatMessages.messageTimestamp))
-            .limit(limit);
+                .orderBy(desc(donnaChatMessages.messageTimestamp))
+                .limit(limit);
 
-        if (history.length === 0) return 'Sin historial reciente.';
+            if (history.length === 0) return 'Sin historial reciente.';
 
-        return history.reverse().map(msg => {
-            const zonedMsgTime = toZonedTime(msg.messageTimestamp, TIMEZONE);
-            return `[${format(zonedMsgTime, 'HH:mm')}] ${msg.role === 'user' ? 'User' : 'Donna'}: ${msg.content} `;
-        }).join('\n');
+            return history.reverse().map(msg => {
+                const zonedMsgTime = toZonedTime(msg.messageTimestamp, TIMEZONE);
+                return `[${format(zonedMsgTime, 'HH:mm')}] ${msg.role === 'user' ? 'User' : 'Donna'}: ${msg.content} `;
+            }).join('\n');
+        } catch (e) {
+            console.warn('⚠️ DB History Error (Ignored):', e);
+            return 'Sin historial (DB Error)';
+        }
     }
 
     private async getContext(chatId?: string) {
         if (!chatId) return {};
-        const state = await db.select().from(conversationStates).where(eq(conversationStates.key, chatId)).limit(1);
-        if (state.length > 0) {
-            try {
-                return JSON.parse(state[0].data as string);
-            } catch (e) {
-                console.error('Error parsing context:', e);
+        try {
+            const state = await db.select().from(conversationStates).where(eq(conversationStates.key, chatId)).limit(1);
+            if (state.length > 0) {
+                try {
+                    return JSON.parse(state[0].data as string);
+                } catch (e) {
+                    return {};
+                }
             }
+        } catch (dbError) {
+            console.warn('⚠️ DB Context Error (Using empty context):', dbError);
+            return {};
         }
         return {};
     }
@@ -206,8 +221,9 @@ export class CortexRouterService {
         prompt = prompt.replace('{{INPUT}}', input.text);
 
         try {
-            const aiClient = getAIClient('REASONING');
-            const modelId = getModelId('REASONING');
+            // Updated to use FAST model (gpt-4o-mini) for Campaign Responses as requested
+            const aiClient = getAIClient('FAST');
+            const modelId = getModelId('FAST');
 
             const response = await aiClient.chat.completions.create({
                 model: modelId,
@@ -286,6 +302,13 @@ export class CortexRouterService {
                         timestamp: new Date().toISOString()
                     }
                 });
+            }
+
+            // 5. AUTO-DISCOVERY (Fire & Forget)
+            // We don't await this so it doesn't block the main response
+            if (input.chatId) {
+                this.extractDiscoveryLead(input.chatId, input.text, input.source === 'client' ? 'whatsapp' : 'telegram')
+                    .catch(err => console.error('🕵️ Auto-Discovery Error:', err));
             }
 
             return {
@@ -531,6 +554,107 @@ export class CortexRouterService {
             }
         }
     }
+    /**
+     * AUTO-DISCOVERY SYSTEM
+     * Extracts lead data in background using FAST model
+     */
+    private async extractDiscoveryLead(chatId: string, text: string, platform: string) {
+        // Only run if text length is sufficient to contain info
+        if (!text || text.length < 5) return;
+
+        try {
+            const aiClient = getAIClient('FAST'); // Cheap model
+            const modelId = getModelId('FAST');
+
+            // Minimal prompt for speed
+            const extractionPrompt = `
+            Analyze this message from a user in a Chat context.
+            Extract any of the following if present explicitly:
+            - Name (person)
+            - Business Name
+            - City/Location
+            - Email
+            
+            Return ONLY a valid JSON:
+            {
+               "found": boolean,
+               "name": string | null,
+               "business": string | null,
+               "city": string | null,
+               "email": string | null
+            }
+            
+            Message: "${text}"
+            `;
+
+            const completion = await aiClient.chat.completions.create({
+                model: modelId,
+                messages: [{ role: 'user', content: extractionPrompt }],
+                temperature: 0,
+                response_format: { type: 'json_object' }
+            });
+
+            const result = JSON.parse(completion.choices[0].message.content || '{}');
+
+            if (result.found) {
+                console.log('🕵️ Auto-Discovery extracted:', result);
+
+                // Upsert into discoveryLeads
+                // We try to match by phone (chatId) assuming chatId IS the phone number for WhatsApp
+                // For now, we just INSERT or UPDATE based on a hypothetical unique constraint or check existing
+                // But schema says id is primary key. We need to query first.
+
+                // IMPORTANT: In production schema, chatId might not be enough if it's not a phone number.
+                // Assuming chatId for WhatsApp is the phone number.
+
+                // Check if lead exists for this phone/chatId
+                // Note: The schema for discovery_leads has 'telefono_principal' which fits chatId
+
+                const existing = await db.select().from(discoveryLeads)
+                    .where(eq(discoveryLeads.telefonoPrincipal, chatId))
+                    .limit(1);
+
+                if (existing.length > 0) {
+                    // Update ONLY if we have new data and the field was empty
+                    // Or just overwrite? Let's overwrite for now as "latest info"
+                    await db.update(discoveryLeads).set({
+                        nombreComercial: result.business || existing[0].nombreComercial,
+                        personaContacto: result.name || existing[0].personaContacto,
+                        canton: result.city || existing[0].canton, // Mapping City -> Canton
+                        correoElectronico: result.email || existing[0].correoElectronico,
+                        updatedAt: new Date()
+                    }).where(eq(discoveryLeads.id, existing[0].id));
+                } else {
+                    // Insert new
+                    await db.insert(discoveryLeads).values({
+                        telefonoPrincipal: chatId,
+                        nombreComercial: result.business || 'Sin Nombre',
+                        personaContacto: result.name,
+                        canton: result.city,
+                        correoElectronico: result.email,
+                        sistemaOrigen: 'auto_discovery_chat',
+                        status: 'pending'
+                    });
+                }
+
+                // 🔔 NOTIFY CÉSAR (Internal Alert)
+                const cesarNumber = '593963410409';
+                const emoji = existing.length > 0 ? '🔄' : '✨';
+                const alertText = `*${emoji} DONNA ALERT: Nuevo Lead Detectado*\n\n` +
+                    `👤 *Nombre:* ${result.name || 'N/A'}\n` +
+                    `🏢 *Negocio:* ${result.business || 'N/A'}\n` +
+                    `📍 *Ciudad:* ${result.city || 'N/A'}\n` +
+                    `📱 *Chat:* https://wa.me/${chatId.replace(/\D/g, '')}\n\n` +
+                    `_Atiéndelo pronto para asegurar la venta._`;
+
+                await messagingService.send(cesarNumber, alertText, 'whatsapp')
+                    .catch(err => console.warn('⚠️ Failed to notify César:', err));
+            }
+        } catch (e) {
+            console.error('Extraction Failed:', e);
+        }
+    }
+
 }
 
 export const cortexRouter = new CortexRouterService();

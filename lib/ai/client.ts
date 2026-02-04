@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-type AIIntent = 'REASONING' | 'STANDARD' | 'AUDIO';
+type AIIntent = 'REASONING' | 'STANDARD' | 'AUDIO' | 'FAST';
 
 interface AIClientConfig {
     apiKey: string;
@@ -49,6 +49,7 @@ export class AIClient {
             case 'REASONING':
                 return this.reasoningClient;
             case 'STANDARD':
+            case 'FAST':
                 return this.standardClient;
             case 'AUDIO':
                 return this.audioClient;
@@ -63,6 +64,8 @@ export class AIClient {
                 return "deepseek-reasoner";
             case 'STANDARD':
                 return "gpt-4o";
+            case 'FAST':
+                return "gpt-4o-mini";
             case 'AUDIO':
                 return "whisper-1";
             default:

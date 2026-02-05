@@ -1,72 +1,55 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { interactions, contacts, discoveryLeads } from '@/lib/db/schema';
+import { donnaChatMessages } from '@/lib/db/schema';
 import { desc, eq, sql } from 'drizzle-orm';
 
 export async function GET() {
     try {
-        // 1. Obtener todas las interacciones de WhatsApp recientes
-        const latestInteractions = await db.select()
-            .from(interactions)
-            .where(eq(interactions.type, 'whatsapp'))
-            .orderBy(desc(interactions.performedAt))
-            .limit(200);
+        // 1. Obtener todos los mensajes de WhatsApp de la campaña Donna
+        const allMessages = await db.select()
+            .from(donnaChatMessages)
+            .where(
+                sql`${donnaChatMessages.platform} = 'whatsapp' OR (${donnaChatMessages.platform} = 'telegram' AND ${donnaChatMessages.metadata}->>'platform' = 'whatsapp')`
+            )
+            .orderBy(desc(donnaChatMessages.messageTimestamp))
+            .limit(500);
 
         const chatsMap = new Map();
 
-        // 2. Procesar y Agrupar
-        for (const inter of latestInteractions) {
-            // Un chat se identifica por: contactId, discoveryLeadId, o el numero en metadata
-            const metadata = inter.metadata as any || {};
-            const phoneNumber = metadata.phoneNumber || (metadata.raw?.from) || '';
+        // 2. Agrupar por chatId (número de teléfono)
+        for (const msg of allMessages) {
+            const chatId = msg.chatId;
 
-            // Generar una "Key" única para el chat
-            const chatKey = inter.contactId || inter.discoveryLeadId || phoneNumber;
+            if (!chatId) continue;
+            if (chatsMap.has(chatId)) continue; // Solo nos importa el mensaje más reciente
 
-            if (!chatKey) continue;
-            if (chatsMap.has(chatKey)) continue; // Solo nos importa la más reciente
-
-            // 3. Obtener detalles del emisor
-            let details = { name: phoneNumber || 'Desconocido', phone: phoneNumber, type: 'unknown' };
-
-            if (inter.contactId) {
-                const [c] = await db.select().from(contacts).where(eq(contacts.id, inter.contactId)).limit(1);
-                if (c) {
-                    details = { name: c.contactName || c.businessName || phoneNumber, phone: c.phone || phoneNumber, type: 'contact' };
-                }
-            } else if (inter.discoveryLeadId) {
-                const [d] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.id, inter.discoveryLeadId)).limit(1);
-                if (d) {
-                    details = { name: d.nombreComercial || phoneNumber, phone: d.telefonoPrincipal || phoneNumber, type: 'discovery' };
-                }
-            }
-
-            // 4. Determinar Estado
+            // 3. Determinar Estado basado en el contenido y rol
             let status = 'inbox';
-            const contentNormalized = (inter.content || '').toLowerCase();
+            const contentNormalized = (msg.content || '').toLowerCase();
             const hotWords = ['precio', 'comprar', 'interesado', 'costo', 'pagar', 'urgente', 'ayuda'];
 
-            if (hotWords.some(word => contentNormalized.includes(word)) && inter.direction === 'inbound') {
-                status = 'urgent';
-            } else if (inter.direction === 'outbound' && contentNormalized.includes('donna:')) {
-                status = 'donna';
-            } else if (inter.direction === 'inbound') {
-                status = 'inbox';
+            if (msg.role === 'assistant') {
+                status = 'donna'; // Mensaje enviado por Donna
+            } else if (hotWords.some(word => contentNormalized.includes(word))) {
+                status = 'urgent'; // Mensaje del usuario con palabras clave urgentes
+            } else if (msg.role === 'user') {
+                status = 'inbox'; // Mensaje normal del usuario
             }
 
-            chatsMap.set(chatKey, {
-                id: chatKey,
-                entityId: inter.contactId || inter.discoveryLeadId || null,
-                entityType: details.type,
-                contactName: details.name,
-                phone: details.phone,
-                lastMessage: inter.content || '',
+            // 4. Crear el objeto del chat
+            chatsMap.set(chatId, {
+                id: chatId,
+                entityId: null, // No hay entidad asociada en campaña
+                entityType: 'campaign', // Tipo especial para campaña
+                contactName: chatId, // Usar el número como nombre por defecto
+                phone: chatId,
+                lastMessage: msg.content || '',
                 status: status,
-                time: inter.performedAt,
-                messageType: inter.type,
-                metadata: inter.metadata,
-                unread: inter.direction === 'inbound',
-                isGhost: !inter.contactId && !inter.discoveryLeadId
+                time: msg.messageTimestamp,
+                messageType: 'whatsapp',
+                metadata: msg.metadata,
+                unread: msg.role === 'user', // Marcar como no leído si es del usuario
+                isGhost: true // Siempre es "ghost" en campaña (sin entidad CRM)
             });
         }
 
@@ -74,7 +57,7 @@ export async function GET() {
 
         return NextResponse.json({ success: true, chats: uniqueChats });
     } catch (error: any) {
-        console.error('Error fetching chats:', error);
+        console.error('Error fetching campaign chats:', error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

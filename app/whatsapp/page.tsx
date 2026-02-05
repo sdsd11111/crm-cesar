@@ -564,8 +564,8 @@ export default function ChatCenterPage() {
                                             </div>
                                             {chat.unread && <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-black" />}
                                         </div>
-                                        <div className="overflow-hidden flex-1">
-                                            <div className="flex justify-between items-center">
+                                        <div className="overflow-hidden flex-1 min-w-0">
+                                            <div className="flex justify-between items-center gap-2">
                                                 <p className="text-[11px] font-bold truncate">{chat.contactName}</p>
                                                 <span className="text-[9px] text-gray-500 shrink-0">{formatTime(chat.time)}</span>
                                             </div>
@@ -867,16 +867,16 @@ export default function ChatCenterPage() {
 
                                                     <div className="flex items-center gap-3 bg-purple-500/10 p-2 px-3 rounded-lg border border-purple-500/20">
                                                         <Switch
-                                                            checked={fullDetails.botMode === 'active'}
+                                                            checked={(fullDetails.botMode || 'active') === 'active'}
                                                             onCheckedChange={handleToggleBot}
                                                             disabled={isSavingDetails}
                                                             className="data-[state=checked]:bg-purple-600"
                                                         />
-                                                        <div className="flex items-center gap-2">
-                                                            <Bot size={14} className={fullDetails.botMode === 'active' ? "text-purple-400" : "text-gray-500"} />
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[10px] font-bold text-purple-300 uppercase leading-tight">Asistente Donna</span>
-                                                                <span className="text-[9px] text-gray-500 font-medium">{fullDetails.botMode === 'active' ? 'ENCENDIDO' : 'PAUSADO'}</span>
+                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                            <Bot size={14} className={(fullDetails.botMode || 'active') === 'active' ? "text-purple-400" : "text-gray-500"} />
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="text-[10px] font-bold text-purple-300 uppercase leading-tight truncate">Asistente Donna</span>
+                                                                <span className="text-[9px] text-gray-500 font-medium">{(fullDetails.botMode || 'active') === 'active' ? 'ENCENDIDO' : 'PAUSADO'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1073,10 +1073,10 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
                                 {chat.contactName}
                             </p>
                         </div>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col min-w-0">
                             <p className="text-[10px] text-[#8696a0] flex items-center gap-1 font-medium italic truncate">
-                                {chat.isGhost && <span className="text-amber-500/70 not-italic mr-1">(Ghost)</span>}
-                                {chat.lastMessage || 'Sin mensajes'}
+                                {chat.isGhost && <span className="text-amber-500/70 not-italic mr-1 shrink-0">(Ghost)</span>}
+                                <span className="truncate">{chat.lastMessage || 'Sin mensajes'}</span>
                             </p>
                         </div>
                     </div>

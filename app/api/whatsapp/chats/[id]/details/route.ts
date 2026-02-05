@@ -104,7 +104,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                         telefonoPrincipal: id,
                         nombreComercial: updates.nombreComercial || updates.businessName || `Lead Campaña ${id}`,
                         botMode: updates.botMode || 'active',
-                        source: 'campaign_whatsapp'
+                        sistemaOrigen: 'campaign_whatsapp'
                     }).returning();
                 }
             }

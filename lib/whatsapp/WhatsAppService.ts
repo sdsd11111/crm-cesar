@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { db } from '../db';
-import { contacts, whatsappLogs, discoveryLeads, interactions } from '../db/schema';
+import { contacts, whatsappLogs, discoveryLeads, interactions, donnaChatMessages } from '../db/schema';
 import { eq, sql } from 'drizzle-orm';
 
 export interface WhatsAppMedia {
@@ -131,8 +131,22 @@ export class WhatsAppService {
                     approvedBy: metadata.approvedBy || 'system',
                     metadata: { ...metadata, metaResponse: response.data }
                 });
+
+                // 3. PERSISTENCE for Chat History (Donna Console)
+                await db.insert(donnaChatMessages).values({
+                    chatId: cleanPhone,
+                    role: 'assistant',
+                    content: logContent,
+                    platform: 'whatsapp',
+                    messageTimestamp: new Date(),
+                    metadata: {
+                        source: metadata.source || 'chat_center_console',
+                        metaMessageId: response.data.messages?.[0]?.id,
+                        media: media || null
+                    }
+                });
             } catch (dbError) {
-                console.warn('⚠️ Log/Interaction skipped (DB error)', dbError);
+                console.warn('⚠️ Log/Interaction/History skipped (DB error)', dbError);
             }
 
             return { success: true, data: response.data };

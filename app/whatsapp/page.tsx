@@ -786,7 +786,7 @@ export default function ChatCenterPage() {
 
                                             <Accordion type="single" collapsible className="w-full space-y-2 border-none">
                                                 {/* Grouping fields based on entity type */}
-                                                {selectedChat.entityType === 'discovery' ? (
+                                                {(selectedChat.entityType === 'discovery' || selectedChat.entityType === 'campaign') ? (
                                                     <>
                                                         <AccordionItem value="id" className="border border-gray-800 rounded-xl bg-gray-900/40 px-3 border-b-0">
                                                             <AccordionTrigger className="text-xs hover:no-underline py-3">Identificación Legal</AccordionTrigger>

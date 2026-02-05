@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { interactions, contacts, discoveryLeads, whatsappLogs, contactChannels } from '@/lib/db/schema';
+import { interactions, contacts, discoveryLeads, whatsappLogs, contactChannels, donnaChatMessages } from '@/lib/db/schema';
 import { sql, eq, and } from 'drizzle-orm';
 import { cortexRouter } from '@/lib/donna/services/CortexRouterService';
 import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
@@ -57,7 +57,8 @@ export async function POST(req: Request) {
         const message = value?.messages?.[0];
 
         if (message) {
-            const from = message.from;
+            const fromRaw = message.from;
+            const from = fromRaw.replace(/\D/g, ''); // Ensure digits only for chatId consistency
             let content = '';
             let mediaData = null;
 
@@ -189,6 +190,20 @@ export async function POST(req: Request) {
                     },
                     performedAt: new Date(),
                     createdAt: new Date()
+                });
+
+                // 2.7 PERSISTENCE for Chat History (Donna Console)
+                await db.insert(donnaChatMessages).values({
+                    chatId: from,
+                    role: 'user',
+                    content: content,
+                    platform: 'whatsapp',
+                    messageTimestamp: new Date(),
+                    metadata: {
+                        source: 'whatsapp_webhook_inbound',
+                        metaMessageId: message.id,
+                        media: mediaData ? { type: message.type, ...mediaData } : null
+                    }
                 });
 
                 console.log('✅ Webhook: Interaction saved successfully');

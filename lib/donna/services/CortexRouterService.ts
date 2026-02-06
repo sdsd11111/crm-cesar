@@ -56,16 +56,16 @@ export class CortexRouterService {
     }
 
     // --- MEMORY SYSTEM ---
-    private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string, platform: 'telegram' | 'whatsapp' = 'telegram') {
+    private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string, platform: 'telegram' | 'whatsapp' = 'whatsapp') {
         if (!chatId) return;
         try {
             await db.insert(donnaChatMessages).values({
                 chatId,
                 role,
                 content,
-                platform: 'telegram', // Force telegram for DB column to avoid enum errors
+                platform, // Use actual platform
                 messageTimestamp: new Date(),
-                metadata: { platform } // Save actual platform in metadata
+                metadata: { platform }
             });
         } catch (e) {
             console.error('[Memory] Error saving message (Ignored):', e);
@@ -353,7 +353,7 @@ export class CortexRouterService {
                 if (resolvedId) input.contactId = resolvedId;
             }
 
-            await this.routeToTable(parsed, input.contactId, input.text, { ...replyContext, platform: 'telegram' });
+            await this.routeToTable(parsed, input.contactId, input.text, { ...replyContext, platform: input.source === 'client' ? 'whatsapp' : 'telegram' });
 
             return {
                 status: 'success',
@@ -497,7 +497,7 @@ export class CortexRouterService {
                     break;
 
                 default:
-                    await this.sendMessage(`Entiendo, lo proceso enseguida.`, context, context.platform || 'telegram');
+                    await this.sendMessage(`Entiendo, lo proceso enseguida.`, context, context.platform || 'whatsapp');
             }
         } catch (error) {
             console.error('❌ Error in routeToTable:', error);
@@ -528,7 +528,7 @@ export class CortexRouterService {
     }
 
     private async sendMessage(message: string, context: { chatId?: string, onReply?: (text: string) => void, platform?: 'telegram' | 'whatsapp' }, platformOverride?: 'telegram' | 'whatsapp') {
-        const platform = platformOverride || context.platform || 'telegram';
+        const platform = platformOverride || context.platform || 'whatsapp';
         if (platform === 'whatsapp') await this.sendWhatsAppMessage(message, context);
         else await this.sendTelegramMessage(message, context);
     }
@@ -550,7 +550,7 @@ export class CortexRouterService {
         const botToken = process.env.TELEGRAM_BOT_TOKEN;
         const targetChatId = chatId || process.env.TELEGRAM_CHAT_ID;
         if (targetChatId) {
-            await this.saveMessage(targetChatId, 'assistant', message, 'telegram');
+            await this.saveMessage(targetChatId, 'assistant', message, 'telegram'); // Keep telegram for internal César bot
             if (botToken) {
                 fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                     method: 'POST',

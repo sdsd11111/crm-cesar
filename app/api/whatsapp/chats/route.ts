@@ -1,61 +1,68 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { donnaChatMessages } from '@/lib/db/schema';
-import { desc, eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export async function GET() {
     try {
-        // 1. Obtener todos los mensajes de WhatsApp de la campaña Donna
-        const allMessages = await db.select()
-            .from(donnaChatMessages)
-            .where(
-                sql`${donnaChatMessages.platform} = 'whatsapp' OR (${donnaChatMessages.platform} = 'telegram' AND ${donnaChatMessages.metadata}->>'platform' = 'whatsapp')`
-            )
-            .orderBy(desc(donnaChatMessages.messageTimestamp))
-            .limit(500);
+        // 1. Obtener el mensaje más reciente de CADA chat_id de forma única y eficiente
+        // Usamos DISTINCT ON para que PostgreSQL nos dé una sola fila por chatId
+        // Ordenamos por chat_id y luego por message_timestamp DESC para quedarnos con el último de cada uno
+        const latestMessages = await db.execute(sql`
+            SELECT DISTINCT ON (chat_id) 
+                id, chat_id, role, content, platform, message_timestamp, metadata
+            FROM donna_chat_messages
+            WHERE platform = 'whatsapp'
+            ORDER BY chat_id, message_timestamp DESC
+        `);
 
-        const chatsMap = new Map();
+        // Convertir a array de objetos planos (execute retorna filas crudas)
+        const allMessages = latestMessages as any[];
 
-        // 2. Agrupar por chatId (número de teléfono)
-        for (const msg of allMessages) {
-            const chatId = msg.chatId;
+        // 2. Mapear al formato que espera la UI
+        const chats = allMessages.map(msg => {
+            const chatId = msg.chat_id;
+            const content = msg.content || '';
+            const role = msg.role;
 
-            if (!chatId) continue;
-            if (chatsMap.has(chatId)) continue; // Solo nos importa el mensaje más reciente
-
-            // 3. Determinar Estado basado en el contenido y rol
+            // Determinar Estatus
             let status = 'inbox';
-            const contentNormalized = (msg.content || '').toLowerCase();
+            const contentNormalized = content.toLowerCase();
             const hotWords = ['precio', 'comprar', 'interesado', 'costo', 'pagar', 'urgente', 'ayuda'];
 
-            if (msg.role === 'assistant') {
-                status = 'donna'; // Mensaje enviado por Donna
+            if (role === 'assistant') {
+                status = 'donna';
             } else if (hotWords.some(word => contentNormalized.includes(word))) {
-                status = 'urgent'; // Mensaje del usuario con palabras clave urgentes
-            } else if (msg.role === 'user') {
-                status = 'inbox'; // Mensaje normal del usuario
+                status = 'urgent';
+            } else if (role === 'user') {
+                status = 'inbox';
             }
 
-            // 4. Crear el objeto del chat
-            chatsMap.set(chatId, {
+            return {
                 id: chatId,
-                entityId: null, // No hay entidad asociada en campaña
-                entityType: 'campaign', // Tipo especial para campaña
-                contactName: chatId, // Usar el número como nombre por defecto
+                entityId: null,
+                entityType: 'campaign',
+                contactName: `Chat ${chatId.slice(-4)}`,
                 phone: chatId,
-                lastMessage: msg.content || '',
+                lastMessage: content,
                 status: status,
-                time: msg.messageTimestamp,
+                time: msg.message_timestamp,
                 messageType: 'whatsapp',
                 metadata: msg.metadata,
-                unread: msg.role === 'user', // Marcar como no leído si es del usuario
-                isGhost: true // Siempre es "ghost" en campaña (sin entidad CRM)
-            });
-        }
+                unread: role === 'user',
+                isGhost: true
+            };
+        });
 
-        const uniqueChats = Array.from(chatsMap.values());
+        // 3. Ordenar la lista final por fecha (el más reciente de todos arriba)
+        const sortedChats = chats.sort((a, b) =>
+            new Date(b.time).getTime() - new Date(a.time).getTime()
+        );
 
-        return NextResponse.json({ success: true, chats: uniqueChats });
+        return NextResponse.json({
+            success: true,
+            chats: sortedChats
+        });
+
     } catch (error: any) {
         console.error('Error fetching campaign chats:', error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Paperclip, Loader2 } from 'lucide-react';
+import { Send, Paperclip, Loader2, Mic, Image, FileIcon, Square, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ClientLinkDialog } from './ClientLinkDialog';
@@ -15,6 +15,7 @@ interface Message {
     content: string;
     messageTimestamp: string;
     platform: string;
+    metadata?: any;
 }
 
 interface ChatViewProps {
@@ -27,7 +28,11 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const mediaRecorder = useRef<MediaRecorder | null>(null);
+    const audioChunks = useRef<Blob[]>([]);
 
     // Fetch History & Polling
     useEffect(() => {
@@ -64,8 +69,90 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
         }
     }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
+    const uploadFile = async (file: File, type: string) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        const res = await fetch('/api/whatsapp/media/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!res.ok) throw new Error('Upload failed');
+        return await res.json();
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder.current = new MediaRecorder(stream);
+            audioChunks.current = [];
+
+            mediaRecorder.current.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunks.current.push(e.data);
+            };
+
+            mediaRecorder.current.onstop = async () => {
+                const audioBlob = new Blob(audioChunks.current, { type: 'audio/ogg; codecs=opus' });
+                const file = new File([audioBlob], `voice_${Date.now()}.ogg`, { type: 'audio/ogg' });
+
+                try {
+                    setSending(true);
+                    const uploadResult = await uploadFile(file, 'audio');
+                    await handleSend('', {
+                        type: 'audio',
+                        id: uploadResult.mediaId
+                    });
+                } catch (err) {
+                    console.error("Failed to send audio", err);
+                } finally {
+                    setSending(false);
+                }
+            };
+
+            mediaRecorder.current.start();
+            setIsRecording(true);
+        } catch (err) {
+            console.error("Mic access denied", err);
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorder.current) {
+            mediaRecorder.current.stop();
+            setIsRecording(false);
+            mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+        }
+    };
+
+    const onFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        let type: 'image' | 'document' | 'video' = 'document';
+        if (file.type.startsWith('image/')) type = 'image';
+        else if (file.type.startsWith('video/')) type = 'video';
+
+        try {
+            setSending(true);
+            const uploadResult = await uploadFile(file, type);
+            await handleSend(file.name, {
+                type: type,
+                id: uploadResult.mediaId,
+                caption: file.name
+            });
+        } catch (err) {
+            console.error("File upload error", err);
+        } finally {
+            setSending(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSend = async (textOverride?: string, media?: any) => {
+        const messageContent = textOverride !== undefined ? textOverride : input;
+        if (!messageContent.trim() && !media) return;
         setSending(true);
 
         const tempId = Date.now().toString();
@@ -73,26 +160,27 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
         const optimisticMsg: Message = {
             id: tempId,
             role: 'assistant',
-            content: input,
+            content: messageContent,
             messageTimestamp: new Date().toISOString(),
-            platform: 'whatsapp' // default
+            platform: 'whatsapp',
+            metadata: media ? { media } : undefined
         };
         setMessages(prev => [...prev, optimisticMsg]);
-        setInput('');
+        if (textOverride === undefined) setInput('');
 
         try {
             const res = await fetch(`/api/conversations/${contactId}/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: optimisticMsg.content })
+                body: JSON.stringify({
+                    message: optimisticMsg.content || (media ? `[${media.type}]` : ''),
+                    metadata: { media }
+                })
             });
 
             if (!res.ok) throw new Error('Send failed');
-
-            // In a real app, we'd replace the optimistic msg or re-fetch
         } catch (error) {
             console.error("Send error", error);
-            // Revert or show error
         } finally {
             setSending(false);
         }
@@ -106,15 +194,21 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
     const isUnknownNumber = contactName.replace(/\D/g, '').length >= 7 && !contactName.match(/[a-zA-Z]/);
 
     return (
-        <div className="flex flex-col h-full bg-background border rounded-md overflow-hidden">
+        <div className="flex flex-col h-full bg-background border rounded-xl overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="bg-muted p-3 border-b flex justify-between items-center">
+            <div className="bg-muted/30 p-4 border-b flex justify-between items-center backdrop-blur-sm">
                 <div className="flex flex-col">
-                    <h3 className="font-semibold flex items-center gap-2">
+                    <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
                         {contactName}
-                        {isUnknownNumber && <span className="text-[10px] bg-yellow-200 text-yellow-800 px-1 rounded">Desconocido</span>}
+                        {isUnknownNumber && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                Desconocido
+                            </span>
+                        )}
                     </h3>
-                    <span className="text-xs text-muted-foreground">{isUnknownNumber ? 'Número no guardado' : 'Unified Channel View'}</span>
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-tight">
+                        {isUnknownNumber ? 'Número no guardado' : 'Unified Channel View'}
+                    </span>
                 </div>
                 <div className="flex gap-2">
                     {isUnknownNumber && (
@@ -125,16 +219,16 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-                <div className="flex flex-col gap-4">
+            <ScrollArea className="flex-1 p-4 bg-muted/5">
+                <div className="flex flex-col gap-5">
                     {messages.map((msg) => {
                         const isAssistant = msg.role === 'assistant';
                         const isSystem = msg.role === 'system';
 
                         if (isSystem) {
                             return (
-                                <div key={msg.id} className="flex justify-center my-2">
-                                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
+                                <div key={msg.id} className="flex justify-center my-3">
+                                    <span className="bg-amber-50 text-amber-800 text-[10px] font-bold px-3 py-1 rounded-full border border-amber-100 uppercase tracking-wider">
                                         {msg.content}
                                     </span>
                                 </div>
@@ -142,18 +236,79 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
                         }
 
                         return (
-                            <div key={msg.id} className={`flex ${isAssistant ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] rounded-lg p-3 ${isAssistant
-                                    ? 'bg-blue-600 text-white rounded-br-none'
-                                    : 'bg-white border text-slate-800 rounded-bl-none shadow-sm'
+                            <div key={msg.id} className={`flex gap-3 ${isAssistant ? 'justify-end' : 'justify-start'}`}>
+                                {!isAssistant && (
+                                    <div className="flex-shrink-0 mt-1">
+                                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-300 shadow-sm transition-transform hover:scale-110">
+                                            {isUnknownNumber ? (
+                                                <User className="w-4 h-4" />
+                                            ) : (
+                                                contactName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className={`max-w-[80%] rounded-2xl p-4 transition-all duration-200 ${isAssistant
+                                    ? 'bg-blue-600 text-white rounded-tr-none shadow-md shadow-blue-500/20'
+                                    : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-sm'
                                     }`}>
-                                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                                    <div className={`text-[10px] mt-1 text-right ${isAssistant ? 'text-blue-100' : 'text-slate-400'}`}>
+                                    {/* Media Rendering */}
+                                    {msg.metadata?.media && (
+                                        <div className="mb-3">
+                                            {msg.metadata.media.type === 'image' && (
+                                                <div className="rounded-xl overflow-hidden border border-white/20 bg-black/5 shadow-inner">
+                                                    {msg.metadata.media.url ? (
+                                                        <img src={msg.metadata.media.url} alt="WhatsApp" className="max-w-full h-auto hover:scale-105 transition-transform duration-500" />
+                                                    ) : (
+                                                        <div className="p-10 flex flex-col items-center gap-3 opacity-60">
+                                                            <Image className="w-10 h-10" />
+                                                            <span className="text-xs font-medium">Imagen enviada</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {msg.metadata.media.type === 'audio' && (
+                                                <div className={`flex items-center gap-3 p-3 rounded-xl ${isAssistant ? 'bg-blue-700/50' : 'bg-slate-50'}`}>
+                                                    <div className={`p-2 rounded-full ${isAssistant ? 'bg-blue-400/20' : 'bg-blue-500/10'}`}>
+                                                        <Mic className={`w-4 h-4 ${isAssistant ? 'text-blue-100' : 'text-blue-600'}`} />
+                                                    </div>
+                                                    {msg.metadata.media.url ? (
+                                                        <audio controls src={msg.metadata.media.url} className="h-8 max-w-[220px] filter saturate-50" />
+                                                    ) : (
+                                                        <span className="text-xs italic font-medium opacity-80 uppercase tracking-tight">Audio enviado</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {(msg.metadata.media.type === 'document' || msg.metadata.media.type === 'video') && (
+                                                <div className={`flex items-center gap-3 p-3 rounded-xl border ${isAssistant ? 'bg-blue-700/50 border-blue-400/20' : 'bg-slate-50 border-slate-100'}`}>
+                                                    <div className="p-2 bg-slate-500/10 rounded-lg">
+                                                        <FileIcon className="w-4 h-4 text-slate-500" />
+                                                    </div>
+                                                    <span className="text-xs font-bold truncate opacity-90">{msg.metadata.media.caption || 'Archivo adjunto'}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {msg.content && <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>}
+
+                                    <div className={`text-[9px] mt-2 flex items-center justify-end gap-1 font-bold uppercase tracking-widest ${isAssistant ? 'text-blue-100/70' : 'text-slate-400'}`}>
                                         {msg.messageTimestamp && !isNaN(new Date(msg.messageTimestamp).getTime())
                                             ? format(new Date(msg.messageTimestamp), 'HH:mm', { locale: es })
-                                            : ''} • {msg.platform}
+                                            : ''}
+                                        <span className="opacity-50">•</span>
+                                        {msg.platform}
                                     </div>
                                 </div>
+
+                                {isAssistant && (
+                                    <div className="flex-shrink-0 mt-1">
+                                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white border border-blue-500 shadow-md transition-transform hover:scale-110">
+                                            DO
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -162,20 +317,75 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
             </ScrollArea>
 
             {/* Footer / Input */}
-            <div className="p-3 border-t bg-background flex gap-2">
-                <Button variant="outline" size="icon" className="shrink-0">
-                    <Paperclip className="h-4 w-4" />
-                </Button>
-                <Input
-                    placeholder="Escribe un mensaje..."
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    disabled={sending}
-                />
-                <Button onClick={handleSend} disabled={sending || !input.trim()}>
-                    {sending ? <Loader2 className="animate-spin h-4 w-4" /> : <Send className="h-4 w-4" />}
-                </Button>
+            <div className="p-4 border-t bg-background flex flex-col gap-3 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                {isRecording && (
+                    <div className="flex items-center justify-between bg-red-500/5 p-3 rounded-xl border border-red-500/10 animate-pulse">
+                        <div className="flex items-center gap-3 text-red-600 text-xs font-bold uppercase tracking-wider">
+                            <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                            Grabando Nota de Voz...
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 px-4 text-[10px] font-bold uppercase tracking-widest rounded-full"
+                            onClick={stopRecording}
+                        >
+                            Detener y Enviar
+                        </Button>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={onFileSelect}
+                        accept="image/*,audio/*,video/*,application/pdf"
+                    />
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-11 w-11 shrink-0 rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 group active:scale-95"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={sending || isRecording}
+                    >
+                        <Paperclip className="h-5 w-5 text-slate-500 group-hover:text-blue-600 transition-colors" />
+                    </Button>
+
+                    <div className="relative flex-1 group">
+                        <Input
+                            placeholder={isRecording ? "Silencio por favor, grabando..." : "Escribe un mensaje..."}
+                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-sm font-medium transition-all duration-200 focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/50 group-hover:border-slate-300"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !isRecording && handleSend()}
+                            disabled={sending || isRecording}
+                        />
+                    </div>
+
+                    {!input.trim() && !sending ? (
+                        <Button
+                            variant={isRecording ? "destructive" : "outline"}
+                            size="icon"
+                            onClick={isRecording ? stopRecording : startRecording}
+                            className={`h-11 w-11 rounded-full transition-all duration-300 shadow-sm active:scale-90 ${isRecording
+                                ? "bg-red-600 text-white hover:bg-red-700 animate-pulse border-none"
+                                : "border-slate-200 hover:border-blue-500/50 hover:bg-blue-50 group"
+                                }`}
+                        >
+                            <Mic className={`h-5 w-5 ${!isRecording && "text-slate-500 group-hover:text-blue-600"}`} />
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={() => handleSend()}
+                            disabled={sending || !input.trim() || isRecording}
+                            className="h-11 px-6 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {sending ? <Loader2 className="animate-spin h-5 w-5" /> : <Send className="h-5 w-5" />}
+                        </Button>
+                    )}
+                </div>
             </div>
         </div>
     );

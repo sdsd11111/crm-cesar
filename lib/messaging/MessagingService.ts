@@ -192,14 +192,16 @@ export class MessagingService {
                 role: m.role,
                 content: m.content,
                 messageTimestamp: m.messageTimestamp,
-                platform: m.platform
+                platform: m.platform,
+                metadata: m.metadata
             })),
             ...inboundHistory.map(i => ({
                 id: i.id,
                 role: i.direction === 'inbound' ? 'user' : 'assistant',
                 content: i.content,
                 messageTimestamp: i.performedAt,
-                platform: i.type
+                platform: i.type,
+                metadata: i.metadata
             }))
         ];
 

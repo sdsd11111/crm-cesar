@@ -7,7 +7,7 @@ export class WhatsAppAdapter implements IMessagingAdapter {
 
     async sendMessage(to: string, text: string, metadata: any = {}) {
         // Wrapper around existing robust service
-        const response = await whatsappService.sendMessage(to, text, metadata);
+        const response = await whatsappService.sendMessage(to, text, metadata, metadata.media);
 
         if (response.success) {
             return { success: true, data: response.data };

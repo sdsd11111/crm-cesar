@@ -4,11 +4,12 @@ import { contacts, whatsappLogs, discoveryLeads, interactions, donnaChatMessages
 import { eq, sql } from 'drizzle-orm';
 
 export interface WhatsAppMedia {
-    type: 'image' | 'video' | 'audio' | 'document';
+    type: 'image' | 'video' | 'audio' | 'document' | 'contacts';
     url?: string;
     id?: string;
     caption?: string;
     filename?: string;
+    contacts?: any[];
 }
 
 export class WhatsAppService {
@@ -59,12 +60,17 @@ export class WhatsAppService {
             };
 
             if (media) {
-                payload.type = media.type;
-                payload[media.type] = {
-                    ...(media.id ? { id: media.id } : { link: media.url }),
-                    ...(media.caption ? { caption: media.caption } : {}),
-                    ...(media.type === 'document' && media.filename ? { filename: media.filename } : {})
-                };
+                if (media.type === 'contacts') {
+                    payload.type = "contacts";
+                    payload.contacts = media.contacts;
+                } else {
+                    payload.type = media.type;
+                    payload[media.type] = {
+                        ...(media.id ? { id: media.id } : { link: media.url }),
+                        ...(media.caption ? { caption: media.caption } : {}),
+                        ...(media.type === 'document' && media.filename ? { filename: media.filename } : {})
+                    };
+                }
             } else {
                 payload.type = "text";
                 payload.text = {
@@ -162,8 +168,17 @@ export class WhatsAppService {
         const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/media`;
 
         try {
+            // SHIM: Fix MIME types for Meta API
+            let finalMimeType = mimeType;
+            if (mimeType.includes('vcard')) {
+                finalMimeType = 'text/plain'; // Meta requires supported type, clients detect content via .vcf extension
+            }
+            if (mimeType.includes('audio/webm') || mimeType.includes('audio/weba')) {
+                finalMimeType = 'audio/ogg'; // Force OGG mapping for any WebM audio variant
+            }
+
             const formData = new FormData();
-            const blob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+            const blob = new Blob([new Uint8Array(fileBuffer)], { type: finalMimeType });
             formData.append('file', blob, fileName);
             formData.append('messaging_product', 'whatsapp');
             formData.append('type', type);

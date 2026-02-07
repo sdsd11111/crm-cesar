@@ -17,12 +17,57 @@ export async function GET() {
 
         // Convertir a array de objetos planos (execute retorna filas crudas)
         const allMessages = latestMessages as any[];
+        console.log('🚀 [API/Chats] Messages found with platform=whatsapp:', allMessages.length);
 
-        // 2. Mapear al formato que espera la UI
-        const chats = allMessages.map(msg => {
+        if (allMessages.length === 0) {
+            const platformStats = await db.execute(sql`SELECT platform, count(*) FROM donna_chat_messages GROUP BY platform`);
+            console.log('📊 [API/Chats] Platform statistics:', platformStats);
+
+            const lastAny = await db.execute(sql`SELECT id, chat_id, platform, content FROM donna_chat_messages LIMIT 3`);
+            console.log('👀 [API/Chats] Sample messages (any platform):', lastAny);
+        }
+
+        // 2. Mapear al formato que espera la UI con Enriquecimiento de Datos
+        const chats = await Promise.all(allMessages.map(async (msg) => {
             const chatId = msg.chat_id;
             const content = msg.content || '';
             const role = msg.role;
+
+            // --- Enriquecimiento de Datos (Lookup en Leads y Contactos) ---
+            let entityId = null;
+            let entityType = 'campaign';
+            let contactName = `Chat ${chatId.slice(-4)}`;
+            let phone = chatId;
+
+            // Buscar en discovery_leads
+            const [lead] = await db.execute(sql`
+                SELECT id, nombre_comercial, telefono_principal 
+                FROM discovery_leads 
+                WHERE telefono_principal = ${chatId} OR telefono_principal = ${'+' + chatId}
+                LIMIT 1
+            `) as any[];
+
+            if (lead) {
+                entityId = lead.id;
+                entityType = 'discovery';
+                contactName = lead.nombre_comercial;
+                phone = lead.telefono_principal || chatId;
+            } else {
+                // Buscar en contacts
+                const [contact] = await db.execute(sql`
+                    SELECT id, contact_name, phone 
+                    FROM contacts 
+                    WHERE phone = ${chatId} OR phone = ${'+' + chatId}
+                    LIMIT 1
+                `) as any[];
+
+                if (contact) {
+                    entityId = contact.id;
+                    entityType = 'contact';
+                    contactName = contact.contact_name;
+                    phone = contact.phone || chatId;
+                }
+            }
 
             // Determinar Estatus
             let status = 'inbox';
@@ -39,10 +84,10 @@ export async function GET() {
 
             return {
                 id: chatId,
-                entityId: null,
-                entityType: 'campaign',
-                contactName: `Chat ${chatId.slice(-4)}`,
-                phone: chatId,
+                entityId,
+                entityType,
+                contactName,
+                phone,
                 lastMessage: content,
                 status: status,
                 time: msg.message_timestamp,
@@ -51,7 +96,7 @@ export async function GET() {
                 unread: role === 'user',
                 isGhost: true
             };
-        });
+        }));
 
         // 3. Ordenar la lista final por fecha (el más reciente de todos arriba)
         const sortedChats = chats.sort((a, b) =>

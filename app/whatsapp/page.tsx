@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { CreateContactDialog } from '@/components/ops/CreateContactDialog';
 import {
     MessageSquare,
     User,
@@ -29,7 +30,7 @@ import {
     Home,
     Paperclip,
     Image as ImageIcon,
-    File,
+    File as LucideFile,
     PlayCircle,
     Mic
 } from 'lucide-react';
@@ -98,6 +99,10 @@ export default function ChatCenterPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [pendingMedia, setPendingMedia] = useState<any>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const mediaRecorder = useRef<MediaRecorder | null>(null);
+    const audioChunks = useRef<Blob[]>([]);
+    const recordingMimeType = useRef<string>('');
 
     // Form States (Right Panel)
     const [newTask, setNewTask] = useState({ title: '', priority: 'medium', dueDate: '' });
@@ -109,7 +114,7 @@ export default function ChatCenterPage() {
     const [isFetchingDetails, setIsFetchingDetails] = useState(false);
     const [isSavingDetails, setIsSavingDetails] = useState(false);
     const [editedFields, setEditedFields] = useState<any>({});
-    const messagesEndRef = React.useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
@@ -264,7 +269,9 @@ export default function ChatCenterPage() {
     }, [selectedChat?.id]); // Refrescar intervalo si cambia el chat seleccionado
 
     const handleChatClick = (chat: any) => {
+        console.log('📱 Chat seleccionado:', chat.id, chat.contactName, chat.entityType);
         setSelectedChat(chat);
+        setFullDetails(null); // Clear previous details to avoid stale data
         setViewMode('console');
         fetchMessages(chat.id);
         fetchFullDetails(chat.id, chat.entityType);
@@ -300,35 +307,83 @@ export default function ChatCenterPage() {
         }
     };
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsUploading(true);
+    const uploadFile = async (file: File, type: string) => {
         const formData = new FormData();
         formData.append('file', file);
-
-        // Determine type based on extension/mime
-        let type = 'document';
-        if (file.type.startsWith('image/')) type = 'image';
-        else if (file.type.startsWith('video/')) type = 'video';
-        else if (file.type.startsWith('audio/')) type = 'audio';
-
         formData.append('type', type);
 
+        const res = await fetch('/api/whatsapp/media/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!res.ok) throw new Error('Upload failed');
+        return await res.json();
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const fileInput = e.target.files?.[0];
+        if (!fileInput) return;
+
+        console.log('📎 File selected:', fileInput.name, fileInput.type);
+        toast({ title: "Procesando archivo...", description: `Analizando ${fileInput.name}` });
+
         try {
-            const res = await fetch('/api/whatsapp/media/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
+            // SPECIAL HANDLING FOR VCARD -> Native Contact
+            if (fileInput.name.toLowerCase().endsWith('.vcf')) {
+                const text = await fileInput.text();
+                // Simple parser for FN (Name) and TEL (Phone)
+                const fnMatch = text.match(/^FN:(.*)$/m);
+                const telMatch = text.match(/^TEL.*:(.*)$/m);
+
+                const name = fnMatch ? fnMatch[1].trim() : fileInput.name.replace('.vcf', '');
+                const phone = telMatch ? telMatch[1].trim().replace(/[^0-9+]/g, '') : '';
+
+                if (phone) {
+                    try {
+                        console.log('👤 vCard Parsed:', { name, phone });
+                        await handleSendMessage(undefined, {
+                            type: 'contacts',
+                            contacts: [{
+                                name: { formatted_name: name, first_name: name },
+                                phones: [{ phone: phone, type: "CELL" }]
+                            }]
+                        });
+                        toast({ title: "Contacto enviado", description: `Se envió a ${name} como contacto.` });
+                        return; // Successfully sent as Contact
+                    } catch (error) {
+                        console.error('⚠️ Failed to send as Contact, falling back to Document upload:', error);
+                        toast({ title: "Aviso", description: "Enviando como archivo por error de formato de contacto...", variant: "default" });
+                        // Fall through to standard upload logic below
+                    }
+                } else {
+                    console.warn('⚠️ vCard parsing failed (no phone found), falling back to document upload');
+                }
+            }
+
+            setIsUploading(true);
+            // ... Standard upload logic for other files ...
+            let type = 'document';
+            let finalFile = fileInput;
+
+            if (fileInput.type.startsWith('image/')) type = 'image';
+            else if (fileInput.type.startsWith('video/')) type = 'video';
+            else if (fileInput.type.startsWith('audio/')) type = 'audio';
+            // Fallback for vCard if parsing failed above
+            else if (fileInput.name.toLowerCase().endsWith('.vcf')) {
+                if (!fileInput.type) {
+                    finalFile = new File([fileInput], fileInput.name, { type: 'text/vcard' });
+                }
+            }
+
+            const data = await uploadFile(finalFile, type);
             if (data.success) {
                 setPendingMedia({
                     id: data.mediaId,
                     type,
-                    name: file.name
+                    name: finalFile.name
                 });
-                toast({ title: "Archivo listo", description: `${file.name} cargado correctamente.` });
+                toast({ title: "Archivo listo", description: `${finalFile.name} cargado correctamente.` });
             } else {
                 throw new Error(data.error);
             }
@@ -339,10 +394,115 @@ export default function ChatCenterPage() {
         }
     };
 
-    const handleSendMessage = async () => {
-        console.log('🚀 Sending message attempt:', { phone: selectedChat?.phone, text: replyText, media: pendingMedia });
+    const startRecording = async () => {
+        try {
+            console.log('🎤 Requesting mic permission...');
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('🎤 Mic stream active');
 
-        if (!replyText.trim() && !pendingMedia) {
+            // Detect supported mime type
+            const types = [
+                'audio/mp4',
+                'audio/mpeg',
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/ogg;codecs=opus',
+                'audio/ogg'
+            ];
+
+            let selectedType = undefined;
+            for (const type of types) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    selectedType = type;
+                    break;
+                }
+            }
+
+            console.log('🎤 Selected MIME:', selectedType || 'default');
+
+            // If selectedType is found, use it. Otherwise use default (undefined options)
+            mediaRecorder.current = selectedType
+                ? new MediaRecorder(stream, { mimeType: selectedType })
+                : new MediaRecorder(stream);
+
+            recordingMimeType.current = mediaRecorder.current.mimeType; // Browser reports actual Type
+            console.log('🎤 Recorder Initialized with:', recordingMimeType.current);
+
+            audioChunks.current = [];
+
+            mediaRecorder.current.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunks.current.push(e.data);
+            };
+
+            mediaRecorder.current.onstop = async () => {
+                console.log('🎤 Recording stopped. Processing...');
+                const mimeType = recordingMimeType.current || 'audio/webm';
+                const audioBlob = new Blob(audioChunks.current, { type: mimeType });
+                console.log('🎤 Blob created:', audioBlob.size, audioBlob.type);
+
+                // Determine extension based on mime type
+                let ext = 'webm';
+                if (mimeType.includes('mp4')) ext = 'mp4';
+                else if (mimeType.includes('ogg')) ext = 'ogg';
+                else if (mimeType.includes('aac')) ext = 'aac';
+                else if (mimeType.includes('wav')) ext = 'wav';
+
+                const fileName = `voice_${Date.now()}.${ext}`;
+                const file = new File([audioBlob], fileName, { type: mimeType });
+
+                try {
+                    toast({ title: "Enviando audio...", description: "Subiendo nota de voz." });
+                    setIsSending(true);
+                    const uploadResult = await uploadFile(file, 'audio');
+                    console.log('🎤 Upload result:', uploadResult);
+
+                    await handleSendMessage(undefined, {
+                        type: 'audio',
+                        id: uploadResult.mediaId,
+                        name: fileName
+                    });
+                    toast({ title: "Audio enviado", description: "Nota de voz entregada." });
+                } catch (err: any) {
+                    console.error("Failed to send audio", err);
+                    toast({
+                        title: "Error al enviar",
+                        description: err.message || "No se pudo enviar la nota de voz.",
+                        variant: "destructive"
+                    });
+                } finally {
+                    setIsSending(false);
+                }
+            };
+
+            mediaRecorder.current.start();
+            setIsRecording(true);
+            toast({ title: "Grabando...", description: "Hable ahora." });
+        } catch (err) {
+            console.error("Mic access denied or error", err);
+            toast({
+                title: "Error de grabación",
+                description: "No se pudo iniciar la grabación. Verifique permisos.",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorder.current) {
+            mediaRecorder.current.stop();
+            setIsRecording(false);
+            mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+        }
+    };
+
+    const handleSendMessage = async (e?: React.FormEvent, mediaOverride?: any) => {
+        if (e) e.preventDefault();
+        const content = replyText.trim();
+        const media = mediaOverride || pendingMedia;
+
+        console.log('🚀 Sending message attempt:', { phone: selectedChat?.phone, text: content, media });
+
+        if (!content && !media) {
             console.warn('⚠️ Missing text or media');
             return;
         }
@@ -363,12 +523,12 @@ export default function ChatCenterPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone: selectedChat.phone,
-                    text: replyText,
-                    media: pendingMedia ? {
-                        type: pendingMedia.type,
-                        id: pendingMedia.id,
-                        caption: replyText,
-                        filename: pendingMedia.name
+                    text: content,
+                    media: media ? {
+                        type: media.type,
+                        id: media.id,
+                        caption: content,
+                        filename: media.name
                     } : undefined,
                     metadata: {
                         contactId: selectedChat.entityType === 'contact' ? selectedChat.id : null,
@@ -495,9 +655,13 @@ export default function ChatCenterPage() {
 
                 {viewMode === 'console' && selectedChat && (
                     <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-1">
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 px-3 py-1">
-                            <User size={12} className="mr-2" /> {selectedChat.contactName}
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 px-3 py-1 font-medium">
+                            <User size={12} className="mr-2" />
+                            {selectedChat.contactName} {selectedChat.phone && <span className="ml-2 text-blue-500/60 font-mono">({selectedChat.phone})</span>}
                         </Badge>
+                        {(selectedChat.contactName.replace(/\D/g, '').length >= 7 && !selectedChat.contactName.match(/[a-zA-Z]/)) && (
+                            <CreateContactDialog contactId={selectedChat.id} phoneNumber={selectedChat.phone} />
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => setViewMode('kanban')} className="text-gray-400 hover:text-white">
                             <Maximize2 size={16} className="mr-2" /> Ver Kanban
                         </Button>
@@ -595,7 +759,7 @@ export default function ChatCenterPage() {
                                             <p className="text-sm font-medium tracking-wide">Sincronizando...</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-1.5 max-w-4xl mx-auto relative z-10">
+                                        <div className="space-y-4 max-w-5xl mx-auto relative z-10 py-4">
                                             {messages.length === 0 && (
                                                 <div className="flex flex-col items-center justify-center py-20 opacity-20">
                                                     <MessageSquare size={40} />
@@ -605,80 +769,95 @@ export default function ChatCenterPage() {
                                             {messages.map((msg: any, idx: number) => {
                                                 const isOutbound = msg.direction === 'outbound';
                                                 const media = msg.metadata?.media;
+                                                const contactInitial = selectedChat.contactName ? selectedChat.contactName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U';
 
                                                 return (
-                                                    <div key={msg.id || idx} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-0.5`}>
+                                                    <div key={msg.id || idx} className={`flex gap-3 ${isOutbound ? 'justify-end' : 'justify-start'} mb-2`}>
+                                                        {!isOutbound && (
+                                                            <div className="flex-shrink-0 mt-1">
+                                                                <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-[10px] font-bold text-gray-400 border border-gray-700 shadow-sm transition-transform hover:scale-110">
+                                                                    {contactInitial}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
                                                         <div className={cn(
-                                                            "relative max-w-[85%] md:max-w-[70%] p-1.5 px-2.5 rounded-lg text-[13px] shadow-sm",
+                                                            "relative max-w-[85%] md:max-w-[75%] p-3.5 px-4 rounded-2xl text-[14px] shadow-lg transition-all duration-200",
                                                             isOutbound
-                                                                ? "bg-[#005c4b] text-[#e9edef] rounded-tr-none"
+                                                                ? "bg-blue-600 text-white rounded-tr-none shadow-blue-500/10"
                                                                 : "bg-[#202c33] text-[#e9edef] rounded-tl-none border border-white/5"
                                                         )}>
-                                                            {/* Triángulo/Cola de la burbuja */}
-                                                            <div className={cn(
-                                                                "absolute top-0 w-0 h-0 border-t-[6px] border-t-transparent",
-                                                                isOutbound
-                                                                    ? "right-[-6px] border-l-[8px] border-l-[#005c4b]"
-                                                                    : "left-[-6px] border-r-[8px] border-r-[#202c33]"
-                                                            )} />
-
                                                             {/* Multimedia Rendering */}
                                                             {media && (
-                                                                <div className="mb-2 space-y-1">
+                                                                <div className="mb-3 space-y-2">
                                                                     {media.type === 'image' && (
-                                                                        <div className="rounded-md overflow-hidden bg-black/20">
+                                                                        <div className="rounded-xl overflow-hidden bg-black/40 border border-white/10 shadow-inner">
                                                                             <img
                                                                                 src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
                                                                                 alt="WhatsApp Image"
-                                                                                className="max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                className="max-w-full h-auto cursor-pointer hover:scale-[1.02] transition-transform duration-300"
                                                                                 onClick={() => window.open(media.id ? `/api/whatsapp/media/${media.id}` : media.url, '_blank')}
                                                                             />
                                                                         </div>
                                                                     )}
                                                                     {media.type === 'video' && (
-                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 flex items-center gap-2">
-                                                                            <PlayCircle className="text-white/50" />
-                                                                            <span className="text-[11px]">Video de WhatsApp</span>
+                                                                        <div className="rounded-xl overflow-hidden bg-black/40 p-4 flex items-center gap-3 border border-white/10">
+                                                                            <div className="p-2 bg-white/10 rounded-full">
+                                                                                <PlayCircle className="text-white" size={20} />
+                                                                            </div>
+                                                                            <span className="text-xs font-medium">Video de WhatsApp</span>
                                                                         </div>
                                                                     )}
                                                                     {(media.type === 'audio' || media.type === 'voice') && (
-                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 py-3 flex flex-col gap-2 min-w-[240px]">
+                                                                        <div className="rounded-xl overflow-hidden bg-black/40 p-3 flex flex-col gap-2 min-w-[260px] border border-white/10">
                                                                             <div className="flex items-center gap-3">
-                                                                                <div className="w-10 h-10 rounded-full bg-[#25D366]/20 flex items-center justify-center shrink-0">
-                                                                                    <Mic size={20} className="text-[#25D366]" />
+                                                                                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                                                                                    <Mic size={20} className="text-blue-400" />
                                                                                 </div>
                                                                                 <div className="flex-1">
                                                                                     <audio
                                                                                         controls
-                                                                                        className="h-8 w-full brightness-90 contrast-125"
+                                                                                        className="h-8 w-full filter saturate-50 opacity-80"
                                                                                         src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
                                                                                     />
                                                                                 </div>
                                                                             </div>
-                                                                            <span className="text-[9px] opacity-60 ml-1">Mensaje de voz</span>
+                                                                            <span className="text-[10px] opacity-60 ml-1 font-bold tracking-widest uppercase">Mensaje de voz</span>
                                                                         </div>
                                                                     )}
                                                                     {media.type === 'document' && (
-                                                                        <div className="rounded-md overflow-hidden bg-black/20 p-2 flex items-center gap-2 border border-white/5">
-                                                                            <File size={16} className="text-gray-400" />
-                                                                            <span className="text-[11px] truncate max-w-[150px]">{media.filename || 'Documento'}</span>
+                                                                        <div className="rounded-xl overflow-hidden bg-black/40 p-3 flex items-center gap-3 border border-white/10">
+                                                                            <div className="p-2 bg-white/10 rounded-lg">
+                                                                                <LucideFile size={18} className="text-gray-300" />
+                                                                            </div>
+                                                                            <span className="text-xs font-bold truncate max-w-[180px]">{media.filename || 'Documento'}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             )}
 
-                                                            <p className="whitespace-pre-wrap leading-[1.3]">{msg.content}</p>
+                                                            <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+
                                                             <div className={cn(
-                                                                "text-[9px] mt-0.5 opacity-50 flex items-center gap-1 justify-end leading-none"
+                                                                "text-[10px] mt-2 flex items-center gap-2 justify-end font-bold uppercase tracking-wider",
+                                                                isOutbound ? "text-blue-100/70" : "text-gray-500"
                                                             )}>
                                                                 <span>{new Date(msg.performedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                 {isOutbound && (
-                                                                    <div className="flex -space-x-1">
-                                                                        <CheckCircle2 size={10} className={msg.status === 'read' ? 'text-[#53bdeb]' : 'text-gray-400'} />
+                                                                    <div className="flex items-center">
+                                                                        <CheckCircle2 size={12} className={msg.status === 'read' ? 'text-blue-300' : 'text-blue-100/40'} />
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </div>
+
+                                                        {isOutbound && (
+                                                            <div className="flex-shrink-0 mt-1">
+                                                                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white border border-blue-500 shadow-lg shadow-blue-500/20 transition-transform hover:scale-110">
+                                                                    DO
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -687,32 +866,52 @@ export default function ChatCenterPage() {
                                     )}
                                 </ScrollArea>
 
-                                <div className="p-4 border-t border-gray-800 bg-gray-900/30 backdrop-blur-sm">
-                                    <div className="max-w-3xl mx-auto flex flex-col gap-2">
-                                        {pendingMedia && (
-                                            <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 p-2 rounded-lg animate-in fade-in slide-in-from-bottom-2">
-                                                <div className="flex items-center gap-2">
-                                                    {pendingMedia.type === 'image' ? <ImageIcon size={14} className="text-blue-400" /> : <File size={14} className="text-blue-400" />}
-                                                    <span className="text-[10px] text-blue-300 font-medium truncate max-w-[200px]">{pendingMedia.name}</span>
+                                <div className="p-6 border-t border-gray-800 bg-gray-900/40 backdrop-blur-xl">
+                                    <div className="max-w-4xl mx-auto flex flex-col gap-3">
+                                        {isRecording && (
+                                            <div className="flex items-center justify-between bg-red-500/5 p-3 rounded-xl border border-red-500/10 animate-pulse">
+                                                <div className="flex items-center gap-3 text-red-600 text-[10px] font-bold uppercase tracking-widest">
+                                                    <div className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                                                    Grabando Nota de Voz...
                                                 </div>
-                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-500 hover:text-red-400" onClick={() => setPendingMedia(null)}>
-                                                    <X size={14} />
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    className="h-7 px-4 text-[9px] font-bold uppercase tracking-widest rounded-full"
+                                                    onClick={stopRecording}
+                                                >
+                                                    Detener y Enviar
                                                 </Button>
                                             </div>
                                         )}
-                                        <div className="flex items-end gap-3">
+
+                                        {pendingMedia && (
+                                            <div className="flex items-center justify-between bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl animate-in fade-in slide-in-from-bottom-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                                                        {pendingMedia.type === 'image' ? <ImageIcon size={16} className="text-blue-400" /> : <LucideFile size={16} className="text-blue-400" />}
+                                                    </div>
+                                                    <span className="text-xs text-blue-300 font-bold truncate max-w-[250px]">{pendingMedia.name}</span>
+                                                </div>
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-full" onClick={() => setPendingMedia(null)}>
+                                                    <X size={16} />
+                                                </Button>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-4">
                                             <div className="flex-1 relative group">
-                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-                                                    <label className="cursor-pointer text-gray-400 hover:text-white transition-colors">
-                                                        {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Paperclip size={18} />}
-                                                        <input type="file" className="hidden" onChange={handleFileSelect} disabled={isUploading || isSending} />
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                                                    <label className="cursor-pointer text-gray-500 hover:text-blue-400 transition-all active:scale-90 flex">
+                                                        {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Paperclip size={20} />}
+                                                        <input type="file" className="hidden" onChange={handleFileSelect} disabled={isUploading || isSending || isRecording} />
                                                     </label>
                                                 </div>
                                                 <Textarea
                                                     value={replyText}
                                                     onChange={(e) => setReplyText(e.target.value)}
-                                                    placeholder={pendingMedia ? "Añadir un comentario..." : "Escribe tu mensaje aquí..."}
-                                                    className="w-full bg-gray-800 border-gray-700 rounded-xl min-h-[50px] max-h-[150px] resize-none focus-visible:ring-blue-500 transition-all text-sm scrollbar-hide pl-10"
+                                                    placeholder={isRecording ? "Silencio, grabando..." : (pendingMedia ? "Añadir un comentario..." : "Escribe un mensaje...")}
+                                                    className="w-full bg-gray-800/50 border-gray-700/50 rounded-2xl min-h-[56px] max-h-[200px] resize-none focus-visible:ring-blue-500/50 focus-visible:bg-gray-800 transition-all text-sm scrollbar-hide pl-12 pr-12 pt-4"
+                                                    disabled={isSending || isUploading || isRecording}
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter' && !e.shiftKey) {
                                                             e.preventDefault();
@@ -720,24 +919,50 @@ export default function ChatCenterPage() {
                                                         }
                                                     }}
                                                 />
-                                                <div className="absolute right-2 bottom-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-purple-400 hover:bg-purple-400/10" disabled={isGeneratingProposal}>
-                                                        <Bot size={14} />
+                                                <div className="absolute right-3 bottom-3 flex gap-1">
+                                                    {!replyText.trim() && !pendingMedia && !isSending && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            onClick={isRecording ? stopRecording : startRecording}
+                                                            className={cn(
+                                                                "h-9 w-9 rounded-xl transition-all",
+                                                                isRecording ? "text-red-500 bg-red-500/10 animate-pulse" : "text-gray-400 hover:bg-gray-400/10"
+                                                            )}
+                                                        >
+                                                            <Mic size={18} />
+                                                        </Button>
+                                                    )}
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-9 w-9 rounded-xl text-purple-400 hover:bg-purple-400/10 transition-colors"
+                                                        disabled={isGeneratingProposal || isRecording}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            handleGenerateProposal();
+                                                        }}
+                                                    >
+                                                        <Bot size={18} />
                                                     </Button>
                                                 </div>
                                             </div>
                                             <Button
-                                                onClick={handleSendMessage}
-                                                disabled={isSending || isUploading || (!replyText.trim() && !pendingMedia)}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white h-[50px] w-[50px] rounded-xl shrink-0 transition-all active:scale-95 flex items-center justify-center p-0"
+                                                onClick={() => handleSendMessage()}
+                                                disabled={isSending || isUploading || (!replyText.trim() && !pendingMedia) || isRecording}
+                                                className="bg-blue-600 hover:bg-blue-500 text-white h-[56px] px-8 rounded-2xl shrink-0 shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 font-bold"
                                             >
                                                 {isSending ? <Loader2 className="animate-spin h-5 w-5" /> : <Send size={20} />}
+                                                <span className="hidden md:inline">Enviar</span>
                                             </Button>
                                         </div>
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mt-2 text-center opacity-50">
-                                        Empresa: {selectedChat.contactName} • Tel: {selectedChat.phone}
-                                    </p>
+                                    <div className="mt-4 flex flex-col items-center gap-1">
+                                        <div className="h-px w-24 bg-gradient-to-r from-transparent via-gray-800 to-transparent" />
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] opacity-40">
+                                            {selectedChat.contactName} • {selectedChat.phone}
+                                        </p>
+                                    </div>
                                 </div>
                             </>
                         ) : (

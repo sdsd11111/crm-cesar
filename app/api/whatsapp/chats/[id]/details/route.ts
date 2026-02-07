@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { contacts, discoveryLeads } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // Helper to check if string is UUID
 const isUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
@@ -29,13 +29,21 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
         // 2. If not found or not UUID, try search by Phone (common in campaign chats)
         if (!data) {
-            // Check discovery leads first (most common for Donna)
-            const [lead] = await db.select().from(discoveryLeads).where(eq(discoveryLeads.telefonoPrincipal, id)).limit(1);
+            // Normalizar ID de teléfono (quitar '+' si existe para la búsqueda)
+            const cleanId = id.replace(/^\+/, '');
+
+            // Buscar en discovery_leads
+            const [lead] = await db.select().from(discoveryLeads)
+                .where(sql`${discoveryLeads.telefonoPrincipal} = ${cleanId} OR ${discoveryLeads.telefonoPrincipal} = ${'+' + cleanId}`)
+                .limit(1);
+
             if (lead) {
                 data = lead;
             } else {
-                // Check contacts
-                const [contact] = await db.select().from(contacts).where(eq(contacts.phone, id)).limit(1);
+                // Buscar en contacts
+                const [contact] = await db.select().from(contacts)
+                    .where(sql`${contacts.phone} = ${cleanId} OR ${contacts.phone} = ${'+' + cleanId}`)
+                    .limit(1);
                 if (contact) {
                     data = contact;
                 }

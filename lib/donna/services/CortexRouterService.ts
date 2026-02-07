@@ -9,6 +9,8 @@ import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAIClient, getModelId } from '../../ai/client';
+import { internalNotificationService } from '@/lib/messaging/services/InternalNotificationService';
+import { customerMessagingService } from '@/lib/messaging/services/CustomerMessagingService';
 
 const TIMEZONE = 'America/Guayaquil';
 
@@ -157,15 +159,18 @@ export class CortexRouterService {
         source: 'cesar' | 'client';
         contactId?: string;
         chatId?: string;
+        platform?: 'telegram' | 'whatsapp'; // New explicit platform
+        skipSave?: boolean; // Avoid redundant saves from webhooks
         onReply?: (text: string) => void;
         promptOverride?: string;
     }): Promise<any> {
         console.log(`🧠 Cortex Router 2.0 processing path: ${input.text.substring(0, 20)}...`);
 
-        const replyContext = { chatId: input.chatId, onReply: input.onReply };
+        const platform = input.platform || (input.source === 'client' ? 'whatsapp' : 'telegram');
+        const replyContext = { chatId: input.chatId, onReply: input.onReply, platform };
 
-        if (input.chatId) {
-            await this.saveMessage(input.chatId, 'user', input.text, input.source === 'client' ? 'whatsapp' : 'telegram');
+        if (input.chatId && !input.skipSave) {
+            await this.saveMessage(input.chatId, 'user', input.text, platform);
         }
 
         const context = await this.getContext(input.chatId);
@@ -255,7 +260,11 @@ export class CortexRouterService {
 
             // --- CLARIFICATION FLOW ---
             if (parsed.needs_clarification && parsed.clarification_question) {
-                await this.sendMessage(parsed.clarification_question, replyContext, input.source === 'client' ? 'whatsapp' : 'telegram');
+                if (input.source === 'client') {
+                    await customerMessagingService.sendMessage(input.chatId!, parsed.clarification_question, replyContext);
+                } else {
+                    await internalNotificationService.notifyCesar(parsed.clarification_question, replyContext);
+                }
                 return { status: 'needs_clarification', message: parsed.clarification_question };
             }
 
@@ -268,12 +277,12 @@ export class CortexRouterService {
 
                     // 1. Part One (Intro)
                     if (parts[0].trim()) {
-                        await this.sendFractionatedMessage(parts[0].trim(), replyContext, 'whatsapp');
+                        await customerMessagingService.sendHumanizedMessage(input.chatId!, parts[0].trim(), replyContext);
                     }
 
                     // 2. The Video link (YouTube with thumbnail)
                     const videoUrl = 'https://youtube.com/shorts/RC1vVm24Ha0?si=kZzDb2xyYvVWFm1G';
-                    await this.sendMessage(videoUrl, replyContext, 'whatsapp');
+                    await customerMessagingService.sendMessage(input.chatId!, videoUrl, replyContext);
 
                     // Small human-like delay
                     await new Promise(r => setTimeout(r, 1000));
@@ -288,20 +297,20 @@ export class CortexRouterService {
                             const textWithoutUrl = closingText.replace(url, '').trim();
 
                             if (textWithoutUrl) {
-                                await this.sendFractionatedMessage(textWithoutUrl, replyContext, 'whatsapp');
+                                await customerMessagingService.sendHumanizedMessage(input.chatId!, textWithoutUrl, replyContext);
                             }
                             // Link alone for full preview
-                            await this.sendMessage(url, replyContext, 'whatsapp');
+                            await customerMessagingService.sendMessage(input.chatId!, url, replyContext);
                         } else {
-                            await this.sendFractionatedMessage(closingText, replyContext, 'whatsapp');
+                            await customerMessagingService.sendHumanizedMessage(input.chatId!, closingText, replyContext);
                         }
 
                         // 🔥 CONVERSION NOTIFICATION TO CÉSAR
-                        await this.notifyCesarConversion(input.chatId || '', context.contact_name || 'Nuevo Lead');
+                        await internalNotificationService.notifyConversion(context.contact_name || 'Nuevo Lead', input.chatId || '');
                     }
                 } else {
                     // Normal chat messages (send in fractions)
-                    await this.sendFractionatedMessage(responseText, replyContext, 'whatsapp');
+                    await customerMessagingService.sendHumanizedMessage(input.chatId!, responseText, replyContext);
                 }
 
                 // 4. --- HANDOVER LOGIC (Automatic Pause) ---
@@ -314,7 +323,7 @@ export class CortexRouterService {
                                 .where(sql`id = (SELECT contact_id FROM contact_channels WHERE identifier = ${input.chatId} AND platform = 'whatsapp' LIMIT 1)`);
 
                             // Notify César via conversion notification
-                            await this.notifyCesarConversion(input.chatId, context.contact_name || 'Prospecto', "Toma de control automática (Preguntó precio/detalles)");
+                            await internalNotificationService.notifyConversion(context.contact_name || 'Prospecto', input.chatId, "Toma de control automática (Preguntó precio/detalles)");
                         } catch (err) {
                             console.error('Handover Update Error:', err);
                         }
@@ -344,16 +353,11 @@ export class CortexRouterService {
 
             if (rawName && !input.contactId && !isQuery) {
                 const { entityResolver } = await import('./EntityResolverService');
-                const { contactId: resolvedId } = await entityResolver.resolve(
-                    rawName,
-                    (msg: string) => {
-                        if (!isSchedule) this.sendMessage(msg, replyContext, 'telegram');
-                    }
-                );
+                const { contactId: resolvedId } = await entityResolver.resolve(rawName);
                 if (resolvedId) input.contactId = resolvedId;
             }
 
-            await this.routeToTable(parsed, input.contactId, input.text, { ...replyContext, platform: input.source === 'client' ? 'whatsapp' : 'telegram' });
+            await this.routeToTable(parsed, input.contactId, input.text, replyContext);
 
             return {
                 status: 'success',
@@ -377,7 +381,7 @@ export class CortexRouterService {
             switch (intent) {
                 case 'SCHEDULE':
                     if (!data.date || !data.time) {
-                        await this.sendTelegramMessage(`Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`, context);
+                        await internalNotificationService.notifyCesar(`Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`, context);
                         return;
                     }
 
@@ -404,7 +408,7 @@ export class CortexRouterService {
                         location: data.location || event.hangoutLink || 'Google Meet'
                     });
 
-                    await this.sendTelegramMessage(
+                    await internalNotificationService.notifyCesar(
                         `🗓️ **Agendado con éxito:**\n` +
                         `📌 ${data.title}\n` +
                         `⏰ ${format(startDate, "EEEE d 'de' MMMM, HH:mm", { locale: es })}\n` +
@@ -434,7 +438,7 @@ export class CortexRouterService {
                         assignedTo: 'César',
                     });
 
-                    await this.sendTelegramMessage(`✅ Tarea/Recordatorio guardado: **${data.title}**`, context);
+                    await internalNotificationService.notifyCesar(`✅ Tarea/Recordatorio guardado: **${data.title}**`, context);
                     break;
 
                 case 'QUERY':
@@ -455,19 +459,19 @@ export class CortexRouterService {
                             const startOfDay = new Date(baseDate); startOfDay.setHours(0, 0, 0, 0);
                             const endOfDay = new Date(baseDate); endOfDay.setHours(23, 59, 59, 999);
 
-                            await this.sendTelegramMessage(`📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`, context);
+                            await internalNotificationService.notifyCesar(`📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`, context);
 
                             const cal = await this.getCalendarService();
                             const agenda = await cal.listEvents(fromZonedTime(startOfDay, TIMEZONE).toISOString(), fromZonedTime(endOfDay, TIMEZONE).toISOString());
 
                             if (!agenda || agenda.length === 0) {
-                                await this.sendTelegramMessage(`✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`, context);
+                                await internalNotificationService.notifyCesar(`✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`, context);
                             } else {
                                 const list = agenda.map((e: any) => {
                                     const eventTime = e.start?.dateTime ? format(toZonedTime(new Date(e.start.dateTime), TIMEZONE), 'HH:mm') : 'Todo el día';
                                     return `• ${eventTime}: ${e.summary}`;
                                 }).join('\n');
-                                await this.sendTelegramMessage(`📅 Eventos encontrados:\n\n${list}`, context);
+                                await internalNotificationService.notifyCesar(`📅 Eventos encontrados:\n\n${list}`, context);
                             }
                         } catch (err) { console.error(err); }
                     }
@@ -482,7 +486,7 @@ export class CortexRouterService {
                             email: data.email || null,
                             source: 'donna_telegram',
                         });
-                        await this.sendTelegramMessage(`✅ Contacto **${data.contact_name}** registrado.`, context);
+                        await internalNotificationService.notifyCesar(`✅ Contacto **${data.contact_name}** registrado.`, context);
                     }
                     break;
 
@@ -490,14 +494,18 @@ export class CortexRouterService {
                     if (contactId && data.notes) {
                         const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (c?.phone) {
-                            await messagingService.send(c.id, data.notes, { type: 'manual_via_donna' });
-                            await this.sendMessage(`📨 WhatsApp enviado a ${c.contactName}.`, context, 'telegram');
+                            await customerMessagingService.sendMessage(c.id, data.notes, { type: 'manual_via_donna' });
+                            await internalNotificationService.notifyCesar(`📨 WhatsApp enviado a ${c.contactName}.`, context);
                         }
                     }
                     break;
 
                 default:
-                    await this.sendMessage(`Entiendo, lo proceso enseguida.`, context, context.platform || 'whatsapp');
+                    if (context.platform === 'telegram') {
+                        await internalNotificationService.notifyCesar(`Entiendo, lo proceso enseguida.`, context);
+                    } else {
+                        await customerMessagingService.sendMessage(context.chatId!, `Entiendo, lo proceso enseguida.`, context);
+                    }
             }
         } catch (error) {
             console.error('❌ Error in routeToTable:', error);
@@ -505,61 +513,7 @@ export class CortexRouterService {
         }
     }
 
-    private async sendFractionatedMessage(message: string, context: any, platform: 'telegram' | 'whatsapp') {
-        const sentences = message.split('\n\n').filter(s => s.trim().length > 0);
-        for (const sentence of sentences) {
-            await this.sendMessage(sentence.trim(), context, platform);
-            // Simulate human delay: 100ms per character, max 2s
-            const delay = Math.min(sentence.length * 20, 1500);
-            await new Promise(r => setTimeout(r, delay));
-        }
-    }
-
-    private async notifyCesarConversion(chatId: string, leadName: string, reason?: string) {
-        const cesarNumber = '593963410409';
-        const customContext = reason ? `\n\n📌 *Motivo:* ${reason}` : '';
-        const alertText = `*⚡ DONNA CONVERSION ALERT*\n\n` +
-            `👤 *Lead:* ${leadName}\n` +
-            `📱 *Chat:* https://wa.me/${chatId.replace(/\D/g, '')}${customContext}\n\n` +
-            `¡Es momento de que César cierre la venta! 🚀`;
-
-        await messagingService.send(cesarNumber, alertText, 'whatsapp')
-            .catch(err => console.warn('⚠️ Cesar notification failed:', err));
-    }
-
-    private async sendMessage(message: string, context: { chatId?: string, onReply?: (text: string) => void, platform?: 'telegram' | 'whatsapp' }, platformOverride?: 'telegram' | 'whatsapp') {
-        const platform = platformOverride || context.platform || 'whatsapp';
-        if (platform === 'whatsapp') await this.sendWhatsAppMessage(message, context);
-        else await this.sendTelegramMessage(message, context);
-    }
-
-    private async sendWhatsAppMessage(message: string, context: { chatId?: string }) {
-        const { chatId } = context;
-        if (!chatId) return;
-        await this.saveMessage(chatId, 'assistant', message, 'whatsapp');
-        try {
-            const { whatsappService } = await import('@/lib/whatsapp/WhatsAppService');
-            await whatsappService.sendMessage(chatId, message);
-        } catch (error) {
-            console.error('WhatsApp Error:', error);
-        }
-    }
-
-    private async sendTelegramMessage(message: string, context: { chatId?: string }) {
-        const { chatId } = context;
-        const botToken = process.env.TELEGRAM_BOT_TOKEN;
-        const targetChatId = chatId || process.env.TELEGRAM_CHAT_ID;
-        if (targetChatId) {
-            await this.saveMessage(targetChatId, 'assistant', message, 'telegram'); // Keep telegram for internal César bot
-            if (botToken) {
-                fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: targetChatId, text: message, parse_mode: 'Markdown' })
-                }).catch(e => console.error('Telegram Error:', e));
-            }
-        }
-    }
+    // --- DELEGATED TO CustomerMessagingService ---
 
     private async extractDiscoveryLead(chatId: string, text: string, platform: string) {
         if (!text || text.length < 5) return;

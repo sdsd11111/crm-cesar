@@ -49,7 +49,7 @@ export class MessagingService {
 
             if (contact) {
                 contactId = contact.id;
-                requestedChannel = contact.channelSource || 'whatsapp';
+                requestedChannel = metadata.platform || contact.channelSource || 'whatsapp';
 
                 // Resolve Channel Entry for non-legacy platforms
                 const [channelEntry] = await db.select()
@@ -74,11 +74,11 @@ export class MessagingService {
 
                 if (discovery) {
                     destination = discovery.telefonoPrincipal;
-                    requestedChannel = 'whatsapp';
+                    requestedChannel = metadata.platform || 'whatsapp';
                 } else {
-                    // It's a ghost (id is phone)
+                    // It's a ghost (id is phone or chat_id)
                     destination = id;
-                    requestedChannel = 'whatsapp';
+                    requestedChannel = metadata.platform || 'whatsapp';
                 }
             }
 

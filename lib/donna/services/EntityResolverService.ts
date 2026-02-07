@@ -106,12 +106,13 @@ export class EntityResolverService {
      * Resuelve una entidad a un contactId
      * Retorna el contactId si hay match único, null si necesita aclaración
      */
-    async resolve(entityName: string, sendTelegramMessage: Function, allowedTables?: string[]): Promise<{ contactId: string | null, matches?: any[] }> {
+    async resolve(entityName: string, allowedTables?: string[]): Promise<{ contactId: string | null, matches?: any[] }> {
+        const { internalNotificationService } = await import('@/lib/messaging/services/InternalNotificationService');
         const matches = await this.findContactByName(entityName, allowedTables);
 
         if (matches.length === 0) {
             // No existe - ofrecer crear contacto
-            await sendTelegramMessage(
+            await internalNotificationService.notifyCesar(
                 `❓ No conozco a "${entityName}". ¿Es un contacto nuevo?\n\n` +
                 `Responde:\n` +
                 `1️⃣ Sí, crear contacto\n` +
@@ -136,7 +137,7 @@ export class EntityResolverService {
         });
         message += `\nResponde con el número o simplemente confirma si es el correcto.`;
 
-        await sendTelegramMessage(message);
+        await internalNotificationService.notifyCesar(message);
         return { contactId: null, matches }; // Necesita aclaración
     }
 
@@ -187,8 +188,7 @@ export class EntityResolverService {
     async handleClarificationResponse(
         response: string,
         originalEntity: string,
-        matches: any[],
-        sendTelegramMessage: Function
+        matches: any[]
     ): Promise<{ contactId: string | null, matches?: any[] }> {
         const trimmed = response.trim();
         const num = parseInt(trimmed);
@@ -251,7 +251,7 @@ export class EntityResolverService {
 
         // Si da más información (quizás corrigió el nombre), intentar resolver de nuevo
         if (trimmed.length > 3 && !['1', '2', '3', 'si', 'no', 'ok', 'dale'].includes(trimmed.toLowerCase())) {
-            return await this.resolve(response, sendTelegramMessage);
+            return await this.resolve(response);
         }
 
         return { contactId: null };

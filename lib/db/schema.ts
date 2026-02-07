@@ -755,7 +755,7 @@ export const donnaChatMessages = pgTable('donna_chat_messages', {
   chatId: text('chat_id').notNull(), // Telegram/Whatsapp ID
   role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
   content: text('content').notNull(),
-  platform: text('platform', { enum: ['telegram', 'whatsapp'] }).default('telegram'),
+  platform: text('platform', { enum: ['telegram', 'whatsapp'] }).default('whatsapp'),
   messageTimestamp: timestamp('message_timestamp').defaultNow().notNull(), // Unified Context Timestamp
   metadata: jsonb('metadata').default({}), // For Intent, debugging info
   createdAt: timestamp('created_at').defaultNow().notNull(),

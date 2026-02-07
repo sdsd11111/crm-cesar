@@ -9,31 +9,10 @@ import path from 'path';
 
 const CHECK_INTERVAL_MS = 30000; // 30 seconds
 
-async function sendTelegramMessage(message: string) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-
-    if (!botToken || !chatId) {
-        console.error('❌ Missing Telegram config');
-        return false;
-    }
-
-    try {
-        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: message })
-        });
-        return res.ok;
-    } catch (error) {
-        console.error('❌ Error sending Telegram message:', error);
-        return false;
-    }
-}
-
 async function checkReminders() {
     console.log('⏰ Checking for pending reminders...');
     const now = new Date();
+    const { internalNotificationService } = await import('@/lib/messaging/services/InternalNotificationService');
 
     try {
         // Find pending reminders due now or in the past
@@ -45,7 +24,6 @@ async function checkReminders() {
             ));
 
         if (dueReminders.length === 0) {
-            // console.log('✅ No pending reminders.');
             return;
         }
 
@@ -53,19 +31,15 @@ async function checkReminders() {
 
         for (const reminder of dueReminders) {
             console.log(`🚀 Sending reminder: ${reminder.title}`);
-            const success = await sendTelegramMessage(
-                `🔔 *RECORDATORIO*\n\n` +
-                `${reminder.title}\n` +
-                `${reminder.message}`
-            );
+            const result = await internalNotificationService.sendReminder(reminder.title, reminder.message);
 
-            if (success) {
+            if (result.success) {
                 await db.update(reminders)
                     .set({ status: 'sent', updatedAt: new Date() })
                     .where(eq(reminders.id, reminder.id));
                 console.log(`✅ Marked reminder ${reminder.id} as sent.`);
             } else {
-                console.error(`❌ Failed to send reminder ${reminder.id}`);
+                console.error(`❌ Failed to send reminder ${reminder.id}: ${result.error}`);
             }
         }
 

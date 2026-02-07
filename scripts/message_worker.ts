@@ -134,9 +134,12 @@ async function processQueue() {
                         }
                     }
 
+                    const platform = (messages[0]?.platform as 'telegram' | 'whatsapp') || 'whatsapp';
+
                     await cortexRouter.processInput({
                         text: unifiedContent,
                         source: 'client',
+                        platform,
                         contactId: finalContactId,
                         chatId: chat.chatId
                     });

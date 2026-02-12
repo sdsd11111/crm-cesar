@@ -16,6 +16,19 @@ export const metadata: Metadata = {
   title: "CRM OBJETIVO",
   description: "Sistema de gestión inteligente de eventos y tareas",
   generator: "v0.app",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CRM OBJETIVO",
+  },
+}
+
+export const viewport = {
+  themeColor: "#111827",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({

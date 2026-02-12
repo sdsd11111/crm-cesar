@@ -1,0 +1,21 @@
+{
+    "name": "CRM OBJETIVO",
+    "short_name": "Objetivo",
+    "description": "Sistema de gestión inteligente de eventos y tareas",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#111827",
+    "theme_color": "#111827",
+    "icons": [
+        {
+            "src": "/logo.jpg",
+            "sizes": "192x192",
+            "type": "image/jpeg"
+        },
+        {
+            "src": "/logo.jpg",
+            "sizes": "512x512",
+            "type": "image/jpeg"
+        }
+    ]
+}

@@ -184,6 +184,7 @@ export async function POST(req: Request) {
                         chatId: from,
                         content: content,
                         platform: 'whatsapp',
+                        metadata: mediaData ? { mediaId: mediaData.id, type: message.type } : {},
                         receivedAt: new Date()
                     });
 

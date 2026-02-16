@@ -117,53 +117,26 @@ export class WhatsAppService {
 
                 const logContent = media ? `[Multimedia: ${media.type}] ${media.caption || ''}` : text;
 
-                // PRE-GENERATE UUIDs to return them immediately to the frontend
-                const donnaMsgId = crypto.randomUUID();
+                // Fire and forget: Log to interactions (CRM audit trail)
+                // Note: donna_chat_messages is now handled by message_worker.ts (Single Writer Pattern)
+                db.insert(interactions).values({
+                    contactId: contactId,
+                    discoveryLeadId: discoveryLeadId,
+                    type: 'whatsapp',
+                    content: logContent,
+                    direction: 'outbound',
+                    performedAt: new Date(),
+                    createdAt: new Date(),
+                    metadata: {
+                        source: metadata.source || 'system',
+                        data: response.data,
+                        media: media || null
+                    }
+                }).then(() => {
+                    console.log(`🗄️ Interaction logged for ${cleanPhone}`);
+                }).catch(err => console.warn('⚠️ Interaction logging error:', err));
 
-                // Fire and forget non-critical logs
-                const logPromises = [
-                    db.insert(interactions).values({
-                        contactId: contactId,
-                        discoveryLeadId: discoveryLeadId,
-                        type: 'whatsapp',
-                        content: logContent,
-                        direction: 'outbound',
-                        performedAt: new Date(),
-                        createdAt: new Date(),
-                        metadata: {
-                            source: metadata.source || 'system',
-                            data: response.data,
-                            media: media || null
-                        }
-                    }),
-                    db.insert(whatsappLogs).values({
-                        contactId: contactId,
-                        trigger: metadata.type || 'system',
-                        content: logContent,
-                        status: 'sent',
-                        approvedBy: metadata.approvedBy || 'system',
-                        metadata: { ...metadata, metaResponse: response.data }
-                    }),
-                    db.insert(donnaChatMessages).values({
-                        id: donnaMsgId, // Use pre-generated ID
-                        chatId: cleanPhone,
-                        role: 'assistant',
-                        content: logContent,
-                        platform: 'whatsapp',
-                        messageTimestamp: new Date(),
-                        metadata: {
-                            source: metadata.source || 'chat_center_console',
-                            metaMessageId: response.data.messages?.[0]?.id,
-                            media: media || null
-                        }
-                    })
-                ];
-
-                Promise.all(logPromises).then(() => {
-                    console.log(`🗄️ DB Persistence complete in ${Date.now() - dbStart}ms (ID: ${donnaMsgId})`);
-                }).catch(err => console.warn('⚠️ Parallel Logging Error:', err));
-
-                return { success: true, data: response.data, messageId: donnaMsgId };
+                return { success: true, data: response.data };
 
             } catch (dbError) {
                 console.warn('⚠️ Primary DB Resolve failed', dbError);

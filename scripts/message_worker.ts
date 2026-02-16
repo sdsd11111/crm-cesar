@@ -24,6 +24,8 @@ import { db } from '../lib/db';
 import { pendingMessagesQueue } from '../lib/db/schema';
 import { eq, sql, and, or, desc, inArray } from 'drizzle-orm';
 import { cortexRouter } from '../lib/donna/services/CortexRouterService';
+import { transcriptionService } from '../lib/ai/TranscriptionService';
+import { whatsappService } from '../lib/whatsapp/WhatsAppService';
 
 const ACCUMULATION_WINDOW_MS = 25000; // 25 seconds
 const POLL_INTERVAL_MS = 5000; // 5 seconds
@@ -94,7 +96,28 @@ async function processQueue() {
 
                     if (messages.length === 0) return;
                     const messageIds = messages.map(m => m.id);
-                    const unifiedContent = messages.map(m => m.content).join('\n');
+
+                    // --- TRANSCRIPTION LOGIC ---
+                    const processedMessages = await Promise.all(messages.map(async (m) => {
+                        const meta = m.metadata as any;
+                        if (meta?.mediaId && (meta.type === 'audio' || meta.type === 'voice')) {
+                            console.log(`🎙️ [WORKER] Transcribing audio for ${chat.chatId} (ID: ${meta.mediaId})...`);
+                            try {
+                                const media = await whatsappService.getMedia(meta.mediaId);
+                                if (media?.buffer) {
+                                    const transcription = await transcriptionService.transcribe(media.buffer);
+                                    if (transcription) {
+                                        return { ...m, content: `[Audio Transcrito]: ${transcription}` };
+                                    }
+                                }
+                            } catch (transErr) {
+                                console.error(`❌ Transcription Failed for ${meta.mediaId}:`, transErr);
+                            }
+                        }
+                        return m;
+                    }));
+
+                    const unifiedContent = processedMessages.map(m => m.content).join('\n');
                     const platform = (messages[0]?.platform as 'telegram' | 'whatsapp') || 'whatsapp';
 
                     // B. Identify Contact for Persistence
@@ -120,38 +143,45 @@ async function processQueue() {
                         }
                     }
 
-                    // C. ALWAYS PERSIST (Even if bot is paused)
-                    // This creates a single record for the whole batch in the CRM
-                    console.log(`📡 [PERSISTENCE] Attempting to save batch for ${chat.chatId}...`);
-                    try {
-                        const interactionResult = await db.insert(interactions).values({
-                            type: platform,
-                            direction: 'inbound',
-                            content: unifiedContent,
-                            contactId: finalContactId || null,
-                            discoveryLeadId: finalDiscoveryLeadId || null,
-                            metadata: {
-                                phoneNumber: chat.chatId,
-                                isBatched: true,
-                                batchSize: messages.length
-                            },
-                            performedAt: new Date()
-                        }).returning();
-                        console.log(`✅ Interaction saved with ID: ${interactionResult[0]?.id}`);
+                    // C. PERSISTENCE (Single Writer Pattern)
+                    // Worker is the ONLY place that writes to donna_chat_messages
+                    // HARDCODED FOR TESTING ON RENDER (Temoral)
+                    const FORCE_TESTING_MODE = true;
 
-                        const chatMsgResult = await db.insert(donnaChatMessages).values({
-                            chatId: chat.chatId,
-                            role: 'user',
-                            content: unifiedContent,
-                            platform: platform,
-                            messageTimestamp: new Date(),
-                            metadata: { source: 'worker_batch' }
-                        }).returning();
-                        console.log(`✅ Chat message saved with ID: ${chatMsgResult[0]?.id}`);
+                    if (!FORCE_TESTING_MODE && process.env.DISABLE_MESSAGE_PERSISTENCE !== 'true') {
+                        console.log(`📡 [PERSISTENCE] Attempting to save batch for ${chat.chatId}...`);
+                        try {
+                            const interactionResult = await db.insert(interactions).values({
+                                type: platform,
+                                direction: 'inbound',
+                                content: unifiedContent,
+                                contactId: finalContactId || null,
+                                discoveryLeadId: finalDiscoveryLeadId || null,
+                                metadata: {
+                                    phoneNumber: chat.chatId,
+                                    isBatched: true,
+                                    batchSize: messages.length
+                                },
+                                performedAt: new Date()
+                            }).returning();
+                            console.log(`✅ Interaction saved with ID: ${interactionResult[0]?.id}`);
 
-                        console.log(`📝 [PERSISTED] Batched ${messages.length} messages for ${chat.chatId}`);
-                    } catch (persistErr) {
-                        console.error(`❌ Persistence Error for ${chat.chatId}:`, persistErr);
+                            const chatMsgResult = await db.insert(donnaChatMessages).values({
+                                chatId: chat.chatId,
+                                role: 'user',
+                                content: unifiedContent,
+                                platform: platform,
+                                messageTimestamp: new Date(),
+                                metadata: { source: 'worker_batch' }
+                            }).returning();
+                            console.log(`✅ Chat message saved with ID: ${chatMsgResult[0]?.id}`);
+
+                            console.log(`📝 [PERSISTED] Batched ${messages.length} messages for ${chat.chatId}`);
+                        } catch (persistErr) {
+                            console.error(`❌ Persistence Error for ${chat.chatId}:`, persistErr);
+                        }
+                    } else {
+                        console.log(`⏭️ [PERSISTENCE DISABLED] Skipping save for ${chat.chatId} (testing mode)`);
                     }
 
                     // D. TRIGGER AI (Conditional)
@@ -189,18 +219,35 @@ async function processQueue() {
                     if (shouldSkipAI) {
                         console.log(`🔕 skipping AI for ${chat.chatId} (Reason: ${skipReason})`);
                     } else {
-                        await cortexRouter.processInput({
+                        const aiResult = await cortexRouter.processInput({
                             text: unifiedContent,
                             source: 'client',
                             platform,
                             contactId: finalContactId,
                             chatId: chat.chatId,
-                            skipSave: true // We already saved it above
+                            skipSave: true // We handle persistence here
                         });
                         console.log(`✅ AI Response processed for ${chat.chatId}`);
+
+                        // E. PERSIST DONNA'S RESPONSE (Single Writer)
+                        if (!FORCE_TESTING_MODE && process.env.DISABLE_MESSAGE_PERSISTENCE !== 'true' && aiResult?.response) {
+                            try {
+                                await db.insert(donnaChatMessages).values({
+                                    chatId: chat.chatId,
+                                    role: 'assistant',
+                                    content: aiResult.response,
+                                    platform: platform,
+                                    messageTimestamp: new Date(),
+                                    metadata: { source: 'worker_ai_response' }
+                                });
+                                console.log(`✅ Donna's response saved to chat history`);
+                            } catch (persistErr) {
+                                console.error(`❌ Error saving Donna's response:`, persistErr);
+                            }
+                        }
                     }
 
-                    // E. Clear ONLY processed IDs from the queue
+                    // F. Clear ONLY processed IDs from the queue
                     await db.delete(pendingMessagesQueue)
                         .where(inArray(pendingMessagesQueue.id, messageIds));
                     console.log(`🗑️ Cleared ${messageIds.length} messages from queue for ${chat.chatId}`);

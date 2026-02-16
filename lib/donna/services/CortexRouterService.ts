@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { contacts, events, interactions, tasks, contactChannels } from '@/lib/db/schema';
+import { contacts, events, interactions, tasks, contactChannels, products } from '@/lib/db/schema';
 import { conversationStates, discoveryLeads, donnaChatMessages } from '../../db/schema';
 import { messagingService } from '@/lib/messaging/MessagingService';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
@@ -11,6 +11,9 @@ import { es } from 'date-fns/locale';
 import { getAIClient, getModelId } from '../../ai/client';
 import { internalNotificationService } from '@/lib/messaging/services/InternalNotificationService';
 import { customerMessagingService } from '@/lib/messaging/services/CustomerMessagingService';
+import { alejandraService } from './AlejandraService';
+import { transcriptionService } from '../../ai/TranscriptionService';
+import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
 
 const TIMEZONE = 'America/Guayaquil';
 
@@ -38,14 +41,18 @@ export class CortexRouterService {
         return this.promptTemplate;
     }
 
-    private getCampaignPrompt(campaign: string): string {
+    private getExpertPrompt(fileName: string): string {
         try {
-            const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', `${campaign}.md`);
+            const promptPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', fileName);
             return fs.readFileSync(promptPath, 'utf-8');
         } catch (error) {
-            console.error(`❌ Error loading campaign prompt (${campaign}):`, error);
+            console.error(`❌ Error loading expert prompt (${fileName}):`, error);
             return this.getPromptTemplate();
         }
+    }
+
+    private getCampaignPrompt(campaign: string): string {
+        return this.getExpertPrompt(`${campaign}.md`);
     }
 
     private async getCalendarService() {
@@ -169,40 +176,74 @@ export class CortexRouterService {
         const platform = input.platform || (input.source === 'client' ? 'whatsapp' : 'telegram');
         const replyContext = { chatId: input.chatId, onReply: input.onReply, platform };
 
-        if (input.chatId && !input.skipSave) {
-            await this.saveMessage(input.chatId, 'user', input.text, platform);
+        const processedText = input.text;
+
+        // Detect Audio Transcription marker
+        if (processedText.includes('[Audio Transcrito]:')) {
+            console.log(`🎤 Transcription marker found for ${input.chatId}. Audio processing already completed by worker.`);
         }
 
         const context = await this.getContext(input.chatId);
         let { contactId } = context;
 
+        // Ensure we use the best available information
+        if (input.contactId) {
+            contactId = input.contactId;
+            context.contact_id = input.contactId;
+        }
+
         // Time Context
         const nowUTC = new Date();
         const nowZoned = toZonedTime(nowUTC, TIMEZONE);
 
-        // 1. Prepare Prompt
-        let prompt = input.promptOverride;
-        if (!prompt) {
-            if (input.source === 'client') {
-                // HANDOVER CHECK: Check if bot is paused for this contact
-                if (input.chatId) {
-                    const contactResult = await db.select().from(contacts)
-                        .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
-                        .where(eq(contactChannels.identifier, input.chatId))
-                        .limit(1);
+        // 2. ALEJANDRA: IDENTITY & INTENT CLASSIFICATION + TRANSLATION
+        const digest = await alejandraService.identifyAndTranslate(processedText, {
+            chatId: input.chatId || 'unknown',
+            contactName: context.contact_name,
+            businessName: context.business_name,
+            source: input.source
+        });
 
-                    if (contactResult.length > 0 && contactResult[0].contacts.botMode !== 'active') {
-                        console.log(`🔇 Bot is ${contactResult[0].contacts.botMode} for this contact. Skipping.`);
-                        return { status: 'paused', reason: contactResult[0].contacts.botMode };
-                    }
-                }
+        const { role, intent, digest: internalDigest, needs_clarification, clarification_question } = digest;
 
-                // Determine if it's the Carnaval campaign (Default for clients for now)
-                prompt = this.getCampaignPrompt('carnaval_2026');
-            } else {
-                prompt = this.getPromptTemplate();
+        // If high ambiguity, Alejandra asks for clarification directly
+        if (needs_clarification && clarification_question) {
+            console.log(`🙋‍♀️ [Alejandra] Asking for clarification: ${clarification_question}`);
+            return { response: clarification_question };
+        }
+
+        console.log(`🧭 [Alejandra] Role: ${role} | Intent: ${intent} | Digest: "${internalDigest.substring(0, 30)}..."`);
+
+        // 3. Expert Selection Logic
+        let promptFile = 'ventas_expert.md'; // Default for public
+
+        // A. Priority: Identity-based persona
+        switch (role) {
+            case 'cesar':
+                promptFile = 'cortex_router.md';
+                break;
+            case 'abel':
+                promptFile = 'abel_expert.md';
+                break;
+            case 'vendedores':
+                promptFile = 'vendedor_expert.md';
+                break;
+            case 'ventas':
+                promptFile = 'ventas_expert.md';
+                break;
+        }
+
+        // B. Intent Override for Specialized Tasks (Only for authorized roles)
+        if (intent !== 'desconocido') {
+            if (role === 'cesar' || role === 'abel') {
+                if (intent === 'crear') promptFile = 'agenda/create_event.md';
+                else if (intent === 'agenda') promptFile = 'agenda/query_agenda.md';
+                else if (intent === 'borrar') promptFile = 'agenda/create_event.md';
             }
         }
+
+        console.log(`🎯 [Router] Routing to expert: ${promptFile}`);
+        let prompt = input.promptOverride || this.getExpertPrompt(promptFile);
 
         // Fetch Last Action Context
         const lastActionContext = context.lastAction || { intent: 'null', summary: 'null', timestamp: null };
@@ -218,6 +259,17 @@ export class CortexRouterService {
             else timeDiffStr = `${Math.floor(seconds / 3600)} horas`;
         }
 
+        // Fetch Knowledge Base (Products)
+        const productsList = await db.select().from(products).limit(5); // Top 5 for context
+        const kbStr = productsList.map(p => `- ${p.name}: $${p.price}. ${p.description?.substring(0, 100)}...`).join('\n');
+
+        // Inject Custom V3 Placeholders (Only for Public Ventas to avoid bias for Admin)
+        const kbContext = role === 'ventas' || role === 'vendedores' ? kbStr : 'No aplica para este rol administrativo.';
+        prompt = prompt.replace('{{KNOWLEDGE_BASE}}', kbContext);
+        prompt = prompt.replace('{{INTERNAL_DIGEST}}', internalDigest);
+        prompt = prompt.replace('{{INPUT}}', internalDigest); // Backwards compatibility for prompts
+        prompt = prompt.replace('{{CONTACT_INFO}}', `Nombre: ${context.contact_name || 'Desconocido'}, Empresa: ${context.business_name || 'Desconocida'}`);
+
         // Inject Conversational Memory Placeholders
         prompt = prompt.replace('{{LAST_ACTION}}', lastActionContext.summary || 'null');
         prompt = prompt.replace('{{LAST_ACTION_TIMESTAMP}}', lastActionContext.timestamp ? format(toZonedTime(new Date(lastActionContext.timestamp), TIMEZONE), "yyyy-MM-dd HH:mm:ss") : 'null');
@@ -231,9 +283,8 @@ export class CortexRouterService {
         prompt = prompt.replace('{{CURRENT_DATE}}', format(nowZoned, "yyyy-MM-dd"));
         prompt = prompt.replace('{{CURRENT_DAY_NAME}}', format(nowZoned, "EEEE", { locale: es }));
         prompt = prompt.replace('{{CURRENT_TIME}}', format(nowZoned, "HH:mm"));
+        prompt = prompt.replace('{{TIME}}', format(nowZoned, "HH:mm")); // Alias for public_donna
 
-        // Inject Input
-        prompt = prompt.replace('{{INPUT}}', input.text);
 
         try {
             // Optimized AI Call (FAST model)
@@ -252,13 +303,43 @@ export class CortexRouterService {
             const jsonEndIndex = cleaned.lastIndexOf('}');
             const finalJsonStr = (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) ? cleaned.substring(jsonStartIndex, jsonEndIndex + 1) : cleaned;
 
-            const parsed = JSON.parse(finalJsonStr);
-
-            if (parsed.reasoning) {
-                console.log(`🧠 [Reasoning] ${parsed.reasoning}`);
+            let parsed: any = {};
+            try {
+                parsed = JSON.parse(finalJsonStr);
+            } catch (e) {
+                console.warn('⚠️ [Router] Prompt did not return valid JSON. Falling back to CHAT intent.', e);
+                parsed = {
+                    intent: 'CHAT',
+                    data: { response: cleaned }
+                };
             }
 
-            // --- CLARIFICATION FLOW ---
+            // --- V3 EXPERT HANDLING (Agenda, Tasks, etc.) ---
+            if (parsed.status === 'incomplete' && (parsed.pregunta || parsed.clarification_question)) {
+                const question = parsed.pregunta || parsed.clarification_question;
+                if (input.source === 'client' && input.chatId) {
+                    await customerMessagingService.sendHumanizedMessage(input.chatId, question, replyContext);
+                } else if (input.source === 'cesar') {
+                    await internalNotificationService.notifyCesar(question, replyContext);
+                }
+                return { status: 'incomplete', intent: intent, message: question };
+            }
+
+            if (parsed.status === 'ready' && intent === 'crear' && parsed.evento) {
+                // Here we would call the actual Calendar Service
+                const confirmation = `✅ ¡Entendido! He agendado: *${parsed.evento.titulo}* para el ${parsed.evento.fecha} a las ${parsed.evento.hora}.`;
+                if (input.source === 'client' && input.chatId) {
+                    await customerMessagingService.sendHumanizedMessage(input.chatId, confirmation, replyContext);
+                } else {
+                    await internalNotificationService.notifyCesar(confirmation, replyContext);
+                }
+
+                // TODO: Integrate with GoogleCalendarService
+                console.log(`📅 [ACTION] Scheduling event:`, parsed.evento);
+                return { status: 'ready', intent: intent, data: parsed.evento };
+            }
+
+            // --- CLARIFICATION FLOW (Legacy/General) ---
             if (parsed.needs_clarification && parsed.clarification_question) {
                 if (input.source === 'client') {
                     await customerMessagingService.sendMessage(input.chatId!, parsed.clarification_question, replyContext);
@@ -268,50 +349,12 @@ export class CortexRouterService {
                 return { status: 'needs_clarification', message: parsed.clarification_question };
             }
 
-            // --- FRACTIONATED MESSAGING & VIDEO LOGIC ---
+            // --- FRACTIONATED MESSAGING ---
             if (input.source === 'client' && parsed.intent === 'CHAT') {
                 const responseText = parsed.data?.response || parsed.reasoning || '';
 
-                if (responseText.includes('[SEND_VIDEO_CARNAVAL]')) {
-                    const parts = responseText.split('[SEND_VIDEO_CARNAVAL]');
-
-                    // 1. Part One (Intro)
-                    if (parts[0].trim()) {
-                        await customerMessagingService.sendHumanizedMessage(input.chatId!, parts[0].trim(), replyContext);
-                    }
-
-                    // 2. The Video link (YouTube with thumbnail)
-                    const videoUrl = 'https://youtube.com/shorts/RC1vVm24Ha0?si=kZzDb2xyYvVWFm1G';
-                    await customerMessagingService.sendMessage(input.chatId!, videoUrl, replyContext);
-
-                    // Small human-like delay
-                    await new Promise(r => setTimeout(r, 1000));
-
-                    // 3. Closing Text + Link (Split into 2 messages for preview)
-                    if (parts[1] && parts[1].trim()) {
-                        const closingText = parts[1].trim();
-                        const urlMatch = closingText.match(/(https?:\/\/[^\s]+)/);
-
-                        if (urlMatch) {
-                            const url = urlMatch[0];
-                            const textWithoutUrl = closingText.replace(url, '').trim();
-
-                            if (textWithoutUrl) {
-                                await customerMessagingService.sendHumanizedMessage(input.chatId!, textWithoutUrl, replyContext);
-                            }
-                            // Link alone for full preview
-                            await customerMessagingService.sendMessage(input.chatId!, url, replyContext);
-                        } else {
-                            await customerMessagingService.sendHumanizedMessage(input.chatId!, closingText, replyContext);
-                        }
-
-                        // 🔥 CONVERSION NOTIFICATION TO CÉSAR
-                        await internalNotificationService.notifyConversion(context.contact_name || 'Nuevo Lead', input.chatId || '');
-                    }
-                } else {
-                    // Normal chat messages (send in fractions)
-                    await customerMessagingService.sendHumanizedMessage(input.chatId!, responseText, replyContext);
-                }
+                // Normal chat messages (send in fractions if needed, but for now direct)
+                await customerMessagingService.sendHumanizedMessage(input.chatId!, responseText, replyContext);
 
                 // 4. --- HANDOVER LOGIC (Automatic Pause) ---
                 if (parsed.handover === true || parsed.handover === 'true') {

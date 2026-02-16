@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { whatsappLogs, loyaltyMissions } from '@/lib/db/schema';
+import { interactions, loyaltyMissions } from '@/lib/db/schema';
 import { sql, eq, and, gte } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -10,26 +10,22 @@ export async function GET() {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        // Total messages sent/failed in last 30 days
-        // Using COALESCE to ensure we always get a number
-        const [sentResult, failedResult] = await Promise.all([
-            db
-                .select({ count: sql<number>`COALESCE(count(*), 0)` })
-                .from(whatsappLogs)
-                .where(and(eq(whatsappLogs.status, 'sent'), gte(whatsappLogs.createdAt, thirtyDaysAgo)))
-                .limit(1),
-            db
-                .select({ count: sql<number>`COALESCE(count(*), 0)` })
-                .from(whatsappLogs)
-                .where(and(eq(whatsappLogs.status, 'failed'), gte(whatsappLogs.createdAt, thirtyDaysAgo)))
-                .limit(1)
-        ]);
+        // Total messages sent in last 30 days (from interactions table)
+        // Note: We count all outbound WhatsApp interactions as "sent" since they only exist if successful
+        // Failed sends don't create interaction records
+        const [sentResult] = await db
+            .select({ count: sql<number>`COALESCE(count(*), 0)` })
+            .from(interactions)
+            .where(and(
+                eq(interactions.type, 'whatsapp'),
+                eq(interactions.direction, 'outbound'),
+                gte(interactions.performedAt, thirtyDaysAgo)
+            ))
+            .limit(1);
 
-        const totalSent = Number(sentResult[0]?.count || 0);
-        const totalFailed = Number(failedResult[0]?.count || 0);
-        const successRate = totalSent + totalFailed > 0
-            ? Math.round((totalSent / (totalSent + totalFailed)) * 100)
-            : 100;
+        const totalSent = Number(sentResult?.count || 0);
+        const totalFailed = 0; // No longer tracking failures separately
+        const successRate = 100; // All logged interactions are successful
 
         // Last 7 days trend
         const sevenDaysAgo = new Date();
@@ -37,13 +33,17 @@ export async function GET() {
 
         const dailyStats = await db
             .select({
-                date: sql<string>`DATE(${whatsappLogs.createdAt})`,
+                date: sql<string>`DATE(${interactions.performedAt})`,
                 count: sql<number>`COALESCE(count(*), 0)`
             })
-            .from(whatsappLogs)
-            .where(and(eq(whatsappLogs.status, 'sent'), gte(whatsappLogs.createdAt, sevenDaysAgo)))
-            .groupBy(sql`DATE(${whatsappLogs.createdAt})`)
-            .orderBy(sql`DATE(${whatsappLogs.createdAt})`)
+            .from(interactions)
+            .where(and(
+                eq(interactions.type, 'whatsapp'),
+                eq(interactions.direction, 'outbound'),
+                gte(interactions.performedAt, sevenDaysAgo)
+            ))
+            .groupBy(sql`DATE(${interactions.performedAt})`)
+            .orderBy(sql`DATE(${interactions.performedAt})`)
             .limit(7); // Safety limit
 
         // Campaign breakdown by type

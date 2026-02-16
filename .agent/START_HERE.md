@@ -1,15 +1,52 @@
-# 🚩 REGLA DE INICIO (READ ME FIRST)
+# 🚩 ANCLA DE CONTEXTO: SISTEMA NEURONAL V2 (READ ME FIRST)
 
 **PARA EL ASISTENTE DE IA:**
-Antes de realizar cualquier análisis o cambio, debes leer y asimilar el contenido de los siguientes documentos para garantizar la continuidad del proyecto y el respeto a las reglas maestras:
+Este documento es la **LEY ABSOLUTA**. Si intentas modificar código sin leer esto primero, romperás la arquitectura delicada de "Single Writer" y "Alejandra Gateway".
 
-1. **`docs/MASTER_CONTEXT/PROJECT_CONSOLIDATED_STATE.md`**: Resumen técnico completo, arquitectura actual y deudas técnicas.
-2. **`CRM_MASTER_RULES.md`**: Reglas de oro sobre la base de datos y comportamiento Donna.
+---
 
-**PROTOCOLOS OBLIGATORIOS:**
-- **Zona Horaria**: Siempre usa `America/Guayaquil` (UTC-5).
-- **Consistencia**: No crees nuevas tablas sin verificar si `contacts` puede absorber el dato.
-- **Diseño**: Si creas UI, debe ser de alta fidelidad (premium). No hagas MVPs simples.
-- **Mensajería**: Usa siempre el `InternalNotificationService` para alertas al equipo y `CustomerMessagingService` para clientes.
+## 🔐 1. REGLA DE ORO: EL GATEWAY DE ALEJANDRA
+El flujo de mensajes es **ESTRICTO** y **UNIDIRECCIONAL** para proteger el contexto.
 
-*Este archivo es la "Ancla de Contexto" para Antigravity.*
+1.  **Entrada Cruda**: `Webhook` → `Queue` → `Worker` → **[Alejandra]**
+    *   **SOLO Alejandra** tiene permiso de leer el `input.text` crudo del cliente.
+    *   Su trabajo es **clasificar, sanitizar y traducir** la intención del cliente a un "Comando Interno".
+
+2.  **Distribución a Expertos**:
+    *   Alejandra genera un `Internal Digest` (ej: "Cliente pide cotización de X").
+    *   **CortexRouter** inyecta **SOLO** este `digest` en los prompts de los expertos (`{{INTERNAL_DIGEST}}`).
+    *   **NUNCA** pases el mensaje original a César, Abel o Ventas. Ellos actúan sobre la *interpretación* de Alejandra.
+
+---
+
+## 💾 2. REGLA DE ORO: PERSISTENCIA "SINGLE WRITER"
+Para evitar duplicidad y bucles infinitos, la escritura en base de datos está centralizada.
+
+1.  **Worker (Escritor Único)**:
+    *   Es el **ÚNICO** autorizado para hacer `INSERT` en `donna_chat_messages`.
+    *   Guarda el mensaje del `user` (User Input).
+    *   Guarda la respuesta del `assistant` (AI Response).
+    *   Si `DISABLE_MESSAGE_PERSISTENCE=true`, **NO GUARDA NADA** (Modo Testing).
+
+2.  **WhatsAppService (Solo Transporte)**:
+    *   Su única función es enviar mensajes a la API de Meta.
+    *   **PROHIBIDO** hacer inserts en `donna_chat_messages` o `whatsapp_logs`.
+    *   Solo puede escribir en `interactions` para auditoría técnica (timestamp, status).
+
+---
+
+## 🧪 3. PROTOCOLO DE TESTING
+Si vas a realizar pruebas con el número del desarrollador (César):
+
+1.  **Activa el Escudo**: Asegúrate de que `DISABLE_MESSAGE_PERSISTENCE=true` en `.env.local`.
+2.  **Verifica los Logs**: Debes ver `[PERSISTENCE DISABLED] Skipping save...` en la consola.
+3.  **Flujo Real**: Aunque no se guarde en BD, el mensaje **SÍ** debe viajar por el `Queue` → `Worker` → `Alejandra` → `Respuesta`.
+
+---
+
+## 📚 Documentación Maestra
+*   **Archivos Críticos**: `scripts/message_worker.ts`, `lib/donna/services/CortexRouterService.ts`, `lib/whatsapp/WhatsAppService.ts`
+*   **Reglas de Negocio**: `CRM_MASTER_RULES.md`
+*   **Arquitectura**: `docs/MASTER_CONTEXT/PROJECT_CONSOLIDATED_STATE.md`
+
+**SI ROMPES ESTAS REGLAS, ROMPES LA MEMORIA DE DONNA.**

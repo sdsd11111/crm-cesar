@@ -16,7 +16,11 @@ Este documento es la **fuente única de verdad** para cualquier instancia de Ant
 ## 3. Integración de WhatsApp (Evolution API)
 - **Flujo:** La verdad de los mensajes vive en Evolution API.
 - **Interacciones:** Cada mensaje enviado/recibido DEBE reflejarse en la tabla `interactions`.
-- **Automatización:** Preferir Webhooks de Evolution API hacia un endpoint del CRM (`/api/webhooks/whatsapp`) para que Donna sea reactiva, en lugar de inserciones manuales desde la UI.
+- **Batching & Persistencia (Worker-First):**
+    - El Webhook (`/api/webhooks/whatsapp`) solo identifica el contacto y encola en `pending_messages_queue`.
+    - El `message_worker.ts` agrupa mensajes cada 25 segundos y realiza la persistencia única en el CRM.
+    - **REGLA DE ORO:** Los mensajes se persisten SIEMPRE, incluso si el bot está en `paused` o hay intervención humana. El bot solo decide si *responde* o no, pero el historial nunca se pierde.
+- **Automatización:** Preferir Webhooks de Evolution API hacia un endpoint del CRM (`/api/webhooks/whatsapp`).
 
 ## 4. Ecosistema Donna (Dualidad)
 - **Donna Macro:** Asistente global. Analiza estadísticas, KPIs y tendencias de todo el CRM.

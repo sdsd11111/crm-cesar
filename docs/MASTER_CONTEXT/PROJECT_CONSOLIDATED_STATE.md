@@ -10,6 +10,7 @@ Este es el documento de **Transferencia de Conocimiento y Reglas Críticas**. De
 - **Refactorización Modular (Stage 2)**: El sistema de mensajería ha sido desacoplado. Ahora existen servicios especializados (`InternalNotificationService` y `CustomerMessagingService`) que separan la comunicación con el equipo (Telegram) de la comunicación con clientes (WhatsApp/Instagram).
 - **Visibilidad WhatsApp**: Se corrigió el error de "mensajes fantasmas" mediante la optimización de queries con `DISTINCT ON` y la corrección de etiquetas de plataforma en la base de datos.
 - **Consola de Operaciones 360°**: Se ha validado la arquitectura del módulo `/ops` como el estándar de oro para la interfaz omnicanal unificada.
+- **Optimización de Batching y Persistencia (Feb 16, 2026)**: Se implementó un sistema de acumulación de mensajes de 25 segundos para WhatsApp. Los mensajes se agrupan por usuario y se persisten en bloque en el CRM. Se garantiza la persistencia incluso con el bot pausado y se corrigió el error de procesamiento duplicado mediante `inArray`.
 
 ### Componentes Críticos del Código:
 - **`lib/donna/services/CortexRouterService.ts`**: El cerebro que interpreta intenciones. Ahora delegado para el envío.
@@ -59,9 +60,8 @@ graph TD
 
 ## 🎯 4. TAREAS PENDIENTES Y VISIÓN V3
 
+- [x] **Humanizer Middleware (Batching)**: Se centralizó la lógica de fragmentación y acumulación en el `message_worker.ts`.
 - [ ] **Migración Completa a `contacts`**: Mover datos residuales de tablas legadas.
-- [ ] **Handler Pattern en Cortex**: Dividir el switch masivo de `routeToTable` en Handlers independientes.
-- [ ] **Humanizer Middleware**: Centralizar la lógica de fragmentación y delay de mensajes.
 - [ ] **Integración de Estrategias IA**: Conectar el generador de estrategias de `/ops` con el `TrainerEngine`.
 
 ---
@@ -72,4 +72,4 @@ graph TD
 - `lib/donna/prompts/`: Definición de la personalidad y flujos de Donna.
 
 **Firmado por: Antigravity (IA Assistant)**
-*Última actualización: 6 de Febrero, 2026*
+*Última actualización: 16 de Febrero, 2026*

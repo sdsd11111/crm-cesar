@@ -11,14 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function CatalogoPage() {
-    const allProducts = await db.select().from(products).orderBy(desc(products.price));
-
-    const grouped: Record<string, typeof allProducts> = {};
-    allProducts.forEach(p => {
-        const cat = p.category || 'Otros';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(p);
-    });
+    // DB Fetching removed to fix build error (PortfolioHero uses static data)
+    // const allProducts = await db.select().from(products).orderBy(desc(products.price));
+    // const grouped: Record<string, typeof allProducts> = {};...
 
     return (
         <div className="min-h-screen font-sans relative overflow-hidden bg-slate-950 text-slate-100 selection:bg-blue-500/30">
@@ -53,7 +48,7 @@ export default async function CatalogoPage() {
                 </div>
 
                 {/* Portfolio Hero with 3 Pillars */}
-                <PortfolioHero groupedProducts={grouped} />
+                <PortfolioHero />
 
                 <div className="mt-24 pt-8 border-t border-white/5 text-center text-slate-600 text-sm">
                     <p>© 2026 Grupo Empresarial Reyes. Innovación Estratégica.</p>

@@ -174,12 +174,21 @@ export class MessagingService {
                     and(
                         sql`${interactions.contactId} IN ${contactIds.length > 0 ? contactIds : [id]} `,
                         // Only fetch system interactions or things NOT in donnaChatMessages
-                        // Since donnaChatMessages now has both User & Assistant, we only need 'system' from here.
+                        // Since donnaChatMessages now has both User & Assistant, we only need non-message interactions from here (Calls, Meetings, etc)
                         or(
-                            eq(interactions.type, 'system'),
                             and(
                                 eq(interactions.direction, 'inbound'),
                                 sql`NOT EXISTS (select 1 from ${donnaChatMessages} where ${donnaChatMessages.metadata}->>'metaMessageId' = ${interactions.metadata}->>'id')`
+                            ),
+                            and(
+                                eq(interactions.direction, 'outbound'),
+                                sql`NOT EXISTS (select 1 from ${donnaChatMessages} where ${donnaChatMessages.metadata}->>'metaMessageId' = ${interactions.metadata}->>'id')`,
+                                or(
+                                    eq(interactions.type, 'call'),
+                                    eq(interactions.type, 'meeting'),
+                                    eq(interactions.type, 'note'),
+                                    eq(interactions.type, 'email')
+                                )
                             )
                         )
                     )
@@ -200,7 +209,7 @@ export class MessagingService {
             })),
             ...inboundHistory.map(i => ({
                 id: i.id,
-                role: i.direction === 'inbound' ? 'user' : (i.type === 'system' ? 'system' : 'assistant'),
+                role: i.direction === 'inbound' ? 'user' : (['whatsapp', 'telegram', 'instagram'].includes(i.type) ? 'assistant' : 'system'),
                 content: i.content,
                 messageTimestamp: i.performedAt,
                 platform: i.type,

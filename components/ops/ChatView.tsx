@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Paperclip, Loader2, Mic, Image, FileIcon, Square, User } from 'lucide-react';
+import { Send, Paperclip, Loader2, Mic, Image, FileIcon, Square, User, Bot, MessageSquareOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ClientLinkDialog } from './ClientLinkDialog';
@@ -31,6 +31,7 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
     const [isRecording, setIsRecording] = useState(false);
     const [availableChannels, setAvailableChannels] = useState<{ platform: string; identifier: string }[]>([]);
     const [selectedPlatform, setSelectedPlatform] = useState<string>('whatsapp');
+    const [botMode, setBotMode] = useState<'active' | 'paused' | 'disabled'>('active');
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -69,6 +70,21 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
         fetchHistory();
 
         // Fetch available channels
+        // Fetch available channels and bot mode
+        fetch(`/api/conversations/${contactId}/details?type=contact`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setBotMode(data.data.botMode || 'active');
+                }
+            })
+            .catch(() => {
+                // Try discovery
+                fetch(`/api/conversations/${contactId}/details?type=discovery`)
+                    .then(res => res.json())
+                    .then(data => { if (data.success) setBotMode(data.data.botMode || 'active') });
+            });
+
         fetch(`/api/conversations/${contactId}/channels`)
             .then(res => res.json())
             .then(data => {
@@ -289,11 +305,23 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
                         {isUnknownNumber ? 'Número no guardado' : 'Unified Channel View'}
                     </span>
                 </div>
-                <div className="flex gap-2">
-                    {isUnknownNumber && (
-                        <CreateContactDialog contactId={contactId} phoneNumber={contactName} />
-                    )}
-                    <ClientLinkDialog contactId={contactId} />
+                <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${botMode === 'active'
+                        ? 'bg-blue-500/10 border-blue-500/20 text-blue-600'
+                        : 'bg-slate-100 border-slate-200 text-slate-500'
+                        }`}>
+                        {botMode === 'active' ? <Bot className="w-3.5 h-3.5" /> : <MessageSquareOff className="w-3.5 h-3.5" />}
+                        <span className="text-[9px] font-bold uppercase tracking-wider">
+                            {botMode === 'active' ? 'Donna Activa' : 'Modo Manual'}
+                        </span>
+                    </div>
+
+                    <div className="flex gap-2">
+                        {isUnknownNumber && (
+                            <CreateContactDialog contactId={contactId} phoneNumber={contactName} />
+                        )}
+                        <ClientLinkDialog contactId={contactId} />
+                    </div>
                 </div>
             </div>
 

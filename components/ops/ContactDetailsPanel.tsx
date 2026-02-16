@@ -28,8 +28,11 @@ import {
     ClipboardList,
     Calendar as CalendarIcon,
     Plus,
-    FileText
+    FileText,
+    Bot,
+    MessageSquareOff
 } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
 interface ContactDetailsPanelProps {
@@ -238,6 +241,44 @@ export function ContactDetailsPanel({ contactId, contactName }: ContactDetailsPa
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
+
+                    <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 mb-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Bot size={16} className={details.botMode === 'active' ? "text-blue-500" : "text-muted-foreground"} />
+                                <div>
+                                    <h4 className="text-[10px] font-bold uppercase tracking-wider">Donna AI</h4>
+                                    <p className="text-[9px] text-muted-foreground">
+                                        {details.botMode === 'active' ? 'Automatización Conectada' : 'IA en Pausa (Humano al mando)'}
+                                    </p>
+                                </div>
+                            </div>
+                            <Switch
+                                checked={details.botMode === 'active'}
+                                onCheckedChange={async (checked) => {
+                                    const newMode = checked ? 'active' : 'paused';
+                                    setDetails({ ...details, botMode: newMode });
+                                    try {
+                                        const isDiscovery = !details.phone && !!details.telefonoPrincipal;
+                                        await fetch(`/api/whatsapp/chats/${contactId}/details`, {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                type: isDiscovery ? 'discovery' : 'contact',
+                                                botMode: newMode
+                                            })
+                                        });
+                                        toast({
+                                            title: checked ? "Donna Activada" : "Donna Desactivada",
+                                            description: checked ? "La IA responderá automáticamente tras 20s." : "Modo manual activado."
+                                        });
+                                    } catch (e) {
+                                        console.error("Error toggling Donna:", e);
+                                    }
+                                }}
+                            />
+                        </div>
+                    </div>
 
                     <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10">
                         <h4 className="text-[10px] font-bold text-amber-500 uppercase mb-3 text-center tracking-wider">Estatus Comercial</h4>

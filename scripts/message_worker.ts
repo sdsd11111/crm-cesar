@@ -1,5 +1,13 @@
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import fs from 'fs';
+
+// Only load .env.local if it exists (for local dev)
+if (fs.existsSync('.env.local')) {
+    dotenv.config({ path: '.env.local' });
+    console.log('✅ Local .env.local detected and loaded');
+} else {
+    console.log('🌐 No .env.local found, assuming production environment variables');
+}
 
 // CRITICAL: Start health check server FIRST for Render Free Tier
 import http from 'http';
@@ -8,7 +16,9 @@ const server = http.createServer((req, res) => {
     res.writeHead(200);
     res.end('Worker Active');
 });
-server.listen(port, () => console.log(`🌍 Health Check Server running on port ${port}`));
+server.listen(port, '0.0.0.0', () => {
+    console.log(`🌍 Health Check Server running on port ${port}`);
+});
 
 import { db } from '../lib/db';
 import { pendingMessagesQueue } from '../lib/db/schema';

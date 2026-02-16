@@ -22,7 +22,7 @@ server.listen(port, '0.0.0.0', () => {
 
 import { db } from '../lib/db';
 import { pendingMessagesQueue } from '../lib/db/schema';
-import { eq, sql, and, or, desc } from 'drizzle-orm';
+import { eq, sql, and, or, desc, inArray } from 'drizzle-orm';
 import { cortexRouter } from '../lib/donna/services/CortexRouterService';
 
 const ACCUMULATION_WINDOW_MS = 25000; // 25 seconds
@@ -156,7 +156,7 @@ async function processQueue() {
 
                     // D. TRIGGER AI (Conditional)
                     let shouldSkipAI = botMode !== 'active';
-                    let skipReason = botMode;
+                    let skipReason: string = botMode;
 
                     // Check for Human Intervention (Handover) if bot is active
                     if (!shouldSkipAI) {
@@ -202,7 +202,8 @@ async function processQueue() {
 
                     // E. Clear ONLY processed IDs from the queue
                     await db.delete(pendingMessagesQueue)
-                        .where(sql`id IN ${messageIds}`);
+                        .where(inArray(pendingMessagesQueue.id, messageIds));
+                    console.log(`🗑️ Cleared ${messageIds.length} messages from queue for ${chat.chatId}`);
 
                 } catch (e) {
                     console.error(`❌ Batch Error for ${chat.chatId}:`, e);

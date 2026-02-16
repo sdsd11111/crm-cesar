@@ -60,15 +60,19 @@ async function processQueue() {
         const typingRefreshChats = [];
 
         for (const chat of pendingChats) {
-            // Ensure we parse the timestamp as UTC correctly
-            // Postgres timestamp often comes without 'Z' but is UTC
-            const firstReceived = new Date(chat.firstUpdate.includes('Z') ? chat.firstUpdate : `${chat.firstUpdate}Z`);
+            // DEBUG: See what the DB is actually returning
+            const rawStr = String(chat.firstUpdate);
+
+            // If it already has timezone info (+00, Z, etc), use as is. 
+            // If not, assume it's UTC and add Z. 
+            // Also handle spaces vs T (Postgres vs ISO)
+            const isoStr = rawStr.includes(' ') && !rawStr.includes('T') ? rawStr.replace(' ', 'T') : rawStr;
+            const firstReceived = new Date(isoStr.includes('Z') || isoStr.includes('+') ? isoStr : `${isoStr}Z`);
+
             const timeDiff = now.getTime() - firstReceived.getTime();
 
-            // DIAGNOSTIC LOG (Only if not ready yet to avoid spam)
-            if (timeDiff < ACCUMULATION_WINDOW_MS) {
-                console.log(`⏳ Waiting for ${chat.chatId}: ${Math.round(timeDiff / 1000)}s / ${ACCUMULATION_WINDOW_MS / 1000}s`);
-            }
+            // DIAGNOSTIC LOG (Always show for now to debug)
+            console.log(`⏱️ [TIME CHECK] Chat: ${chat.chatId} | DB Raw: "${rawStr}" | Parsed: ${firstReceived.toISOString()} | Now: ${now.toISOString()} | Diff: ${Math.round(timeDiff / 1000)}s`);
 
             if (timeDiff >= ACCUMULATION_WINDOW_MS) {
                 readyChats.push({ ...chat, firstReceived });

@@ -13,9 +13,11 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
-     * - api/telegram/webhook (Telegram webhook endpoint)
+     * - api/telegram/webhook
+     * - api/whatsapp/webhook
+     * - api/health
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/telegram/webhook|.*.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/telegram/webhook|api/whatsapp/webhook|api/health|.*.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

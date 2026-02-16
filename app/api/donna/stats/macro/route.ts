@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { whatsappLogs, loyaltyMissions } from '@/lib/db/schema';
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, and, gte } from 'drizzle-orm';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
@@ -14,12 +16,12 @@ export async function GET() {
             db
                 .select({ count: sql<number>`COALESCE(count(*), 0)` })
                 .from(whatsappLogs)
-                .where(sql`${whatsappLogs.status} = 'sent' AND ${whatsappLogs.createdAt} >= ${thirtyDaysAgo}`)
+                .where(and(eq(whatsappLogs.status, 'sent'), gte(whatsappLogs.createdAt, thirtyDaysAgo)))
                 .limit(1),
             db
                 .select({ count: sql<number>`COALESCE(count(*), 0)` })
                 .from(whatsappLogs)
-                .where(sql`${whatsappLogs.status} = 'failed' AND ${whatsappLogs.createdAt} >= ${thirtyDaysAgo}`)
+                .where(and(eq(whatsappLogs.status, 'failed'), gte(whatsappLogs.createdAt, thirtyDaysAgo)))
                 .limit(1)
         ]);
 
@@ -39,7 +41,7 @@ export async function GET() {
                 count: sql<number>`COALESCE(count(*), 0)`
             })
             .from(whatsappLogs)
-            .where(sql`${whatsappLogs.status} = 'sent' AND ${whatsappLogs.createdAt} >= ${sevenDaysAgo}`)
+            .where(and(eq(whatsappLogs.status, 'sent'), gte(whatsappLogs.createdAt, sevenDaysAgo)))
             .groupBy(sql`DATE(${whatsappLogs.createdAt})`)
             .orderBy(sql`DATE(${whatsappLogs.createdAt})`)
             .limit(7); // Safety limit

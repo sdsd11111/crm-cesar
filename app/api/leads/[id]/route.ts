@@ -28,6 +28,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
   )
 
+  // audit-log: Passive security check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn(`⚠️ [SECURITY AUDIT] Unauthorized access attempt to GET /api/leads/${params.id}`);
+  }
+
   const { id } = params;
 
   try {
@@ -142,6 +148,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       },
     }
   )
+
+  // audit-log: Passive security check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn(`⚠️ [SECURITY AUDIT] Unauthorized access attempt to PATCH /api/leads/${params.id}`);
+  }
 
   const { id } = params;
 
@@ -270,6 +282,12 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       },
     }
   )
+
+  // audit-log: Passive security check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn(`⚠️ [SECURITY AUDIT] Unauthorized access attempt to DELETE /api/leads/${params.id}`);
+  }
 
   const { id } = params;
 

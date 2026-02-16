@@ -37,8 +37,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`${poppins.variable} antialiased dark`} suppressHydrationWarning>
-      <body className="font-poppins bg-gray-900 text-white" suppressHydrationWarning>
+    <html lang="es" className={`${poppins.variable} antialiased`} suppressHydrationWarning>
+      <body className="font-poppins bg-background text-foreground" suppressHydrationWarning>
         {children}
         <GlobalWidgetsWrapper />
         <Toaster />

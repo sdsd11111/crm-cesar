@@ -88,10 +88,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navigation = [
     { name: "Dashboard", icon: BarChart3, href: "/dashboard" },
-    { name: "Operaciones", icon: MessageSquare, href: "/ops", badge: "New" },
-    { name: "WhatsApp", icon: MessageSquare, href: "/whatsapp", badge: "App" }, // Added WhatsApp link
+    { name: "Comunicaciones", icon: MessageSquare, href: "/comunicaciones" },
     { name: "Recorridos", icon: MapPin, href: "/recorridos" },
-    { name: "Base de Datos", icon: Database, href: "/prospects" }, // Changed icon from Users to Database
+    // { name: "Base de Datos", icon: Database, href: "/prospects" }, // Temporarily removed per user request
     { name: "Leads", icon: UserPlus, href: "/leads", badge: newLeadsCount > 0 ? newLeadsCount : undefined },
     { name: "Clientes", icon: UserCheck, href: "/clients" },
     { name: "Tareas", icon: CheckSquare, href: "/tasks" },
@@ -108,7 +107,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen w-full bg-muted/20">
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center space-x-3">
@@ -167,8 +166,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarFooter>
         </Sidebar>
         <div className="flex flex-col flex-1">
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-            <SidebarTrigger className="sm:hidden" />
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-6 sm:h-auto sm:border-0 sm:bg-transparent sm:px-8">
+            <SidebarTrigger className="sm:hidden" aria-label="Alternar menú lateral" />
             <h1 className="text-2xl font-bold text-foreground">
               {navigation.find((item) => pathname.startsWith(item.href))?.name || "Dashboard"}
             </h1>
@@ -178,7 +177,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
             </div>
           </header>
-          <main className="flex-1 p-4 sm:px-6 sm:py-0">{children}</main>
+          <main className="flex-1 p-4 md:p-8 w-full max-w-full overflow-x-hidden">{children}</main>
         </div>
       </div>
     </SidebarProvider>

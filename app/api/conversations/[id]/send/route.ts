@@ -21,12 +21,14 @@ export async function POST(
         const { contacts } = await import('@/lib/db/schema');
         const { eq } = await import('drizzle-orm');
 
-        await db.update(contacts)
-            .set({ botMode: 'paused', updatedAt: new Date() })
-            .where(eq(contacts.id, id))
-            .catch(err => console.error('Failed to pause bot:', err));
-
-        const result = await messagingService.send(id, message, metadata);
+        // Run bot pause and message send in parallel to minimize latency
+        const [result] = await Promise.all([
+            messagingService.send(id, message, metadata),
+            db.update(contacts)
+                .set({ botMode: 'paused', updatedAt: new Date() })
+                .where(eq(contacts.id, id))
+                .catch(err => console.error('Failed to pause bot:', err))
+        ]);
 
         if (result.success) {
             return NextResponse.json(result);

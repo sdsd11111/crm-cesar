@@ -24,7 +24,7 @@ const config: Config = {
           foreground: 'var(--popover-foreground)'
         },
         primary: {
-          DEFAULT: 'var(--primary)',
+          DEFAULT: '#ff6347', // Replaced var(--primary) with brand-tomate for consistency
           foreground: 'var(--primary-foreground)'
         },
         secondary: {
@@ -47,7 +47,10 @@ const config: Config = {
         input: 'var(--input)',
         ring: 'var(--ring)',
         brand: {
-          50: '#f0fdfa',
+          tomate: '#ff6347', // Tomato brand color
+          black: '#09090b',  // Rich black
+          white: '#ffffff',
+          50: '#f0fdfa', // Keeping legacy brand tokens if needed, but primary is now brand-tomate
           100: '#ccfbf1',
           200: '#99f6e4',
           300: '#5eead4',

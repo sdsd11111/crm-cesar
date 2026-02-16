@@ -393,7 +393,10 @@ export const interactions = pgTable('interactions', {
   metadata: jsonb('metadata').default({}), // ✅ ROBUST LOGGING: For raw payloads/extra info
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => ({
+  contactIdIdx: index('interactions_contact_id_idx').on(t.contactId),
+  performedAtIdx: index('interactions_performed_at_idx').on(t.performedAt),
+}));
 
 // Financial Module
 export const transactions = pgTable('transactions', {
@@ -755,11 +758,14 @@ export const donnaChatMessages = pgTable('donna_chat_messages', {
   chatId: text('chat_id').notNull(), // Telegram/Whatsapp ID
   role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
   content: text('content').notNull(),
-  platform: text('platform', { enum: ['telegram', 'whatsapp'] }).default('whatsapp'),
+  platform: text('platform', { enum: ['telegram', 'whatsapp', 'instagram'] }).default('whatsapp'),
   messageTimestamp: timestamp('message_timestamp').defaultNow().notNull(), // Unified Context Timestamp
   metadata: jsonb('metadata').default({}), // For Intent, debugging info
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => ({
+  chatIdIdx: index('donna_chat_messages_chat_id_idx').on(t.chatId),
+  messageTimestampIdx: index('donna_chat_messages_timestamp_idx').on(t.messageTimestamp),
+}));
 
 // ============================================
 // SYSTEM SETTINGS - Credentials and Configurations

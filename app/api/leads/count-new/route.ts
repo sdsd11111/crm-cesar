@@ -16,6 +16,12 @@ export async function GET() {
     }
   )
 
+  // [SECURITY AUDIT] Passive Check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn(`⚠️ [SECURITY AUDIT] Unauthorized access attempt to GET /api/leads/count-new`);
+  }
+
   try {
     const { count, error } = await supabase
       .from('contacts')

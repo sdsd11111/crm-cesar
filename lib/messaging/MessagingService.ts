@@ -34,6 +34,7 @@ export class MessagingService {
      */
     async send(id: string, text: string, metadata: any = {}) {
         try {
+            console.time(`⏱️ MessagingService.send [${id}]`);
             // 1. Resolve Destination & Adapter
             let destination: string | null = null;
             let requestedChannel = 'whatsapp';
@@ -83,36 +84,34 @@ export class MessagingService {
             }
 
             const adapter = this.adapters.get(requestedChannel);
-            if (!adapter) throw new Error(`No adapter found for channel: ${requestedChannel}`);
+            if (!adapter) throw new Error(`No adapter found for channel: ${requestedChannel} `);
 
-            console.log(`📨 MessagingService: Sending to ${id} via ${requestedChannel}. Destination: ${destination}`);
+            console.log(`📨 MessagingService: Sending via ${requestedChannel}.Destination: ${destination} `);
 
             if (!destination) {
-                throw new Error(`No valid destination identifier found for ${id} on ${requestedChannel}`);
+                throw new Error(`No valid destination identifier found for ${id} on ${requestedChannel} `);
             }
 
             const result = await adapter.sendMessage(destination, text, metadata);
+            console.timeEnd(`⏱️ MessagingService.send[${id}]`);
 
-            // 3. Centralized Logging
+            // 3. Centralized Logging (NON-BLOCKING or optimized)
             if (result.success) {
                 // Update Last Activity (Only if it's a formal contact)
                 if (contactId) {
-                    await db.update(contacts)
+                    db.update(contacts)
                         .set({
                             lastActivityAt: new Date(),
                             unreadCount: 0,
                             updatedAt: new Date()
                         } as any)
-                        .where(eq(contacts.id, contactId!));
+                        .where(eq(contacts.id, contactId!))
+                        .catch(e => console.warn('⚠️ LastActivity update failed:', e));
                 }
-                // Log to Donna Chat History (Unified View)
-                await db.insert(donnaChatMessages).values({
-                    chatId: destination!,
-                    role: 'assistant',
-                    content: text,
-                    platform: requestedChannel as any,
-                    metadata: { ...metadata, adapterResponse: result.data }
-                });
+
+                // REDUNDANCY REMOVED: WhatsAppService already logs to interactions and donnaChatMessages
+                // We only return the result here.
+                return result;
             }
 
             return result;
@@ -160,30 +159,31 @@ export class MessagingService {
 
         if (relatedIdentifiers.length === 0 && contactIds.length === 0) return [];
 
-        // 3. Fetch History from donnaChatMessages (primarily outbound/IA)
-        const outboundHistory = await db.select()
-            .from(donnaChatMessages)
-            .where(
-                sql`${donnaChatMessages.chatId} IN ${relatedIdentifiers}`
-            )
-            .orderBy(desc(donnaChatMessages.messageTimestamp))
-            .limit(limit);
-
-        // 4. Fetch History from interactions (primarily inbound)
-        const inboundHistory = await db.select()
-            .from(interactions)
-            .where(
-                and(
-                    sql`${interactions.contactId} IN ${contactIds.length > 0 ? contactIds : [id]}`,
-                    or(
-                        eq(interactions.type, 'whatsapp'),
-                        eq(interactions.type, 'telegram'),
-                        eq(interactions.type, 'instagram')
+        // 3 & 4. Fetch History in Parallel
+        const [outboundHistory, inboundHistory] = await Promise.all([
+            db.select()
+                .from(donnaChatMessages)
+                .where(
+                    sql`${donnaChatMessages.chatId} IN ${relatedIdentifiers} `
+                )
+                .orderBy(desc(donnaChatMessages.messageTimestamp))
+                .limit(limit),
+            db.select()
+                .from(interactions)
+                .where(
+                    and(
+                        sql`${interactions.contactId} IN ${contactIds.length > 0 ? contactIds : [id]} `,
+                        eq(interactions.direction, 'inbound'), // ONLY INBOUND: Outbound/Assistant is handled by donnaChatMessages
+                        or(
+                            eq(interactions.type, 'whatsapp'),
+                            eq(interactions.type, 'telegram'),
+                            eq(interactions.type, 'instagram')
+                        )
                     )
                 )
-            )
-            .orderBy(desc(interactions.performedAt))
-            .limit(limit);
+                .orderBy(desc(interactions.performedAt))
+                .limit(limit)
+        ]);
 
         // 5. Merge and Normalize
         const unified = [

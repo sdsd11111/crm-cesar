@@ -80,14 +80,17 @@ export class WhatsAppService {
             }
 
             const url = `https://graph.facebook.com/${this.version}/${phoneNumberId}/messages`;
+            const start = Date.now();
             const response = await axios.post(url, payload, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
                 }
             });
+            console.log(`✅ Meta Response in ${Date.now() - start}ms`);
 
             try {
+                const dbStart = Date.now();
                 let contactId = contact?.id || null;
                 let discoveryLeadId = null;
 
@@ -114,45 +117,56 @@ export class WhatsAppService {
 
                 const logContent = media ? `[Multimedia: ${media.type}] ${media.caption || ''}` : text;
 
-                await db.insert(interactions).values({
-                    contactId: contactId,
-                    discoveryLeadId: discoveryLeadId,
-                    type: 'whatsapp',
-                    content: logContent,
-                    direction: 'outbound',
-                    performedAt: new Date(),
-                    createdAt: new Date(),
-                    metadata: {
-                        source: metadata.source || 'system',
-                        data: response.data,
-                        media: media || null
-                    }
-                });
+                // PRE-GENERATE UUIDs to return them immediately to the frontend
+                const donnaMsgId = crypto.randomUUID();
 
-                await db.insert(whatsappLogs).values({
-                    contactId: contactId,
-                    trigger: metadata.type || 'system',
-                    content: logContent,
-                    status: 'sent',
-                    approvedBy: metadata.approvedBy || 'system',
-                    metadata: { ...metadata, metaResponse: response.data }
-                });
+                // Fire and forget non-critical logs
+                const logPromises = [
+                    db.insert(interactions).values({
+                        contactId: contactId,
+                        discoveryLeadId: discoveryLeadId,
+                        type: 'whatsapp',
+                        content: logContent,
+                        direction: 'outbound',
+                        performedAt: new Date(),
+                        createdAt: new Date(),
+                        metadata: {
+                            source: metadata.source || 'system',
+                            data: response.data,
+                            media: media || null
+                        }
+                    }),
+                    db.insert(whatsappLogs).values({
+                        contactId: contactId,
+                        trigger: metadata.type || 'system',
+                        content: logContent,
+                        status: 'sent',
+                        approvedBy: metadata.approvedBy || 'system',
+                        metadata: { ...metadata, metaResponse: response.data }
+                    }),
+                    db.insert(donnaChatMessages).values({
+                        id: donnaMsgId, // Use pre-generated ID
+                        chatId: cleanPhone,
+                        role: 'assistant',
+                        content: logContent,
+                        platform: 'whatsapp',
+                        messageTimestamp: new Date(),
+                        metadata: {
+                            source: metadata.source || 'chat_center_console',
+                            metaMessageId: response.data.messages?.[0]?.id,
+                            media: media || null
+                        }
+                    })
+                ];
 
-                // 3. PERSISTENCE for Chat History (Donna Console)
-                await db.insert(donnaChatMessages).values({
-                    chatId: cleanPhone,
-                    role: 'assistant',
-                    content: logContent,
-                    platform: 'whatsapp',
-                    messageTimestamp: new Date(),
-                    metadata: {
-                        source: metadata.source || 'chat_center_console',
-                        metaMessageId: response.data.messages?.[0]?.id,
-                        media: media || null
-                    }
-                });
+                Promise.all(logPromises).then(() => {
+                    console.log(`🗄️ DB Persistence complete in ${Date.now() - dbStart}ms (ID: ${donnaMsgId})`);
+                }).catch(err => console.warn('⚠️ Parallel Logging Error:', err));
+
+                return { success: true, data: response.data, messageId: donnaMsgId };
+
             } catch (dbError) {
-                console.warn('⚠️ Log/Interaction/History skipped (DB error)', dbError);
+                console.warn('⚠️ Primary DB Resolve failed', dbError);
             }
 
             return { success: true, data: response.data };
@@ -170,11 +184,12 @@ export class WhatsAppService {
         try {
             // SHIM: Fix MIME types for Meta API
             let finalMimeType = mimeType;
-            if (mimeType.includes('vcard')) {
-                finalMimeType = 'text/plain'; // Meta requires supported type, clients detect content via .vcf extension
+            if (mimeType.includes('vcard') || fileName.toLowerCase().endsWith('.vcf')) {
+                finalMimeType = 'text/vcard';
             }
-            if (mimeType.includes('audio/webm') || mimeType.includes('audio/weba')) {
-                finalMimeType = 'audio/ogg'; // Force OGG mapping for any WebM audio variant
+            // Meta is VERY strict about voice notes requiring audio/ogg; codecs=opus
+            if (type === 'audio' || mimeType.includes('audio/webm') || mimeType.includes('audio/weba')) {
+                finalMimeType = 'audio/ogg; codecs=opus';
             }
 
             const formData = new FormData();
@@ -206,6 +221,7 @@ export class WhatsAppService {
 
     async getMedia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
         const { accessToken } = this.getCredentials();
+        console.log(`🔍 [WhatsAppService] Fetching media details for ID: ${mediaId}`);
         try {
             const infoUrl = `https://graph.facebook.com/${this.version}/${mediaId}`;
             const infoRes = await axios.get(infoUrl, {
@@ -214,20 +230,26 @@ export class WhatsAppService {
 
             const mediaUrl = infoRes.data.url;
             const mimeType = infoRes.data.mime_type;
+            console.log(`📋 [WhatsAppService] Media info for ${mediaId}: Type=${mimeType}, hasUrl=${!!mediaUrl}`);
 
-            if (!mediaUrl) return null;
+            if (!mediaUrl) {
+                console.warn(`⚠️ [WhatsAppService] No URL found for media ID: ${mediaId}`);
+                return null;
+            }
 
+            console.log(`📡 [WhatsAppService] Downloading media from Meta CDN...`);
             const downloadRes = await axios.get(mediaUrl, {
                 headers: { 'Authorization': `Bearer ${accessToken}` },
                 responseType: 'arraybuffer'
             });
 
+            console.log(`✅ [WhatsAppService] Download complete. Size: ${downloadRes.data.byteLength} bytes`);
             return {
                 buffer: Buffer.from(downloadRes.data),
                 mimeType: mimeType
             };
         } catch (error: any) {
-            console.error(`❌ getMedia Error (${mediaId}):`, error.response?.data || error.message);
+            console.error(`❌ [WhatsAppService] Error in getMedia (${mediaId}):`, error.response?.data || error.message);
             return null;
         }
     }

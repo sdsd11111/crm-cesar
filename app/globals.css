@@ -7,9 +7,10 @@
 
 :root {
   /* Updated color tokens for CRM glassmorphism design */
-  --background: oklch(0.98 0.005 120);
-  /* Light neutral background #f0f4f8 */
-  --foreground: oklch(0.25 0.02 200);
+  --background: oklch(1 0 0);
+  /* Pure White background */
+  --foreground: oklch(0.13 0.02 260);
+  /* Deep Blue/Black text */
   /* Dark text */
   --card: oklch(1 0 0 / 0.8);
   /* Glassmorphic card background with transparency */
@@ -17,8 +18,8 @@
   --popover: oklch(1 0 0 / 0.9);
   /* Popover background */
   --popover-foreground: oklch(0.25 0.02 200);
-  --primary: oklch(0.55 0.15 142);
-  /* Green primary #4caf50 */
+  --primary: oklch(0.6 0.22 25);
+  /* Brand Tomate primary */
   --primary-foreground: oklch(1 0 0);
   /* White text on primary */
   --secondary: oklch(0.65 0.15 65);
@@ -37,9 +38,9 @@
   /* Light transparent border */
   --input: oklch(1 0 0);
   /* White input background */
-  --ring: oklch(0.55 0.15 142 / 0.5);
+  --ring: oklch(0.6 0.22 25 / 0.5);
   /* Green focus ring */
-  --chart-1: oklch(0.55 0.15 142);
+  --chart-1: oklch(0.6 0.22 25);
   /* Green */
   --chart-2: oklch(0.65 0.15 65);
   /* Orange */
@@ -63,44 +64,49 @@
 }
 
 .dark {
-  /* Dark mode tokens for glassmorphism */
-  --background: oklch(0.1 0.01 200);
-  /* Dark background */
-  --foreground: oklch(0.95 0.01 200);
-  /* Light text */
-  --card: oklch(0.15 0.01 200 / 0.8);
-  /* Dark glassmorphic cards */
-  --card-foreground: oklch(0.95 0.01 200);
-  --popover: oklch(0.15 0.01 200 / 0.9);
-  --popover-foreground: oklch(0.95 0.01 200);
-  --primary: oklch(0.6 0.15 142);
-  /* Brighter green for dark mode */
-  --primary-foreground: oklch(0.1 0.01 200);
-  --secondary: oklch(0.7 0.15 65);
-  /* Brighter orange */
-  --secondary-foreground: oklch(0.1 0.01 200);
-  --muted: oklch(0.2 0.01 200);
-  --muted-foreground: oklch(0.7 0.01 200);
-  --accent: oklch(0.7 0.15 65);
-  --accent-foreground: oklch(0.1 0.01 200);
-  --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.95 0.01 200);
-  --border: oklch(1 0 0 / 0.1);
-  --input: oklch(0.2 0.01 200);
-  --ring: oklch(0.6 0.15 142 / 0.5);
-  --chart-1: oklch(0.6 0.15 142);
-  --chart-2: oklch(0.7 0.15 65);
-  --chart-3: oklch(0.55 0.15 250);
-  --chart-4: oklch(0.6 0.2 25);
-  --chart-5: oklch(0.6 0.15 300);
-  --sidebar: oklch(0.12 0.01 200 / 0.8);
-  --sidebar-foreground: oklch(0.95 0.01 200);
-  --sidebar-primary: oklch(0.6 0.15 142);
-  --sidebar-primary-foreground: oklch(0.1 0.01 200);
-  --sidebar-accent: oklch(0.7 0.15 65);
-  --sidebar-accent-foreground: oklch(0.1 0.01 200);
-  --sidebar-border: oklch(1 0 0 / 0.1);
-  --sidebar-ring: oklch(0.6 0.15 142 / 0.5);
+  /* Enforcing Light Mode variables as requested by user preference */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.13 0.02 260);
+  --card: oklch(1 0 0 / 0.8);
+  --card-foreground: oklch(0.25 0.02 200);
+  --popover: oklch(1 0 0 / 0.9);
+  --popover-foreground: oklch(0.25 0.02 200);
+  --primary: oklch(0.6 0.22 25);
+  /* Brand Tomate primary */
+  --primary-foreground: oklch(1 0 0);
+  /* White text on primary */
+  --secondary: oklch(0.65 0.15 65);
+  /* Orange secondary #ff9800 */
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.85 0.01 200);
+  /* Light gray muted */
+  --muted-foreground: oklch(0.45 0.02 200);
+  --accent: oklch(0.65 0.15 65);
+  /* Orange accent */
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.55 0.2 25);
+  /* Red for destructive actions */
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0 0 0 / 0.1);
+  /* Light transparent border */
+  --input: oklch(1 0 0);
+  /* White input background */
+  --ring: oklch(0.6 0.22 25 / 0.5);
+  /* Tomate focus ring */
+  --chart-1: oklch(0.6 0.22 25);
+  /* Tomate */
+  --chart-2: oklch(0.65 0.15 65);
+  --chart-3: oklch(0.45 0.15 250);
+  --chart-4: oklch(0.55 0.2 25);
+  --chart-5: oklch(0.5 0.15 300);
+  --sidebar: oklch(1 0 0 / 0.8);
+  --sidebar-foreground: oklch(0.25 0.02 200);
+  --sidebar-primary: oklch(0.55 0.15 142);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.65 0.15 65);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0 0 0 / 0.1);
+  --sidebar-ring: oklch(0.55 0.15 142 / 0.5);
 }
 
 @theme inline {

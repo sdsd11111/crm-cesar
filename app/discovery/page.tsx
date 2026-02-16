@@ -430,352 +430,360 @@ export default function DiscoveryPage() {
 
     return (
         <DashboardLayout>
-            <div className="p-6 lg:p-10 w-full max-w-[1920px] mx-auto space-y-8 animate-in fade-in duration-700">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2">
-                    <div className="space-y-1">
-                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent">
-                            Discovery <span className="text-primary">&</span> Research
-                        </h1>
-                        <p className="text-sm text-muted-foreground/60 font-medium tracking-wide uppercase">
-                            Investigación táctica y gestión de prospección en frío.
-                        </p>
+            <div className="relative isolate">
+                {/* Decorative Background for Glassmorphism */}
+                <div className="fixed inset-0 z-0 pointer-events-none h-full w-full bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+                <div className="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(255,87,34,0.15),rgba(255,255,255,0))]"></div>
+                <div className="fixed inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_bottom_right,rgba(120,119,198,0.2),transparent)]"></div>
+
+                <div className="p-8 md:p-12 lg:p-16 w-full max-w-[95%] mx-auto space-y-8 animate-in fade-in duration-700 relative z-10">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-2">
+                        <div className="space-y-1">
+                            <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent">
+                                Discovery <span className="text-primary">&</span> Research
+                            </h1>
+                            <p className="text-sm text-muted-foreground/60 font-medium tracking-wide uppercase">
+                                Investigación táctica y gestión de prospección en frío.
+                            </p>
+                        </div>
+
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button className="h-12 px-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-xl shadow-blue-500/20 border-0 transition-all active:scale-95 group">
+                                    <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-300" /> Nuevo Prospecto
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px]">
+                                <form onSubmit={handleAddLead}>
+                                    <DialogHeader>
+                                        <DialogTitle>Añadir Prospecto de Discovery</DialogTitle>
+                                        <DialogDescription>
+                                            Ingresa los datos básicos para iniciar la investigación con Gemini.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="name" className="text-right">Negocio</Label>
+                                            <Input id="name" value={newLead.businessName} onChange={e => setNewLead({ ...newLead, businessName: e.target.value })} className="col-span-3" required />
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="type" className="text-right">Tipo</Label>
+                                            <Input id="type" placeholder="Ej: Hotel, Restaurante" value={newLead.businessType} onChange={e => setNewLead({ ...newLead, businessType: e.target.value })} className="col-span-3" />
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="rep" className="text-right">Representante</Label>
+                                            <Input id="rep" value={newLead.representative} onChange={e => setNewLead({ ...newLead, representative: e.target.value })} className="col-span-3" />
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="city" className="text-right">Ciudad</Label>
+                                            <Input id="city" value={newLead.city} onChange={e => setNewLead({ ...newLead, city: e.target.value })} className="col-span-3" />
+                                        </div>
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="phone" className="text-right">Teléfono</Label>
+                                            <Input id="phone" value={newLead.phone1} onChange={e => setNewLead({ ...newLead, phone1: e.target.value })} className="col-span-3" />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button type="submit" disabled={isAdding}>
+                                            {isAdding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Guardar y Cerrar
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
                     </div>
 
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button className="h-12 px-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-xl shadow-blue-500/20 border-0 transition-all active:scale-95 group">
-                                <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-300" /> Nuevo Prospecto
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                            <form onSubmit={handleAddLead}>
-                                <DialogHeader>
-                                    <DialogTitle>Añadir Prospecto de Discovery</DialogTitle>
-                                    <DialogDescription>
-                                        Ingresa los datos básicos para iniciar la investigación con Gemini.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="name" className="text-right">Negocio</Label>
-                                        <Input id="name" value={newLead.businessName} onChange={e => setNewLead({ ...newLead, businessName: e.target.value })} className="col-span-3" required />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="type" className="text-right">Tipo</Label>
-                                        <Input id="type" placeholder="Ej: Hotel, Restaurante" value={newLead.businessType} onChange={e => setNewLead({ ...newLead, businessType: e.target.value })} className="col-span-3" />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="rep" className="text-right">Representante</Label>
-                                        <Input id="rep" value={newLead.representative} onChange={e => setNewLead({ ...newLead, representative: e.target.value })} className="col-span-3" />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="city" className="text-right">Ciudad</Label>
-                                        <Input id="city" value={newLead.city} onChange={e => setNewLead({ ...newLead, city: e.target.value })} className="col-span-3" />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="phone" className="text-right">Teléfono</Label>
-                                        <Input id="phone" value={newLead.phone1} onChange={e => setNewLead({ ...newLead, phone1: e.target.value })} className="col-span-3" />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button type="submit" disabled={isAdding}>
-                                        {isAdding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Guardar y Cerrar
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-
-                {/* Filters Section */}
-                <Card className="border-white/5 bg-slate-950/40 backdrop-blur-xl rounded-2xl overflow-hidden shadow-2xl">
-                    <CardHeader className="pb-4">
-                        <div className="flex items-center gap-2">
-                            <Filter className="h-5 w-5 text-primary" />
-                            <CardTitle className="text-lg">Filtros Dinámicos</CardTitle>
-                            {activeFiltersCount > 0 && (
-                                <Badge variant="secondary">{activeFiltersCount} activo{activeFiltersCount > 1 ? 's' : ''}</Badge>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant={filters.columna1.includes('no_contactado') ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => {
-                                    if (filters.columna1.includes('no_contactado')) {
-                                        // Clear the filter
-                                        setFilters({ ...filters, columna1: [], columna2: [] });
-                                    } else {
-                                        // Set filter for "no_contactado" AND exclude "descartar" and "convertir_a_lead"
-                                        setFilters({
-                                            ...filters,
-                                            columna1: ['no_contactado'],
-                                            columna2: [] // Reset columna2 to show all except what we exclude in API
-                                        });
-                                    }
-                                }}
-                                className={cn(
-                                    "h-8 text-[11px] font-bold uppercase",
-                                    filters.columna1.includes('no_contactado') ? "bg-blue-600 hover:bg-blue-500" : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                    {/* Filters Section */}
+                    <Card className="border-border/40 bg-white/60 backdrop-blur-xl rounded-2xl overflow-hidden shadow-xl border">
+                        <CardHeader className="pb-4">
+                            <div className="flex items-center gap-2">
+                                <Filter className="h-5 w-5 text-primary" />
+                                <CardTitle className="text-lg">Filtros Dinámicos</CardTitle>
+                                {activeFiltersCount > 0 && (
+                                    <Badge variant="secondary">{activeFiltersCount} activo{activeFiltersCount > 1 ? 's' : ''}</Badge>
                                 )}
-                            >
-                                🎯 Pendientes de Contacto
-                            </Button>
-                            {activeFiltersCount > 0 && (
-                                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                                    <X className="h-4 w-4 mr-2" /> Limpiar
-                                </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6 pt-0">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-                            <div className="space-y-2">
-                                <Label>Búsqueda</Label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Nombre del negocio..."
-                                        value={filters.search}
-                                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                        className="pl-9"
-                                    />
-                                </div>
                             </div>
-                            <MultiSelectFilter
-                                title="Estado"
-                                options={statusOptions}
-                                selected={selectedStatusLabels}
-                                onChange={(vals) => {
-                                    const newStatus: string[] = [];
-                                    const newCol1: string[] = [];
-                                    vals.forEach(val => {
-                                        if (val === "Pendiente") newStatus.push("pending");
-                                        if (val === "Investigado") newStatus.push("investigated");
-                                        if (val === "Convertido") newStatus.push("converted");
-                                        if (val === "Descartado") newStatus.push("discarded");
-                                        if (val === "No contestó") newCol1.push("no_contesto");
-                                        if (val === "Contestó / Interesado") newCol1.push("contesto_interesado");
-                                        if (val === "Contestó / No interesa hoy") newCol1.push("contesto_no_interesado");
-                                    });
-                                    setFilters({ ...filters, status: newStatus, columna1: newCol1 });
-                                }}
-                            />
-                            <MultiSelectFilter
-                                title="Provincia"
-                                options={facetOptions.provinces}
-                                selected={filters.provincia}
-                                onChange={(vals) => setFilters({ ...filters, provincia: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Cantón"
-                                options={facetOptions.cantons}
-                                selected={filters.canton}
-                                onChange={(vals) => setFilters({ ...filters, canton: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Actividad"
-                                options={facetOptions.activities}
-                                selected={filters.actividad_modalidad}
-                                onChange={(vals) => setFilters({ ...filters, actividad_modalidad: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Categoría"
-                                options={facetOptions.categories}
-                                selected={filters.categoria}
-                                onChange={(vals) => setFilters({ ...filters, categoria: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Clasificación"
-                                options={facetOptions.clasificaciones}
-                                selected={filters.clasificacion}
-                                onChange={(vals) => setFilters({ ...filters, clasificacion: vals })}
-                            />
-                            <MultiSelectFilter
-                                title="Estado de Acción"
-                                options={['Pendiente', 'En Cola', 'Convertir a Lead', 'Descartar', 'Seguimiento 7d', 'Seguimiento 30d']}
-                                selected={(() => {
-                                    const labels: string[] = [];
-                                    if (filters.columna2.includes('pendiente')) labels.push('Pendiente');
-                                    if (filters.columna2.includes('en_cola')) labels.push('En Cola');
-                                    if (filters.columna2.includes('convertir_a_lead')) labels.push('Convertir a Lead');
-                                    if (filters.columna2.includes('descartar')) labels.push('Descartar');
-                                    if (filters.columna2.includes('seguimiento_7_dias')) labels.push('Seguimiento 7d');
-                                    if (filters.columna2.includes('seguimiento_30_dias')) labels.push('Seguimiento 30d');
-                                    return labels;
-                                })()}
-                                onChange={(vals) => {
-                                    const newCol2: string[] = [];
-                                    vals.forEach(val => {
-                                        if (val === 'Pendiente') newCol2.push('pendiente');
-                                        if (val === 'En Cola') newCol2.push('en_cola');
-                                        if (val === 'Convertir a Lead') newCol2.push('convertir_a_lead');
-                                        if (val === 'Descartar') newCol2.push('descartar');
-                                        if (val === 'Seguimiento 7d') newCol2.push('seguimiento_7_dias');
-                                        if (val === 'Seguimiento 30d') newCol2.push('seguimiento_30_dias');
-                                    });
-                                    setFilters({ ...filters, columna2: newCol2 });
-                                }}
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Results Summary */}
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <p>
-                        Mostrando <span className="font-semibold text-foreground">{((pagination.page - 1) * pagination.limit) + 1}</span> - <span className="font-semibold text-foreground">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de <span className="font-semibold text-foreground">{pagination.total.toLocaleString()}</span> resultados
-                    </p>
-                    <Select value={pagination.limit.toString()} onValueChange={(value) => setPagination({ ...pagination, limit: parseInt(value), page: 1 })}>
-                        <SelectTrigger className="w-[120px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="25">25 por página</SelectItem>
-                            <SelectItem value="50">50 por página</SelectItem>
-                            <SelectItem value="100">100 por página</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="grid gap-6">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                            <p className="text-muted-foreground animate-pulse">Cargando base de datos de discovery...</p>
-                        </div>
-                    ) : leads.length === 0 ? (
-                        <Card className="border-dashed py-20">
-                            <CardContent className="flex flex-col items-center justify-center space-y-4">
-                                <FileSearch className="h-12 w-12 text-muted-foreground/50" />
-                                <div className="text-center">
-                                    <h3 className="font-semibold text-lg">No hay prospectos que coincidan</h3>
-                                    <p className="text-muted-foreground">Intenta ajustar los filtros o limpiarlos.</p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant={filters.columna1.includes('no_contactado') ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => {
+                                        if (filters.columna1.includes('no_contactado')) {
+                                            // Clear the filter
+                                            setFilters({ ...filters, columna1: [], columna2: [] });
+                                        } else {
+                                            // Set filter for "no_contactado" AND exclude "descartar" and "convertir_a_lead"
+                                            setFilters({
+                                                ...filters,
+                                                columna1: ['no_contactado'],
+                                                columna2: [] // Reset columna2 to show all except what we exclude in API
+                                            });
+                                        }
+                                    }}
+                                    className={cn(
+                                        "h-8 text-[11px] font-bold uppercase",
+                                        filters.columna1.includes('no_contactado') ? "bg-blue-600 hover:bg-blue-500" : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                                    )}
+                                >
+                                    🎯 Pendientes de Contacto
+                                </Button>
+                                {activeFiltersCount > 0 && (
+                                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                                        <X className="h-4 w-4 mr-2" /> Limpiar
+                                    </Button>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-0">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Búsqueda</Label>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Nombre del negocio..."
+                                            value={filters.search}
+                                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                            className="pl-9"
+                                        />
+                                    </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {leads.map((lead) => (
-                                <Card key={lead.id} className="group flex flex-col h-full overflow-hidden border-white/5 hover:border-blue-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/10 bg-slate-950/40 backdrop-blur-xl rounded-2xl">
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <CardTitle className="text-xl font-black tracking-tight group-hover:text-blue-400 transition-colors line-clamp-1">{lead.businessName}</CardTitle>
-                                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{lead.businessType || 'Giro no especificado'}</CardDescription>
-                                            </div>
-                                            {getStatusBadge(lead.status)}
-                                            {lead.columna2 === 'en_cola' && (
-                                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">📋 EN COLA</Badge>
-                                            )}
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="space-y-2 text-sm text-muted-foreground">
-                                            <div className="flex items-center gap-2">
-                                                <User className="h-4 w-4 text-primary/70" /> {lead.representative || 'Desconocido'}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <MapPin className="h-4 w-4 text-primary/70" /> {lead.city || 'Ubicación pendiente'}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Phone className="h-4 w-4 text-primary/70" /> {lead.phone1 || 'Sin teléfono'}
-                                            </div>
-                                            {lead.clasificacion && (
-                                                <div className="flex items-center gap-2">
-                                                    <Columns className="h-4 w-4 text-primary/70" /> {lead.clasificacion}
+                                <MultiSelectFilter
+                                    title="Estado"
+                                    options={statusOptions}
+                                    selected={selectedStatusLabels}
+                                    onChange={(vals) => {
+                                        const newStatus: string[] = [];
+                                        const newCol1: string[] = [];
+                                        vals.forEach(val => {
+                                            if (val === "Pendiente") newStatus.push("pending");
+                                            if (val === "Investigado") newStatus.push("investigated");
+                                            if (val === "Convertido") newStatus.push("converted");
+                                            if (val === "Descartado") newStatus.push("discarded");
+                                            if (val === "No contestó") newCol1.push("no_contesto");
+                                            if (val === "Contestó / Interesado") newCol1.push("contesto_interesado");
+                                            if (val === "Contestó / No interesa hoy") newCol1.push("contesto_no_interesado");
+                                        });
+                                        setFilters({ ...filters, status: newStatus, columna1: newCol1 });
+                                    }}
+                                />
+                                <MultiSelectFilter
+                                    title="Provincia"
+                                    options={facetOptions.provinces}
+                                    selected={filters.provincia}
+                                    onChange={(vals) => setFilters({ ...filters, provincia: vals })}
+                                />
+                                <MultiSelectFilter
+                                    title="Cantón"
+                                    options={facetOptions.cantons}
+                                    selected={filters.canton}
+                                    onChange={(vals) => setFilters({ ...filters, canton: vals })}
+                                />
+                                <MultiSelectFilter
+                                    title="Actividad"
+                                    options={facetOptions.activities}
+                                    selected={filters.actividad_modalidad}
+                                    onChange={(vals) => setFilters({ ...filters, actividad_modalidad: vals })}
+                                />
+                                <MultiSelectFilter
+                                    title="Categoría"
+                                    options={facetOptions.categories}
+                                    selected={filters.categoria}
+                                    onChange={(vals) => setFilters({ ...filters, categoria: vals })}
+                                />
+                                <MultiSelectFilter
+                                    title="Clasificación"
+                                    options={facetOptions.clasificaciones}
+                                    selected={filters.clasificacion}
+                                    onChange={(vals) => setFilters({ ...filters, clasificacion: vals })}
+                                />
+                                <MultiSelectFilter
+                                    title="Estado de Acción"
+                                    options={['Pendiente', 'En Cola', 'Convertir a Lead', 'Descartar', 'Seguimiento 7d', 'Seguimiento 30d']}
+                                    selected={(() => {
+                                        const labels: string[] = [];
+                                        if (filters.columna2.includes('pendiente')) labels.push('Pendiente');
+                                        if (filters.columna2.includes('en_cola')) labels.push('En Cola');
+                                        if (filters.columna2.includes('convertir_a_lead')) labels.push('Convertir a Lead');
+                                        if (filters.columna2.includes('descartar')) labels.push('Descartar');
+                                        if (filters.columna2.includes('seguimiento_7_dias')) labels.push('Seguimiento 7d');
+                                        if (filters.columna2.includes('seguimiento_30_dias')) labels.push('Seguimiento 30d');
+                                        return labels;
+                                    })()}
+                                    onChange={(vals) => {
+                                        const newCol2: string[] = [];
+                                        vals.forEach(val => {
+                                            if (val === 'Pendiente') newCol2.push('pendiente');
+                                            if (val === 'En Cola') newCol2.push('en_cola');
+                                            if (val === 'Convertir a Lead') newCol2.push('convertir_a_lead');
+                                            if (val === 'Descartar') newCol2.push('descartar');
+                                            if (val === 'Seguimiento 7d') newCol2.push('seguimiento_7_dias');
+                                            if (val === 'Seguimiento 30d') newCol2.push('seguimiento_30_dias');
+                                        });
+                                        setFilters({ ...filters, columna2: newCol2 });
+                                    }}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Results Summary */}
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <p>
+                            Mostrando <span className="font-semibold text-foreground">{((pagination.page - 1) * pagination.limit) + 1}</span> - <span className="font-semibold text-foreground">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de <span className="font-semibold text-foreground">{pagination.total.toLocaleString()}</span> resultados
+                        </p>
+                        <Select value={pagination.limit.toString()} onValueChange={(value) => setPagination({ ...pagination, limit: parseInt(value), page: 1 })}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="25">25 por página</SelectItem>
+                                <SelectItem value="50">50 por página</SelectItem>
+                                <SelectItem value="100">100 por página</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="grid gap-6">
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                                <p className="text-muted-foreground animate-pulse">Cargando base de datos de discovery...</p>
+                            </div>
+                        ) : leads.length === 0 ? (
+                            <Card className="border-dashed py-20">
+                                <CardContent className="flex flex-col items-center justify-center space-y-4">
+                                    <FileSearch className="h-12 w-12 text-muted-foreground/50" />
+                                    <div className="text-center">
+                                        <h3 className="font-semibold text-lg">No hay prospectos que coincidan</h3>
+                                        <p className="text-muted-foreground">Intenta ajustar los filtros o limpiarlos.</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {leads.map((lead) => (
+                                    <Card key={lead.id} className="group flex flex-col h-full overflow-hidden border-border/40 hover:border-blue-500/30 transition-all duration-500 hover:shadow-xl hover:shadow-blue-500/10 bg-white/50 backdrop-blur-xl rounded-2xl border">
+                                        <CardHeader className="pb-2">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <CardTitle className="text-xl font-black tracking-tight group-hover:text-blue-400 transition-colors line-clamp-1">{lead.businessName}</CardTitle>
+                                                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{lead.businessType || 'Giro no especificado'}</CardDescription>
                                                 </div>
-                                            )}
-                                        </div>
+                                                {getStatusBadge(lead.status)}
+                                                {lead.columna2 === 'en_cola' && (
+                                                    <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">📋 EN COLA</Badge>
+                                                )}
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="space-y-2 text-sm text-muted-foreground">
+                                                <div className="flex items-center gap-2">
+                                                    <User className="h-4 w-4 text-primary/70" /> {lead.representative || 'Desconocido'}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4 text-primary/70" /> {lead.city || 'Ubicación pendiente'}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="h-4 w-4 text-primary/70" /> {lead.phone1 || 'Sin teléfono'}
+                                                </div>
+                                                {lead.clasificacion && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Columns className="h-4 w-4 text-primary/70" /> {lead.clasificacion}
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                        <div className="pt-4 mt-auto flex gap-2">
-                                            <Button
-                                                variant={lead.researchData ? "secondary" : "default"}
-                                                className={cn(
-                                                    "flex-1 h-10 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all",
-                                                    !lead.researchData && "bg-blue-600 hover:bg-blue-500 text-white border-0"
-                                                )}
-                                                onClick={() => handleResearch(lead.id)}
-                                                disabled={isResearching === lead.id}
-                                            >
-                                                {isResearching === lead.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                ) : (
-                                                    <Search className="h-4 w-4 mr-2" />
-                                                )}
-                                                {lead.researchData ? "Re-investigar" : "Investigar IA"}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className={cn(
-                                                    "h-10 w-10 border border-white/5 transition-all rounded-xl",
-                                                    lead.columna2 === 'en_cola' ? "bg-orange-500/20 text-orange-500 border-orange-500/30" : "hover:bg-white/5"
-                                                )}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleQueue(lead.id, lead.columna2);
-                                                }}
-                                                title={lead.columna2 === 'en_cola' ? "Quitar de la cola" : "Añadir a la cola de hoy"}
-                                            >
-                                                <ClipboardList className="h-4 w-4" />
-                                            </Button>
+                                            <div className="pt-4 mt-auto flex gap-2">
+                                                <Button
+                                                    variant={lead.researchData ? "secondary" : "default"}
+                                                    className={cn(
+                                                        "flex-1 h-10 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all",
+                                                        !lead.researchData && "bg-blue-600 hover:bg-blue-500 text-white border-0"
+                                                    )}
+                                                    onClick={() => handleResearch(lead.id)}
+                                                    disabled={isResearching === lead.id}
+                                                >
+                                                    {isResearching === lead.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                    ) : (
+                                                        <Search className="h-4 w-4 mr-2" />
+                                                    )}
+                                                    {lead.researchData ? "Re-investigar" : "Investigar IA"}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={cn(
+                                                        "h-10 w-10 border border-white/5 transition-all rounded-xl",
+                                                        lead.columna2 === 'en_cola' ? "bg-orange-500/20 text-orange-500 border-orange-500/30" : "hover:bg-white/5"
+                                                    )}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleQueue(lead.id, lead.columna2);
+                                                    }}
+                                                    title={lead.columna2 === 'en_cola' ? "Quitar de la cola" : "Añadir a la cola de hoy"}
+                                                    aria-label={lead.columna2 === 'en_cola' ? "Quitar de la cola" : "Añadir a la cola de hoy"}
+                                                >
+                                                    <ClipboardList className="h-4 w-4" />
+                                                </Button>
 
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
+                                disabled={pagination.page === 1}
+                            >
+                                Anterior
+                            </Button>
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    return (
+                                        <Button
+                                            key={pageNum}
+                                            variant={pagination.page === pageNum ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setPagination({ ...pagination, page: pageNum })}
+                                        >
+                                            {pageNum}
+                                        </Button>
+                                    );
+                                })}
+                                {pagination.totalPages > 5 && <span className="px-2">...</span>}
+                                {pagination.totalPages > 5 && (
+                                    <Button
+                                        variant={pagination.page === pagination.totalPages ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setPagination({ ...pagination, page: pagination.totalPages })}
+                                    >
+                                        {pagination.totalPages}
+                                    </Button>
+                                )}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
+                                disabled={pagination.page === pagination.totalPages}
+                            >
+                                Siguiente
+                            </Button>
                         </div>
                     )}
                 </div>
-
-                {/* Pagination */}
-                {pagination.totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 pt-4">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
-                            disabled={pagination.page === 1}
-                        >
-                            Anterior
-                        </Button>
-                        <div className="flex items-center gap-1">
-                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                                const pageNum = i + 1;
-                                return (
-                                    <Button
-                                        key={pageNum}
-                                        variant={pagination.page === pageNum ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => setPagination({ ...pagination, page: pageNum })}
-                                    >
-                                        {pageNum}
-                                    </Button>
-                                );
-                            })}
-                            {pagination.totalPages > 5 && <span className="px-2">...</span>}
-                            {pagination.totalPages > 5 && (
-                                <Button
-                                    variant={pagination.page === pagination.totalPages ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => setPagination({ ...pagination, page: pagination.totalPages })}
-                                >
-                                    {pagination.totalPages}
-                                </Button>
-                            )}
-                        </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
-                            disabled={pagination.page === pagination.totalPages}
-                        >
-                            Siguiente
-                        </Button>
-                    </div>
-                )}
             </div>
         </DashboardLayout>
     );

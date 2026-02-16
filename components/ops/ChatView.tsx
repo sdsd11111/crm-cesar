@@ -29,6 +29,8 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
+    const [availableChannels, setAvailableChannels] = useState<{ platform: string; identifier: string }[]>([]);
+    const [selectedPlatform, setSelectedPlatform] = useState<string>('whatsapp');
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -43,7 +45,19 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
             fetch(`/api/conversations/${contactId}/history`)
                 .then(res => res.json())
                 .then(data => {
-                    setMessages(data);
+                    if (Array.isArray(data)) {
+                        setMessages(prev => {
+                            // Keep optimistic messages that aren't in the server response yet
+                            const serverIds = new Set(data.map(m => m.id));
+                            const optimisticMessages = prev.filter(m => m.id.startsWith('temp_') && !serverIds.has(m.id));
+
+                            // Merge and sort
+                            const combined = [...data, ...optimisticMessages];
+                            return combined.sort((a, b) =>
+                                new Date(a.messageTimestamp).getTime() - new Date(b.messageTimestamp).getTime()
+                            );
+                        });
+                    }
                     setLoading(false);
                 })
                 .catch(err => {
@@ -54,6 +68,21 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
 
         fetchHistory();
 
+        // Fetch available channels
+        fetch(`/api/conversations/${contactId}/channels`)
+            .then(res => res.json())
+            .then(data => {
+                setAvailableChannels(data);
+                // If the primary channel is available, select it, otherwise default to first or whatsapp
+                if (data.length > 0) {
+                    const primary = data.find((c: any) => c.isPrimary);
+                    setSelectedPlatform(primary?.platform || data[0].platform);
+                } else {
+                    setSelectedPlatform('whatsapp');
+                }
+            })
+            .catch(err => console.error("Failed to load channels", err));
+
         // Polling every 5 seconds for real-time sync
         const timer = setInterval(() => {
             fetchHistory(true);
@@ -61,6 +90,37 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
 
         return () => clearInterval(timer);
     }, [contactId]);
+
+    // Lazy load media URLs (Optimized)
+    const processedMediaIds = useRef(new Set<string>());
+    useEffect(() => {
+        messages.forEach(async (msg) => {
+            const mediaId = msg.metadata?.media?.id;
+            if (mediaId && !msg.metadata.media.url && !processedMediaIds.current.has(mediaId)) {
+                processedMediaIds.current.add(mediaId); // Mark as in-flight
+                try {
+                    const res = await fetch(`/api/conversations/media/${mediaId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setMessages(prev => prev.map(m =>
+                            m.metadata?.media?.id === mediaId ? {
+                                ...m,
+                                metadata: {
+                                    ...m.metadata,
+                                    media: { ...m.metadata!.media!, url: data.url }
+                                }
+                            } : m
+                        ));
+                    } else {
+                        processedMediaIds.current.delete(mediaId); // Retry next time if failed
+                    }
+                } catch (err) {
+                    console.error('Failed to lazy load media:', mediaId, err);
+                    processedMediaIds.current.delete(mediaId);
+                }
+            }
+        });
+    }, [messages]);
 
     // Auto-scroll
     useEffect(() => {
@@ -86,7 +146,10 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder.current = new MediaRecorder(stream);
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            const mimeType = isSafari ? 'audio/mp4' : 'audio/webm;codecs=opus';
+
+            mediaRecorder.current = new MediaRecorder(stream, { mimeType });
             audioChunks.current = [];
 
             mediaRecorder.current.ondataavailable = (e) => {
@@ -94,18 +157,22 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
             };
 
             mediaRecorder.current.onstop = async () => {
-                const audioBlob = new Blob(audioChunks.current, { type: 'audio/ogg; codecs=opus' });
-                const file = new File([audioBlob], `voice_${Date.now()}.ogg`, { type: 'audio/ogg' });
+                const finalBlob = new Blob(audioChunks.current, { type: mimeType });
+                console.log('🎤 Audio recording stopped. Blob size:', finalBlob.size);
+                const ext = isSafari ? 'm4a' : 'webm';
+                const file = new File([finalBlob], `voice_${Date.now()}.${ext}`, { type: mimeType });
 
                 try {
                     setSending(true);
+                    console.log('📤 Uploading audio file:', file.name);
                     const uploadResult = await uploadFile(file, 'audio');
+                    console.log('✅ Audio upload success. Media ID:', uploadResult.mediaId);
                     await handleSend('', {
-                        type: 'audio',
+                        type: 'voice', // Switch to 'voice' for interactive player in WhatsApp
                         id: uploadResult.mediaId
                     });
                 } catch (err) {
-                    console.error("Failed to send audio", err);
+                    console.error("❌ Failed to send audio", err);
                 } finally {
                     setSending(false);
                 }
@@ -130,9 +197,11 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        let type: 'image' | 'document' | 'video' = 'document';
+        let type: 'image' | 'document' | 'video' | 'audio' = 'document';
         if (file.type.startsWith('image/')) type = 'image';
         else if (file.type.startsWith('video/')) type = 'video';
+        else if (file.type.startsWith('audio/')) type = 'audio';
+        else if (file.name.toLowerCase().endsWith('.vcf')) type = 'document';
 
         try {
             setSending(true);
@@ -155,15 +224,15 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
         if (!messageContent.trim() && !media) return;
         setSending(true);
 
-        const tempId = Date.now().toString();
+        const tempId = `temp_${Date.now()}`;
         // Optimistic UI
         const optimisticMsg: Message = {
             id: tempId,
             role: 'assistant',
             content: messageContent,
             messageTimestamp: new Date().toISOString(),
-            platform: 'whatsapp',
-            metadata: media ? { media } : undefined
+            platform: selectedPlatform,
+            metadata: media ? { ...media, isOptimistic: true } : undefined
         };
         setMessages(prev => [...prev, optimisticMsg]);
         if (textOverride === undefined) setInput('');
@@ -174,13 +243,23 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: optimisticMsg.content || (media ? `[${media.type}]` : ''),
-                    metadata: { media }
+                    metadata: { media, platform: selectedPlatform }
                 })
             });
 
             if (!res.ok) throw new Error('Send failed');
+
+            // Replace optimistic message with real one from backend
+            const result = await res.json();
+            if (result.messageId) {
+                setMessages(prev => prev.map(msg =>
+                    msg.id === tempId ? { ...msg, id: result.messageId } : msg
+                ));
+            }
         } catch (error) {
             console.error("Send error", error);
+            // Remove optimistic message on error
+            setMessages(prev => prev.filter(msg => msg.id !== tempId));
         } finally {
             setSending(false);
         }
@@ -221,7 +300,7 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
             {/* Messages */}
             <ScrollArea className="flex-1 p-4 bg-muted/5">
                 <div className="flex flex-col gap-5">
-                    {messages.map((msg) => {
+                    {Array.isArray(messages) && messages.map((msg) => {
                         const isAssistant = msg.role === 'assistant';
                         const isSystem = msg.role === 'system';
 
@@ -276,7 +355,9 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
                                                     {msg.metadata.media.url ? (
                                                         <audio controls src={msg.metadata.media.url} className="h-8 max-w-[220px] filter saturate-50" />
                                                     ) : (
-                                                        <span className="text-xs italic font-medium opacity-80 uppercase tracking-tight">Audio enviado</span>
+                                                        <span className="text-xs italic font-medium opacity-80 uppercase tracking-tight">
+                                                            {isAssistant ? 'Audio enviado' : 'Audio recibido'}
+                                                        </span>
                                                     )}
                                                 </div>
                                             )}
@@ -298,7 +379,12 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
                                             ? format(new Date(msg.messageTimestamp), 'HH:mm', { locale: es })
                                             : ''}
                                         <span className="opacity-50">•</span>
-                                        {msg.platform}
+                                        <div className="flex items-center gap-1">
+                                            {msg.platform === 'whatsapp' && <span className="text-[8px] bg-green-500/10 text-green-600 px-1 rounded-sm">WA</span>}
+                                            {msg.platform === 'telegram' && <span className="text-[8px] bg-sky-500/10 text-sky-600 px-1 rounded-sm">TG</span>}
+                                            {msg.platform === 'instagram' && <span className="text-[8px] bg-pink-500/10 text-pink-600 px-1 rounded-sm">IG</span>}
+                                            {msg.platform}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -318,6 +404,23 @@ export function ChatView({ contactId, contactName }: ChatViewProps) {
 
             {/* Footer / Input */}
             <div className="p-4 border-t bg-background flex flex-col gap-3 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
+                {/* Platform Selector */}
+                {availableChannels.length > 1 && (
+                    <div className="flex gap-2 mb-1 px-1">
+                        {availableChannels.map((ch) => (
+                            <button
+                                key={ch.platform}
+                                onClick={() => setSelectedPlatform(ch.platform)}
+                                className={`text-[9px] font-bold px-3 py-1 rounded-full border transition-all ${selectedPlatform === ch.platform
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                    : 'bg-muted/50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                                    } uppercase tracking-widest`}
+                            >
+                                {ch.platform}
+                            </button>
+                        ))}
+                    </div>
+                )}
                 {isRecording && (
                     <div className="flex items-center justify-between bg-red-500/5 p-3 rounded-xl border border-red-500/10 animate-pulse">
                         <div className="flex items-center gap-3 text-red-600 text-xs font-bold uppercase tracking-wider">

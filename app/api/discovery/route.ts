@@ -2,10 +2,18 @@ import { db } from '@/lib/db';
 import { discoveryLeads } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
 import { eq, desc, and, sql, inArray, ilike } from 'drizzle-orm';
+import { createServerClient } from '@/lib/supabase/server';
 
 // GET discovery leads with filters and pagination
 export async function GET(request: Request) {
     try {
+        // [SECURITY AUDIT] Passive Check
+        const supabase = createServerClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            console.warn(`[AUDIT] ⚠️ Unauthenticated access to GET /api/discovery`);
+        }
+
         const { searchParams } = new URL(request.url);
 
         // Extract query parameters
@@ -141,6 +149,13 @@ export async function GET(request: Request) {
 // POST create new discovery lead
 export async function POST(req: Request) {
     try {
+        // [SECURITY AUDIT] Passive Check
+        const supabase = createServerClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            console.warn(`[AUDIT] ⚠️ Unauthenticated access to POST /api/discovery`);
+        }
+
         const body = await req.json();
 
         const [newLeadRaw] = await db

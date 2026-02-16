@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { messagingService } from '@/lib/messaging/MessagingService';
+import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
 
 export async function GET(
     request: Request,

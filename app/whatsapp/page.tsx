@@ -34,6 +34,7 @@ import {
     PlayCircle,
     Mic
 } from 'lucide-react';
+import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import { getMetaStatus } from './actions';
 import { Button } from "@/components/ui/button";
@@ -647,7 +648,7 @@ export default function ChatCenterPage() {
                     >
                         <Home size={20} />
                     </Button>
-                    <div className="p-1.5 bg-[#25D366] rounded flex items-center justify-center">
+                    <div className="p-1.5 bg-brand-tomate rounded flex items-center justify-center">
                         <MessageSquare className="text-white" size={18} />
                     </div>
                     <h1 className="text-lg font-bold">Consola de Chats</h1>
@@ -755,7 +756,7 @@ export default function ChatCenterPage() {
 
                                     {isFetchingMessages ? (
                                         <div className="flex flex-col items-center justify-center h-full opacity-50 space-y-4">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#25D366]" />
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-tomate" />
                                             <p className="text-sm font-medium tracking-wide">Sincronizando...</p>
                                         </div>
                                     ) : (
@@ -791,13 +792,17 @@ export default function ChatCenterPage() {
                                                             {media && (
                                                                 <div className="mb-3 space-y-2">
                                                                     {media.type === 'image' && (
-                                                                        <div className="rounded-xl overflow-hidden bg-black/40 border border-white/10 shadow-inner">
-                                                                            <img
-                                                                                src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
-                                                                                alt="WhatsApp Image"
-                                                                                className="max-w-full h-auto cursor-pointer hover:scale-[1.02] transition-transform duration-300"
-                                                                                onClick={() => window.open(media.id ? `/api/whatsapp/media/${media.id}` : media.url, '_blank')}
-                                                                            />
+                                                                        <div className="rounded-xl overflow-hidden bg-black/40 border border-white/10 shadow-inner relative">
+                                                                            <div className="relative w-full h-auto aspect-square max-w-sm">
+                                                                                <Image
+                                                                                    src={media.id ? `/api/whatsapp/media/${media.id}` : media.url}
+                                                                                    alt="WhatsApp Image"
+                                                                                    fill
+                                                                                    className="object-contain cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                                                                                    onClick={() => window.open(media.id ? `/api/whatsapp/media/${media.id}` : media.url, '_blank')}
+                                                                                    unoptimized
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                     {media.type === 'video' && (
@@ -1263,8 +1268,8 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
             onClick={() => onClick(chat)}
             className={cn(
                 "group relative p-2 rounded-lg border transition-all cursor-pointer hover:bg-gray-800/80 shadow-sm",
-                chat.unread ? 'bg-[#202c33] border-[#25D366]/40 shadow-[#25D366]/5' : 'bg-[#111b21] border-[#202c33]',
-                isSelected ? 'ring-2 ring-[#25D366] border-transparent scale-[0.98]' : '',
+                chat.unread ? 'bg-[#202c33] border-brand-tomate/40 shadow-brand-tomate/5' : 'bg-[#111b21] border-[#202c33]',
+                isSelected ? 'ring-2 ring-brand-tomate border-transparent scale-[0.98]' : '',
                 chat.isGhost ? 'border-dashed border-amber-500/30' : ''
             )}
         >
@@ -1276,7 +1281,7 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
                             chat.isGhost ? "bg-amber-500/10 border-amber-500/20" : "bg-gray-700 border-[#202c33]"
                         )}>
                             {chat.avatar ? (
-                                <img src={chat.avatar} alt="" className="w-full h-full object-cover" />
+                                <Image src={chat.avatar} alt="" fill className="object-cover" unoptimized />
                             ) : chat.isGhost ? (
                                 <Bot size={24} className="text-amber-500/50" />
                             ) : (
@@ -1284,7 +1289,7 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
                             )}
                         </div>
                         {chat.unread && (
-                            <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#25D366] rounded-full border-2 border-[#111b21] flex items-center justify-center">
+                            <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-brand-tomate rounded-full border-2 border-[#111b21] flex items-center justify-center">
                                 <span className="text-[8px] text-white font-bold opacity-0">1</span>
                             </div>
                         )}
@@ -1309,11 +1314,11 @@ function ChatCard({ chat, isSelected, onClick, formatTime }: any) {
                 <div className="flex flex-col items-end gap-1">
                     <span className={cn(
                         "text-[10px] shrink-0 font-medium",
-                        chat.unread ? "text-[#25D366]" : "text-[#8696a0]"
+                        chat.unread ? "text-brand-tomate" : "text-[#8696a0]"
                     )}>
                         {formatTime(chat.time)}
                     </span>
-                    {chat.unread && <Badge className="bg-[#25D366] text-black h-4 px-1 text-[9px] font-extrabold rounded-full min-w-[16px] flex items-center justify-center">!</Badge>}
+                    {chat.unread && <Badge className="bg-brand-tomate text-black h-4 px-1 text-[9px] font-extrabold rounded-full min-w-[16px] flex items-center justify-center">!</Badge>}
                 </div>
             </div>
             <div className="flex items-center gap-2 mt-2">

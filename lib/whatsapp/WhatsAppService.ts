@@ -184,20 +184,28 @@ export class WhatsAppService {
         try {
             // SHIM: Fix MIME types for Meta API
             let finalMimeType = mimeType;
+            let finalFileName = fileName;
+
             if (mimeType.includes('vcard') || fileName.toLowerCase().endsWith('.vcf')) {
                 finalMimeType = 'text/vcard';
             }
+
             // Meta is VERY strict about voice notes requiring audio/ogg; codecs=opus
+            // and often fails if the extension is not .ogg or .oga
             if (type === 'audio' || mimeType.includes('audio/webm') || mimeType.includes('audio/weba')) {
                 finalMimeType = 'audio/ogg; codecs=opus';
+                if (!finalFileName.endsWith('.ogg')) {
+                    finalFileName = `voice_${Date.now()}.ogg`;
+                }
             }
 
             const formData = new FormData();
             const blob = new Blob([new Uint8Array(fileBuffer)], { type: finalMimeType });
-            formData.append('file', blob, fileName);
+            formData.append('file', blob, finalFileName);
             formData.append('messaging_product', 'whatsapp');
             formData.append('type', type);
 
+            console.log(`📤 [WhatsAppService] Uploading ${type}: ${finalFileName} (${finalMimeType})`);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -209,9 +217,11 @@ export class WhatsAppService {
             const data = await response.json();
 
             if (!response.ok) {
+                console.error('❌ [WhatsAppService] Meta Upload Failed:', data);
                 throw new Error(data.error?.message || 'Upload failed');
             }
 
+            console.log(`✅ [WhatsAppService] Media Uploaded successfully. ID: ${data.id}`);
             return { success: true, mediaId: data.id };
         } catch (error: any) {
             console.error('❌ uploadMedia Error:', error.message);

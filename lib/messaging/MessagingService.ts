@@ -173,11 +173,14 @@ export class MessagingService {
                 .where(
                     and(
                         sql`${interactions.contactId} IN ${contactIds.length > 0 ? contactIds : [id]} `,
-                        eq(interactions.direction, 'inbound'), // ONLY INBOUND: Outbound/Assistant is handled by donnaChatMessages
+                        // Only fetch system interactions or things NOT in donnaChatMessages
+                        // Since donnaChatMessages now has both User & Assistant, we only need 'system' from here.
                         or(
-                            eq(interactions.type, 'whatsapp'),
-                            eq(interactions.type, 'telegram'),
-                            eq(interactions.type, 'instagram')
+                            eq(interactions.type, 'system'),
+                            and(
+                                eq(interactions.direction, 'inbound'),
+                                sql`NOT EXISTS (select 1 from ${donnaChatMessages} where ${donnaChatMessages.metadata}->>'metaMessageId' = ${interactions.metadata}->>'id')`
+                            )
                         )
                     )
                 )
@@ -197,7 +200,7 @@ export class MessagingService {
             })),
             ...inboundHistory.map(i => ({
                 id: i.id,
-                role: i.direction === 'inbound' ? 'user' : 'assistant',
+                role: i.direction === 'inbound' ? 'user' : (i.type === 'system' ? 'system' : 'assistant'),
                 content: i.content,
                 messageTimestamp: i.performedAt,
                 platform: i.type,
@@ -205,10 +208,15 @@ export class MessagingService {
             }))
         ];
 
-        // 6. Sort and unique (avoid duplicates if some logs duplicated)
+        // 6. Sort and unique (Stronger uniqueness by content/time if IDs differ)
         return unified
             .sort((a, b) => new Date(a.messageTimestamp).getTime() - new Date(b.messageTimestamp).getTime())
-            .filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i)
+            .filter((v, i, a) =>
+                a.findIndex(t =>
+                    (t.id === v.id) ||
+                    (t.content === v.content && Math.abs(new Date(t.messageTimestamp).getTime() - new Date(v.messageTimestamp).getTime()) < 1000)
+                ) === i
+            )
             .slice(-limit);
     }
 }

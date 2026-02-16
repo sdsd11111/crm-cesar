@@ -60,8 +60,15 @@ async function processQueue() {
         const typingRefreshChats = [];
 
         for (const chat of pendingChats) {
-            const firstReceived = new Date(chat.firstUpdate + 'Z');
+            // Ensure we parse the timestamp as UTC correctly
+            // Postgres timestamp often comes without 'Z' but is UTC
+            const firstReceived = new Date(chat.firstUpdate.includes('Z') ? chat.firstUpdate : `${chat.firstUpdate}Z`);
             const timeDiff = now.getTime() - firstReceived.getTime();
+
+            // DIAGNOSTIC LOG (Only if not ready yet to avoid spam)
+            if (timeDiff < ACCUMULATION_WINDOW_MS) {
+                console.log(`⏳ Waiting for ${chat.chatId}: ${Math.round(timeDiff / 1000)}s / ${ACCUMULATION_WINDOW_MS / 1000}s`);
+            }
 
             if (timeDiff >= ACCUMULATION_WINDOW_MS) {
                 readyChats.push({ ...chat, firstReceived });

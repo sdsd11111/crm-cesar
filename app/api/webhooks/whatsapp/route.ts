@@ -175,42 +175,9 @@ export async function POST(req: Request) {
                         .where(eq(contacts.id, contactId));
                 }
 
-                // 3. Save Interaction
-                await db.insert(interactions).values({
-                    type: 'whatsapp',
-                    direction: 'inbound',
-                    content: content,
-                    contactId: contactId,
-                    discoveryLeadId: discoveryLeadId,
-                    metadata: {
-                        raw: message,
-                        phoneNumber: from,
-                        isGhost: !contactId && !discoveryLeadId,
-                        media: mediaData ? { type: message.type, ...mediaData } : null
-                    },
-                    performedAt: new Date(),
-                    createdAt: new Date()
-                });
-
-                // 2.7 PERSISTENCE for Chat History (Donna Console)
-                await db.insert(donnaChatMessages).values({
-                    chatId: from,
-                    role: 'user',
-                    content: content,
-                    platform: 'whatsapp',
-                    messageTimestamp: new Date(),
-                    metadata: {
-                        source: 'whatsapp_webhook_inbound',
-                        metaMessageId: message.id,
-                        media: mediaData ? { type: message.type, ...mediaData } : null
-                    }
-                });
-
-                console.log('✅ Webhook: Interaction saved successfully');
-
                 // 4. QUEUE FOR ACCUMULATION (Debouncing)
-                // Instead of triggering Donna immediately, we save to the queue.
-                // The worker will pick it up after the accumulation window (20-30s).
+                // We no longer save interactions or chat messages here.
+                // The Message Worker will aggregate them every 25s and save a single entry.
                 try {
                     const { pendingMessagesQueue } = await import('@/lib/db/schema');
                     await db.insert(pendingMessagesQueue).values({
@@ -220,14 +187,12 @@ export async function POST(req: Request) {
                         receivedAt: new Date()
                     });
 
-                    // 5. TRIGGER TYING INDICATOR
-                    // Give immediate feedback that the bot is "there"
+                    // 5. TRIGGER TYPING INDICATOR
                     await whatsappService.sendTypingAction(from).catch(() => { });
 
                     console.log(`📥 Message queued for ${from}. Accumulation in progress.`);
                 } catch (queueErr) {
                     console.error('Queue Error:', queueErr);
-                    // Fallback to immediate if queue fails? (Optional)
                 }
             } catch (dbError: any) {
                 console.error('⚠️ Webhook DB Error:', dbError.message);

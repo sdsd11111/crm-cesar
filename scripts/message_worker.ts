@@ -95,9 +95,10 @@ async function processQueue() {
                     if (messages.length === 0) return;
                     const messageIds = messages.map(m => m.id);
                     const unifiedContent = messages.map(m => m.content).join('\n');
+                    const platform = (messages[0]?.platform as 'telegram' | 'whatsapp') || 'whatsapp';
 
-                    // B. Trigger Donna with Safety Checks
-                    const { contacts, contactChannels, discoveryLeads, interactions } = await import('../lib/db/schema');
+                    // B. Identify Contact for Persistence
+                    const { contacts, contactChannels, discoveryLeads, interactions, donnaChatMessages } = await import('../lib/db/schema');
                     const [contact] = await db.select()
                         .from(contacts)
                         .innerJoin(contactChannels, eq(contacts.id, contactChannels.contactId))
@@ -119,59 +120,92 @@ async function processQueue() {
                         }
                     }
 
-                    // 1. Check Bot Mode
-                    if (botMode !== 'active') {
-                        console.log(`🔕 Bot is ${botMode} for ${chat.chatId}. Aborting and clearing queue.`);
-                        await db.delete(pendingMessagesQueue).where(sql`id IN ${messageIds}`);
-                        return;
+                    // C. ALWAYS PERSIST (Even if bot is paused)
+                    // This creates a single record for the whole batch in the CRM
+                    console.log(`📡 [PERSISTENCE] Attempting to save batch for ${chat.chatId}...`);
+                    try {
+                        const interactionResult = await db.insert(interactions).values({
+                            type: platform,
+                            direction: 'inbound',
+                            content: unifiedContent,
+                            contactId: finalContactId || null,
+                            discoveryLeadId: finalDiscoveryLeadId || null,
+                            metadata: {
+                                phoneNumber: chat.chatId,
+                                isBatched: true,
+                                batchSize: messages.length
+                            },
+                            performedAt: new Date()
+                        }).returning();
+                        console.log(`✅ Interaction saved with ID: ${interactionResult[0]?.id}`);
+
+                        const chatMsgResult = await db.insert(donnaChatMessages).values({
+                            chatId: chat.chatId,
+                            role: 'user',
+                            content: unifiedContent,
+                            platform: platform,
+                            messageTimestamp: new Date(),
+                            metadata: { source: 'worker_batch' }
+                        }).returning();
+                        console.log(`✅ Chat message saved with ID: ${chatMsgResult[0]?.id}`);
+
+                        console.log(`📝 [PERSISTED] Batched ${messages.length} messages for ${chat.chatId}`);
+                    } catch (persistErr) {
+                        console.error(`❌ Persistence Error for ${chat.chatId}:`, persistErr);
                     }
 
-                    // 2. Check for Human Intervention (Handover)
-                    const [lastOutbound] = await db.select()
-                        .from(interactions)
-                        .where(
-                            and(
-                                eq(interactions.direction, 'outbound'),
-                                or(
-                                    finalContactId ? eq(interactions.contactId, finalContactId) : sql`false`,
-                                    finalDiscoveryLeadId ? eq(interactions.discoveryLeadId, finalDiscoveryLeadId) : sql`false`,
-                                    sql`metadata->>'phoneNumber' = ${chat.chatId}`
+                    // D. TRIGGER AI (Conditional)
+                    let shouldSkipAI = botMode !== 'active';
+                    let skipReason = botMode;
+
+                    // Check for Human Intervention (Handover) if bot is active
+                    if (!shouldSkipAI) {
+                        const [lastOutbound] = await db.select()
+                            .from(interactions)
+                            .where(
+                                and(
+                                    eq(interactions.direction, 'outbound'),
+                                    or(
+                                        finalContactId ? eq(interactions.contactId, finalContactId) : sql`false`,
+                                        finalDiscoveryLeadId ? eq(interactions.discoveryLeadId, finalDiscoveryLeadId) : sql`false`,
+                                        sql`metadata->>'phoneNumber' = ${chat.chatId}`
+                                    )
                                 )
                             )
-                        )
-                        .orderBy(desc(interactions.performedAt))
-                        .limit(1);
+                            .orderBy(desc(interactions.performedAt))
+                            .limit(1);
 
-                    if (lastOutbound) {
-                        const lastOutboundTime = new Date(lastOutbound.performedAt).getTime();
-                        const firstMessageTime = chat.firstReceived.getTime();
+                        if (lastOutbound) {
+                            const lastOutboundTime = new Date(lastOutbound.performedAt).getTime();
+                            const firstMessageTime = chat.firstReceived.getTime();
 
-                        // If a human responded AFTER the first message was received in this batch
-                        // AND the response doesn't contain the Donna prefix (meaning it's manual)
-                        if (lastOutboundTime > firstMessageTime && !lastOutbound.content?.includes('Donna:')) {
-                            console.log(`👤 Human intervention detected for ${chat.chatId}. Donna aborts.`);
-                            await db.delete(pendingMessagesQueue).where(sql`id IN ${messageIds}`);
-                            return;
+                            if (lastOutboundTime > firstMessageTime && !lastOutbound.content?.includes('Donna:')) {
+                                shouldSkipAI = true;
+                                skipReason = 'human_intervention';
+                            }
                         }
                     }
 
-                    const platform = (messages[0]?.platform as 'telegram' | 'whatsapp') || 'whatsapp';
+                    if (shouldSkipAI) {
+                        console.log(`🔕 skipping AI for ${chat.chatId} (Reason: ${skipReason})`);
+                    } else {
+                        await cortexRouter.processInput({
+                            text: unifiedContent,
+                            source: 'client',
+                            platform,
+                            contactId: finalContactId,
+                            chatId: chat.chatId,
+                            skipSave: true // We already saved it above
+                        });
+                        console.log(`✅ AI Response processed for ${chat.chatId}`);
+                    }
 
-                    await cortexRouter.processInput({
-                        text: unifiedContent,
-                        source: 'client',
-                        platform,
-                        contactId: finalContactId,
-                        chatId: chat.chatId
-                    });
-
-                    // C. Clear ONLY processed IDs
+                    // E. Clear ONLY processed IDs from the queue
                     await db.delete(pendingMessagesQueue)
                         .where(sql`id IN ${messageIds}`);
 
-                    console.log(`✅ Batch processed for ${chat.chatId}`);
                 } catch (e) {
-                    console.error(`❌ Parallel Error for ${chat.chatId}:`, e);
+                    console.error(`❌ Batch Error for ${chat.chatId}:`, e);
                 }
             }));
         }

@@ -108,7 +108,7 @@ function ProductCard({ product }: { product: Product }) {
     const shouldTruncate = description.length > 140;
 
     const handleWhatsAppClick = () => {
-        const text = `Hola, me interesa más información sobre el servicio: *${product.title}*`;
+        const text = `Hola, me interesa más información sobre el servicio: *${product.name}*`;
         window.open(`https://wa.me/593999999999?text=${encodeURIComponent(text)}`, '_blank');
     };
 
@@ -130,7 +130,7 @@ function ProductCard({ product }: { product: Product }) {
                     )}
                 </div>
                 <h3 className="text-xl font-bold text-white group-hover:text-blue-100 transition-colors">
-                    {product.title}
+                    {product.name}
                 </h3>
             </div>
 

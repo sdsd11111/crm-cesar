@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { db } from './lib/db';
 import { pendingMessagesQueue } from './lib/db/schema';
 import { sql } from 'drizzle-orm';

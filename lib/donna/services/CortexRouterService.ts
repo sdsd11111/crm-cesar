@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { contacts, events, interactions, tasks, contactChannels, products } from '@/lib/db/schema';
+import { contacts, events, interactions, tasks, contactChannels, products, leads, quotations } from '@/lib/db/schema';
 import { conversationStates, discoveryLeads, donnaChatMessages } from '../../db/schema';
 import { messagingService } from '@/lib/messaging/MessagingService';
 import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
@@ -13,7 +13,8 @@ import { internalNotificationService } from '@/lib/messaging/services/InternalNo
 import { customerMessagingService } from '@/lib/messaging/services/CustomerMessagingService';
 import { alejandraService } from './AlejandraService';
 import { transcriptionService } from '../../ai/TranscriptionService';
-import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
+import { whatsappService, WhatsAppMedia } from '@/lib/whatsapp/WhatsAppService';
+import { pdfDocumentService } from './PdfDocumentService';
 
 const TIMEZONE = 'America/Guayaquil';
 
@@ -201,15 +202,39 @@ export class CortexRouterService {
         const nowUTC = new Date();
         const nowZoned = toZonedTime(nowUTC, TIMEZONE);
 
+        // 1. Fetch History & Entity Memory (Hybrid Layer)
+        const historyLimit = 20;
+        const history = await this.getRecentHistory(input.chatId || 'testing', historyLimit);
+
+        // Fetch Detailed Contact Profile (Entity Memory)
+        let entityDigest = 'No hay perfil estratégico registrado para este contacto.';
+        if (contactId) {
+            try {
+                const [contactRecord] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
+                if (contactRecord) {
+                    entityDigest = `
+### REPORTE ESTRATÉGICO (MEMORIA DE ENTIDAD)
+- Dolores (Pains): ${contactRecord.pains || 'N/A'}
+- Objetivos: ${contactRecord.goals || 'N/A'}
+- Objeciones: ${contactRecord.objections || 'N/A'}
+- Notas: ${contactRecord.notes || 'N/A'}
+`.trim();
+                }
+            } catch (err) {
+                console.error('❌ Error fetching Entity Memory:', err);
+            }
+        }
+
         // 2. ALEJANDRA: IDENTITY & INTENT CLASSIFICATION + TRANSLATION
         const digest = await alejandraService.identifyAndTranslate(processedText, {
             chatId: input.chatId || 'unknown',
             contactName: context.contact_name,
             businessName: context.business_name,
-            source: input.source
+            source: input.source,
+            history: history // Pass history to Alejandra for context
         });
 
-        const { role, intent, digest: internalDigest, needs_clarification, clarification_question } = digest;
+        const { role, intent, digest: internalDigest, needs_clarification, clarification_question, subtype, data: extractedData } = digest;
 
         // If high ambiguity, Alejandra asks for clarification directly
         if (needs_clarification && clarification_question) {
@@ -244,11 +269,18 @@ export class CortexRouterService {
         }
 
         // B. Intent Override for Specialized Tasks (Only for authorized roles)
-        if (intent !== 'desconocido') {
-            if (role === 'cesar' || role === 'abel') {
-                if (intent === 'crear') promptFile = 'agenda/create_event.md';
-                else if (intent === 'agenda') promptFile = 'agenda/query_agenda.md';
-                else if (intent === 'borrar') promptFile = 'agenda/create_event.md';
+        if (intent !== 'CHAT' && intent !== 'KNOWLEDGE') {
+            if (role === 'cesar' || role === 'abel' || role === 'ventas') {
+                if (subtype === 'crear' || intent === 'SCHEDULE') promptFile = 'agenda/create_event.md';
+                else if (subtype === 'agenda' || intent === 'QUERY_AGENDA') promptFile = 'agenda/query_agenda.md';
+                else if (subtype === 'borrar') promptFile = 'agenda/create_event.md'; // Assuming 'borrar' also uses create_event for now, or needs a specific prompt
+                else if (intent === 'COTIZACION') {
+                    console.log(`📑 [Router] Selected specialized Quotation prompt (Intro).`);
+                    promptFile = 'prompt_intro_cotizacion.md';
+                } else if (intent === 'CONTRATO') {
+                    console.log(`📜 [Router] Selected specialized Contract prompt.`);
+                    promptFile = 'prompt_contrato_generic.md';
+                }
             }
         }
 
@@ -258,7 +290,6 @@ export class CortexRouterService {
         // Fetch Last Action Context
         const lastActionContext = context.lastAction || { intent: 'null', summary: 'null', timestamp: null };
         let timeDiffStr = 'Indefinido';
-        let historyLimit = 10; // Rule of 10
 
         if (lastActionContext.timestamp) {
             const lastAt = new Date(lastActionContext.timestamp);
@@ -280,13 +311,15 @@ export class CortexRouterService {
         prompt = prompt.replace('{{INPUT}}', internalDigest); // Backwards compatibility for prompts
         prompt = prompt.replace('{{CONTACT_INFO}}', `Nombre: ${context.contact_name || 'Desconocido'}, Empresa: ${context.business_name || 'Desconocida'}`);
 
+        // Inject Entity Memory (Persistent Digest)
+        prompt = prompt.replace('{{ENTITY_DIGEST}}', entityDigest);
+
         // Inject Conversational Memory Placeholders
         prompt = prompt.replace('{{LAST_ACTION}}', lastActionContext.summary || 'null');
         prompt = prompt.replace('{{LAST_ACTION_TIMESTAMP}}', lastActionContext.timestamp ? format(toZonedTime(new Date(lastActionContext.timestamp), TIMEZONE), "yyyy-MM-dd HH:mm:ss") : 'null');
         prompt = prompt.replace('{{TIME_SINCE_LAST_ACTION}}', timeDiffStr);
 
         // Inject History
-        const history = await this.getRecentHistory(input.chatId || 'testing', historyLimit);
         prompt = prompt.replace('{{HISTORY}}', history);
 
         // Inject Time (Zoned to America/Guayaquil)
@@ -335,7 +368,7 @@ export class CortexRouterService {
                 return { status: 'incomplete', intent: intent, message: question };
             }
 
-            if (parsed.status === 'ready' && intent === 'crear' && parsed.evento) {
+            if (parsed.status === 'ready' && (intent === 'SCHEDULE' || subtype === 'crear') && parsed.evento) {
                 // Here we would call the actual Calendar Service
                 const confirmation = `✅ ¡Entendido! He agendado: *${parsed.evento.titulo}* para el ${parsed.evento.fecha} a las ${parsed.evento.hora}.`;
                 if (input.source === 'client' && input.chatId) {
@@ -401,8 +434,7 @@ export class CortexRouterService {
 
             // --- ROUTING (For Internal/Telegram commands) ---
             const rawName = parsed.data?.contact_name;
-            const isQuery = parsed.intent.includes('QUERY');
-            const isSchedule = parsed.intent.includes('SCHEDULE');
+            const isQuery = parsed.intent?.includes('QUERY');
 
             if (rawName && !input.contactId && !isQuery) {
                 const { entityResolver } = await import('./EntityResolverService');
@@ -410,7 +442,13 @@ export class CortexRouterService {
                 if (resolvedId) input.contactId = resolvedId;
             }
 
-            await this.routeToTable(parsed, input.contactId, input.text, replyContext);
+            // --- SPECIALIZED FLOW (Agenda, Cotizacion, etc.) ---
+            await this.routeToTable(parsed, input.contactId, input.text, replyContext, input);
+
+            // 🧠 BACK-PROPAGATION: Learning from conversation (Background)
+            if (input.contactId && role !== 'cesar' && role !== 'abel') {
+                this.enrichProfile(input.contactId, input.text).catch(e => console.error('Enrichment error:', e));
+            }
 
             return {
                 status: 'success',
@@ -426,8 +464,9 @@ export class CortexRouterService {
         }
     }
 
-    private async routeToTable(parsed: any, contactId: string | undefined, originalText: string, context: { chatId?: string, onReply?: (text: string) => void, platform?: 'telegram' | 'whatsapp' }) {
+    private async routeToTable(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any) {
         const { intent, subtype, data } = parsed;
+        const context = replyContext; // For backwards compatibility in this method
         console.log(`📍 Action: ${intent} (${subtype})`);
 
         try {
@@ -494,7 +533,7 @@ export class CortexRouterService {
                     await internalNotificationService.notifyCesar(`✅ Tarea/Recordatorio guardado: **${data.title}**`, { ...context, source: 'donna' });
                     break;
 
-                case 'QUERY':
+                case 'QUERY_AGENDA': // Changed from 'QUERY' to 'QUERY_AGENDA' for clarity and consistency
                     const dateInput = data.date;
                     let datesToQuery: string[] = [];
                     if (Array.isArray(dateInput)) datesToQuery = dateInput;
@@ -543,7 +582,7 @@ export class CortexRouterService {
                     }
                     break;
 
-                case 'SEND':
+                case 'SEND_MESSAGE': // Changed from 'SEND' to 'SEND_MESSAGE' for clarity
                     if (contactId && data.notes) {
                         const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (c?.phone) {
@@ -551,6 +590,21 @@ export class CortexRouterService {
                             await internalNotificationService.notifyCesar(`📨 WhatsApp enviado a ${c.contactName}.`, { ...context, source: 'donna' });
                         }
                     }
+                    break;
+
+                case 'COTIZACION':
+                case 'CONTRATO':
+                    await this.handleDocumentGeneration(parsed, contactId, originalText, replyContext, input);
+                    break;
+
+                case 'FINANZA':
+
+                case 'FINANZA':
+                    await internalNotificationService.notifyCesar(`💰 **Registro de Finanza:**\n\n${originalText}`, replyContext);
+                    break;
+
+                case 'VENTA':
+                    await internalNotificationService.notifyCesar(`📊 **Registro de Venta:**\n\n${originalText}`, replyContext);
                     break;
 
                 default:
@@ -606,6 +660,151 @@ export class CortexRouterService {
             }
         } catch (e) {
             console.error('Lead Extraction Failed:', e);
+        }
+    }
+
+    private async enrichProfile(contactId: string, text: string) {
+        if (!contactId || text.length < 10) return;
+        try {
+            const enricherPrompt = this.getExpertPrompt('profile_enricher.md');
+            const aiClient = getAIClient('FAST');
+            const modelId = getModelId('FAST');
+
+            const prompt = enricherPrompt.replace('{notes}', text);
+
+            const response = await aiClient.chat.completions.create({
+                model: modelId,
+                messages: [{ role: 'system', content: prompt }, { role: 'user', content: 'Analiza el mensaje y devuelve JSON.' }],
+                temperature: 0,
+                response_format: { type: 'json_object' }
+            });
+
+            const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+
+            // Only update fields that have content
+            const updateFields: any = {};
+            if (result.pains) updateFields.pains = result.pains;
+            if (result.goals) updateFields.goals = result.goals;
+            if (result.objections) updateFields.objections = result.objections;
+            if (result.businessName) updateFields.businessName = result.businessName;
+
+            if (Object.keys(updateFields).length > 0) {
+                await db.update(contacts).set(updateFields).where(eq(contacts.id, contactId));
+                console.log(`🧠 [Memory] Profile enriched for contact ${contactId}`);
+            }
+        } catch (e) {
+            console.warn('⚠️ Enrichment failed (Ignored):', e);
+        }
+    }
+
+    private async handleDocumentGeneration(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any) {
+        const { intent, data } = parsed;
+        const contact = contactId ? (await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1))[0] : null;
+
+        const contactName = contact?.contactName || data.contact_name || 'Prospecto';
+        const businessName = contact?.businessName || data.business_name || 'Negocio';
+        const pains = contact?.pains || 'Dolores no identificados aún';
+        const plan = data.interest_tier || 'PRO';
+
+        // 1. Qualification Check (Only for Quotations)
+        if (intent === 'COTIZACION') {
+            const hasMeetingInfo = originalText.toLowerCase().includes('reunion') || originalText.toLowerCase().includes('conversamos');
+            const hasAgreements = originalText.length > 50;
+
+            if (!hasMeetingInfo || !hasAgreements) {
+                console.log('🤔 [Router] Missing quotation context. Triggering Qualifier.');
+                const qualifierPrompt = this.getExpertPrompt('quotation_qualifier.md');
+                const p = qualifierPrompt
+                    .replace('{{HISTORY}}', originalText)
+                    .replace('{{EXTRACTED_DATA}}', JSON.stringify(data));
+
+                const aiClient = getAIClient('FAST');
+                const modelId = getModelId('FAST');
+                const response = await aiClient.chat.completions.create({
+                    model: modelId,
+                    messages: [{ role: 'system', content: p }],
+                    temperature: 0.7
+                });
+
+                const question = response.choices[0]?.message?.content || 'César, cuéntame más sobre los acuerdos de la reunión para prepararte el borrador.';
+                await internalNotificationService.notifyCesar(question, replyContext);
+                return;
+            }
+        }
+
+        // 2. Generate Text Content
+        const catalog = this.getExpertPrompt('product_catalog.md');
+        const isPremium = ['ELITE', 'IMPERIO', 'POSICIONAMIENTO'].includes(plan);
+        const promptFile = intent === 'COTIZACION'
+            ? (isPremium ? 'prompt_cotizacion_roja.md' : 'prompt_intro_cotizacion.md')
+            : 'prompt_contrato_generic.md';
+
+        let prompt = this.getExpertPrompt(promptFile);
+
+        prompt = prompt.replace(/{{CONTACT_NAME}}/g, contactName);
+        prompt = prompt.replace(/{{BUSINESS_NAME}}/g, businessName);
+        prompt = prompt.replace(/{{PAINS}}/g, pains);
+        prompt = prompt.replace(/{{PRODUCT_CATALOG}}/g, catalog);
+        prompt = prompt.replace(/{{HISTORY}}/g, originalText);
+        prompt = prompt.replace(/{{REQUESTED_PLAN}}/g, plan);
+        prompt = prompt.replace(/{{AGREEMENTS}}/g, originalText);
+
+        const aiClientGen = getAIClient('STANDARD');
+        const modelIdGen = getModelId('STANDARD');
+
+        const genResponse = await aiClientGen.chat.completions.create({
+            model: modelIdGen,
+            messages: [{ role: 'system', content: prompt }],
+            temperature: 0.7
+        });
+
+        const docContent = genResponse.choices[0]?.message?.content || '';
+
+        // 3. Save to DB (Optional for contracts, mandatory for quotations)
+        if (intent === 'COTIZACION' && contactId) {
+            await db.update(contacts)
+                .set({
+                    quotation: docContent,
+                    updatedAt: new Date()
+                })
+                .where(eq(contacts.id, contactId));
+        }
+
+        // 4. Generate PDF
+        try {
+            const pdfBuffer = await pdfDocumentService.generatePdf(docContent, intent === 'COTIZACION' ? 'quotation' : 'contract', {
+                clientName: contactName,
+                signerName: "Ing. César Reyes Jaramillo"
+            });
+
+            // 5. Upload to Meta (WhatsApp)
+            const fileName = `${intent === 'COTIZACION' ? 'Cotizacion' : 'Contrato'}_${businessName.replace(/\s+/g, '_')}.pdf`;
+            const uploadResult = await whatsappService.uploadMedia(pdfBuffer, fileName, 'application/pdf', 'document');
+
+            if (uploadResult.success && uploadResult.mediaId) {
+                const media: WhatsAppMedia = {
+                    type: 'document',
+                    id: uploadResult.mediaId,
+                    filename: fileName,
+                    caption: `📄 Aquí tienes el ${intent === 'COTIZACION' ? 'borrador de cotización' : 'contrato'} para ${businessName}.`
+                };
+
+                if (input.source === 'client' && input.chatId) {
+                    await whatsappService.sendMessage(input.chatId, "", replyContext, media);
+                } else {
+                    await internalNotificationService.notifyCesar(`✅ PDF generado y listo para enviar:\n\n${docContent.substring(0, 100)}...`, { ...replyContext, media });
+                }
+            } else {
+                throw new Error(uploadResult.error || 'Fallo upload a Meta');
+            }
+        } catch (pdfError: any) {
+            console.error('❌ Error en flujo PDF:', pdfError);
+            const fallbackMsg = `Generé el texto, pero hubo un error con el PDF: ${pdfError.message}\n\nTexto:\n${docContent}`;
+            if (input.source === 'client' && input.chatId) {
+                await customerMessagingService.sendHumanizedMessage(input.chatId, fallbackMsg, replyContext);
+            } else {
+                await internalNotificationService.notifyCesar(fallbackMsg, replyContext);
+            }
         }
     }
 }

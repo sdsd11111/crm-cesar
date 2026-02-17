@@ -9,17 +9,24 @@ export type Role = 'cesar' | 'abel' | 'vendedores' | 'ventas';
 
 export interface AlejandraDigest {
     role: Role;
-    intent: 'agenda' | 'crear' | 'borrar' | 'cotizacion' | 'consulta' | 'desconocido';
+    intent: 'CHAT' | 'SCHEDULE' | 'KNOWLEDGE' | 'COTIZACION' | 'CONTRATO' | 'FINANZA' | 'VENTA' | 'QUERY_AGENDA';
     digest: string;
-    parameters: {
-        cliente?: string | null;
-        producto?: string | null;
-        precio?: string | null;
-        fecha?: string | null;
-        hora?: string | null;
+    subtype?: string;
+    reasoning?: string;
+    data?: {
+        response?: string;
+        date?: string;
+        time?: string;
+        contact_name?: string;
+        business_name?: string;
+        location?: string;
+        interest_tier?: 'PRO' | 'ELITE' | 'IMPERIO' | 'EMPRENDEDOR' | 'CRECIMIENTO' | 'POSICIONAMIENTO';
+        category?: 'hotel' | 'restaurante' | 'web' | 'seo';
+        details?: any;
     };
-    needs_clarification: boolean;
-    clarification_question: string | null;
+    needs_clarification?: boolean;
+    clarification_question?: string;
+    handover?: boolean;
 }
 
 /**
@@ -47,7 +54,7 @@ export class AlejandraService {
     /**
      * Identifies the Role and extracts a Command Digest.
      */
-    async identifyAndTranslate(text: string, context: { chatId: string; contactName?: string; businessName?: string; source: string }): Promise<AlejandraDigest> {
+    async identifyAndTranslate(text: string, context: { chatId: string; contactName?: string; businessName?: string; source: string; history?: string }): Promise<AlejandraDigest> {
         // 1. HARDCODED & DB-BACKED ROLE DETECTION
         let detectedRole: Role | null = null;
         const cleanChatId = context.chatId.replace(/\D/g, '');
@@ -87,11 +94,10 @@ export class AlejandraService {
         // 2. AI TRANSLATION (Internalization)
         let digest: AlejandraDigest = {
             role: detectedRole || 'ventas',
-            intent: 'desconocido',
+            intent: 'CHAT',
             digest: text.substring(0, 100),
-            parameters: {},
             needs_clarification: false,
-            clarification_question: null
+            clarification_question: undefined
         };
 
         if (!this.rolePrompt) return digest;
@@ -101,7 +107,8 @@ export class AlejandraService {
             const modelId = getModelId('FAST');
 
             const contextStr = `Role Detectado: ${detectedRole || 'Pendiente AI'}, Nombre: ${context.contactName || 'Desconocido'}, Empresa: ${context.businessName || 'N/A'}, Origen: ${context.source}`;
-            const prompt = `${this.rolePrompt}\n\n[CONTEXTO]: ${contextStr}\n[MENSAJE]: "${text}"`;
+            const historyStr = context.history ? `\n\n[HISTORIAL RECIENTE]:\n${context.history}` : '';
+            const prompt = `${this.rolePrompt}\n\n[CONTEXTO]: ${contextStr}${historyStr}\n[MENSAJE]: "${text}"`;
 
             const response = await aiClient.chat.completions.create({
                 model: modelId,
@@ -116,7 +123,9 @@ export class AlejandraService {
             digest = {
                 ...digest,
                 ...content,
-                role: detectedRole || content.role || 'ventas'
+                role: detectedRole || content.role || 'ventas',
+                digest: content.reasoning || content.response || text.substring(0, 100),
+                intent: (content.intent || 'CHAT').toUpperCase() as any
             };
 
             // Safety fix: Ensure role is one of the allowed ones

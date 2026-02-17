@@ -145,41 +145,39 @@ async function processQueue() {
 
                     // C. PERSISTENCE (Single Writer Pattern)
                     // Worker is the ONLY place that writes to donna_chat_messages
-                    // HARDCODED FOR TESTING ON RENDER (Temoral)
-                    const FORCE_TESTING_MODE = true;
+                    const FORCE_TESTING_MODE = false;
 
                     if (!FORCE_TESTING_MODE && process.env.DISABLE_MESSAGE_PERSISTENCE !== 'true') {
-                        console.log(`📡 [PERSISTENCE-CHECK] WOULD save batch for ${chat.chatId}... (DISABLED IN CODE)`);
-                        // try {
-                        //     const interactionResult = await db.insert(interactions).values({
-                        //         type: platform,
-                        //         direction: 'inbound',
-                        //         content: unifiedContent,
-                        //         contactId: finalContactId || null,
-                        //         discoveryLeadId: finalDiscoveryLeadId || null,
-                        //         metadata: {
-                        //             phoneNumber: chat.chatId,
-                        //             isBatched: true,
-                        //             batchSize: messages.length
-                        //         },
-                        //         performedAt: new Date()
-                        //     }).returning();
-                        //     console.log(`✅ Interaction saved with ID: ${interactionResult[0]?.id}`);
+                        try {
+                            const interactionResult = await db.insert(interactions).values({
+                                type: platform,
+                                direction: 'inbound',
+                                content: unifiedContent,
+                                contactId: finalContactId || null,
+                                discoveryLeadId: finalDiscoveryLeadId || null,
+                                metadata: {
+                                    phoneNumber: chat.chatId,
+                                    isBatched: true,
+                                    batchSize: messages.length
+                                },
+                                performedAt: new Date()
+                            }).returning();
+                            console.log(`✅ Interaction saved with ID: ${interactionResult[0]?.id}`);
 
-                        //     const chatMsgResult = await db.insert(donnaChatMessages).values({
-                        //         chatId: chat.chatId,
-                        //         role: 'user',
-                        //         content: unifiedContent,
-                        //         platform: platform,
-                        //         messageTimestamp: new Date(),
-                        //         metadata: { source: 'worker_batch' }
-                        //     }).returning();
-                        //     console.log(`✅ Chat message saved with ID: ${chatMsgResult[0]?.id}`);
+                            const chatMsgResult = await db.insert(donnaChatMessages).values({
+                                chatId: chat.chatId,
+                                role: 'user',
+                                content: unifiedContent,
+                                platform: platform,
+                                messageTimestamp: new Date(),
+                                metadata: { source: 'worker_batch' }
+                            }).returning();
+                            console.log(`✅ Chat message saved with ID: ${chatMsgResult[0]?.id}`);
 
-                        //     console.log(`📝 [PERSISTED] Batched ${messages.length} messages for ${chat.chatId}`);
-                        // } catch (persistErr) {
-                        //     console.error(`❌ Persistence Error for ${chat.chatId}:`, persistErr);
-                        // }
+                            console.log(`📝 [PERSISTED] Batched ${messages.length} messages for ${chat.chatId}`);
+                        } catch (persistErr) {
+                            console.error(`❌ Persistence Error for ${chat.chatId}:`, persistErr);
+                        }
                     } else {
                         console.log(`⏭️ [PERSISTENCE DISABLED] Skipping save for ${chat.chatId} (testing mode)`);
                     }
@@ -229,22 +227,21 @@ async function processQueue() {
                         });
                         console.log(`✅ AI Response processed for ${chat.chatId}`);
 
-                        // E. PERSIST DONNA'S RESPONSE (Single Writer) - DISABLED FOR NUCLEAR TEST
+                        // E. PERSIST DONNA'S RESPONSE (Single Writer)
                         if (!FORCE_TESTING_MODE && process.env.DISABLE_MESSAGE_PERSISTENCE !== 'true' && aiResult?.response) {
-                            console.log(`📡 [PERSISTENCE-CHECK] WOULD save Donna response... (DISABLED IN CODE)`);
-                            // try {
-                            //     await db.insert(donnaChatMessages).values({
-                            //         chatId: chat.chatId,
-                            //         role: 'assistant',
-                            //         content: aiResult.response,
-                            //         platform: platform,
-                            //         messageTimestamp: new Date(),
-                            //         metadata: { source: 'worker_ai_response' }
-                            //     });
-                            //     console.log(`✅ Donna's response saved to chat history`);
-                            // } catch (persistErr) {
-                            //     console.error(`❌ Error saving Donna's response:`, persistErr);
-                            // }
+                            try {
+                                await db.insert(donnaChatMessages).values({
+                                    chatId: chat.chatId,
+                                    role: 'assistant',
+                                    content: aiResult.response,
+                                    platform: platform,
+                                    messageTimestamp: new Date(),
+                                    metadata: { source: 'worker_ai_response' }
+                                });
+                                console.log(`✅ Donna's response saved to chat history`);
+                            } catch (persistErr) {
+                                console.error(`❌ Error saving Donna's response:`, persistErr);
+                            }
                         }
                     }
 

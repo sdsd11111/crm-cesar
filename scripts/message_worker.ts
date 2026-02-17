@@ -203,74 +203,78 @@ async function processQueue() {
                             .orderBy(desc(interactions.performedAt))
                             .limit(1);
 
-                        // A message counts as human intervention if:
-                        // 1. It happened after the user's first message in this batch.
-                        // 2. It is NOT from Donna (check metadata source OR content prefix fallback)
-                        const isDonnaSource = (lastOutbound.metadata as any)?.source === 'donna';
-                        const hasDonnaPrefix = lastOutbound.content?.startsWith('Donna:');
+                        if (lastOutbound) {
+                            const lastOutboundTime = new Date(lastOutbound.performedAt).getTime();
+                            const firstMessageTime = chat.firstReceived.getTime();
 
-                        if (lastOutboundTime > firstMessageTime && !isDonnaSource && !hasDonnaPrefix) {
-                            shouldSkipAI = true;
-                            skipReason = 'human_intervention';
+                            // A message counts as human intervention if:
+                            // 1. It happened after the user's first message in this batch.
+                            // 2. It is NOT from Donna (check metadata source OR content prefix fallback)
+                            const isDonnaSource = (lastOutbound.metadata as any)?.source === 'donna';
+                            const hasDonnaPrefix = lastOutbound.content?.startsWith('Donna:');
+
+                            if (lastOutboundTime > firstMessageTime && !isDonnaSource && !hasDonnaPrefix) {
+                                shouldSkipAI = true;
+                                skipReason = 'human_intervention';
+                            }
                         }
                     }
-                }
 
                     if (shouldSkipAI) {
-                    console.log(`🔕 skipping AI for ${chat.chatId} (Reason: ${skipReason})`);
-                } else {
-                    const aiResult = await cortexRouter.processInput({
-                        text: unifiedContent,
-                        source: 'client',
-                        platform,
-                        contactId: finalContactId,
-                        chatId: chat.chatId,
-                        skipSave: true // We handle persistence here
-                    });
-                    console.log(`✅ AI Response processed for ${chat.chatId}`);
+                        console.log(`🔕 skipping AI for ${chat.chatId} (Reason: ${skipReason})`);
+                    } else {
+                        const aiResult = await cortexRouter.processInput({
+                            text: unifiedContent,
+                            source: 'client',
+                            platform,
+                            contactId: finalContactId,
+                            chatId: chat.chatId,
+                            skipSave: true // We handle persistence here
+                        });
+                        console.log(`✅ AI Response processed for ${chat.chatId}`);
 
-                    // E. PERSIST DONNA'S RESPONSE (Single Writer)
-                    if (!FORCE_TESTING_MODE && process.env.DISABLE_MESSAGE_PERSISTENCE !== 'true' && aiResult?.response) {
-                        try {
-                            await db.insert(donnaChatMessages).values({
-                                chatId: chat.chatId,
-                                role: 'assistant',
-                                content: aiResult.response,
-                                platform: platform,
-                                messageTimestamp: new Date(),
-                                metadata: { source: 'worker_ai_response' }
-                            });
-                            console.log(`✅ Donna's response saved to chat history`);
-                        } catch (persistErr) {
-                            console.error(`❌ Error saving Donna's response:`, persistErr);
+                        // E. PERSIST DONNA'S RESPONSE (Single Writer)
+                        if (!FORCE_TESTING_MODE && process.env.DISABLE_MESSAGE_PERSISTENCE !== 'true' && aiResult?.response) {
+                            try {
+                                await db.insert(donnaChatMessages).values({
+                                    chatId: chat.chatId,
+                                    role: 'assistant',
+                                    content: aiResult.response,
+                                    platform: platform,
+                                    messageTimestamp: new Date(),
+                                    metadata: { source: 'worker_ai_response' }
+                                });
+                                console.log(`✅ Donna's response saved to chat history`);
+                            } catch (persistErr) {
+                                console.error(`❌ Error saving Donna's response:`, persistErr);
+                            }
                         }
                     }
+
+                    // F. Clear ONLY processed IDs from the queue
+                    await db.delete(pendingMessagesQueue)
+                        .where(inArray(pendingMessagesQueue.id, messageIds));
+                    console.log(`🗑️ Cleared ${messageIds.length} messages from queue for ${chat.chatId}`);
+
+                } catch (e) {
+                    console.error(`❌ Batch Error for ${chat.chatId}:`, e);
                 }
-
-                // F. Clear ONLY processed IDs from the queue
-                await db.delete(pendingMessagesQueue)
-                    .where(inArray(pendingMessagesQueue.id, messageIds));
-                console.log(`🗑️ Cleared ${messageIds.length} messages from queue for ${chat.chatId}`);
-
-            } catch (e) {
-                console.error(`❌ Batch Error for ${chat.chatId}:`, e);
-            }
-        }));
-    }
+            }));
+        }
 
         // 4. Refresh TYPING for waiting chats
         typingRefreshChats.map(chat => {
-        import('../lib/whatsapp/WhatsAppService').then(({ whatsappService }) => {
-            whatsappService.sendTypingAction(chat.chatId).catch(() => { });
+            import('../lib/whatsapp/WhatsAppService').then(({ whatsappService }) => {
+                whatsappService.sendTypingAction(chat.chatId).catch(() => { });
+            });
         });
-    });
 
-} catch (error) {
-    console.error('Worker Error:', error);
-} finally {
-    // Recursive timeout to prevent stacking if a poll takes too long
-    setTimeout(processQueue, POLL_INTERVAL_MS);
-}
+    } catch (error) {
+        console.error('Worker Error:', error);
+    } finally {
+        // Recursive timeout to prevent stacking if a poll takes too long
+        setTimeout(processQueue, POLL_INTERVAL_MS);
+    }
 }
 
 console.log('👷 Message Worker started (High Concurrency Ready)...');

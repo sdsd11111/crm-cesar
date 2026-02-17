@@ -214,7 +214,12 @@ export class CortexRouterService {
         // If high ambiguity, Alejandra asks for clarification directly
         if (needs_clarification && clarification_question) {
             console.log(`🙋‍♀️ [Alejandra] Asking for clarification: ${clarification_question}`);
-            return { response: clarification_question };
+            if (input.source === 'client' && input.chatId) {
+                await customerMessagingService.sendHumanizedMessage(input.chatId, clarification_question, replyContext);
+            } else if (input.source === 'cesar') {
+                await internalNotificationService.notifyCesar(clarification_question, replyContext);
+            }
+            return { status: 'needs_clarification', response: clarification_question };
         }
 
         console.log(`🧭 [Alejandra] Role: ${role} | Intent: ${intent} | Digest: "${internalDigest.substring(0, 30)}..."`);

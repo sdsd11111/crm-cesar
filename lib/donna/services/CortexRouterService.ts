@@ -174,7 +174,12 @@ export class CortexRouterService {
         console.log(`🧠 Cortex Router 2.0 processing path: ${input.text.substring(0, 20)}...`);
 
         const platform = input.platform || (input.source === 'client' ? 'whatsapp' : 'telegram');
-        const replyContext = { chatId: input.chatId, onReply: input.onReply, platform };
+        const replyContext = {
+            chatId: input.chatId,
+            onReply: input.onReply,
+            platform,
+            source: 'donna'
+        };
 
         const processedText = input.text;
 
@@ -424,7 +429,7 @@ export class CortexRouterService {
             switch (intent) {
                 case 'SCHEDULE':
                     if (!data.date || !data.time) {
-                        await internalNotificationService.notifyCesar(`Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`, context);
+                        await internalNotificationService.notifyCesar(`Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`, { ...context, source: 'donna' });
                         return;
                     }
 
@@ -481,7 +486,7 @@ export class CortexRouterService {
                         assignedTo: 'César',
                     });
 
-                    await internalNotificationService.notifyCesar(`✅ Tarea/Recordatorio guardado: **${data.title}**`, context);
+                    await internalNotificationService.notifyCesar(`✅ Tarea/Recordatorio guardado: **${data.title}**`, { ...context, source: 'donna' });
                     break;
 
                 case 'QUERY':
@@ -502,19 +507,19 @@ export class CortexRouterService {
                             const startOfDay = new Date(baseDate); startOfDay.setHours(0, 0, 0, 0);
                             const endOfDay = new Date(baseDate); endOfDay.setHours(23, 59, 59, 999);
 
-                            await internalNotificationService.notifyCesar(`📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`, context);
+                            await internalNotificationService.notifyCesar(`📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`, { ...context, source: 'donna' });
 
                             const cal = await this.getCalendarService();
                             const agenda = await cal.listEvents(fromZonedTime(startOfDay, TIMEZONE).toISOString(), fromZonedTime(endOfDay, TIMEZONE).toISOString());
 
                             if (!agenda || agenda.length === 0) {
-                                await internalNotificationService.notifyCesar(`✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`, context);
+                                await internalNotificationService.notifyCesar(`✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`, { ...context, source: 'donna' });
                             } else {
                                 const list = agenda.map((e: any) => {
                                     const eventTime = e.start?.dateTime ? format(toZonedTime(new Date(e.start.dateTime), TIMEZONE), 'HH:mm') : 'Todo el día';
                                     return `• ${eventTime}: ${e.summary}`;
                                 }).join('\n');
-                                await internalNotificationService.notifyCesar(`📅 Eventos encontrados:\n\n${list}`, context);
+                                await internalNotificationService.notifyCesar(`📅 Eventos encontrados:\n\n${list}`, { ...context, source: 'donna' });
                             }
                         } catch (err) { console.error(err); }
                     }
@@ -529,7 +534,7 @@ export class CortexRouterService {
                             email: data.email || null,
                             source: 'donna_telegram',
                         });
-                        await internalNotificationService.notifyCesar(`✅ Contacto **${data.contact_name}** registrado.`, context);
+                        await internalNotificationService.notifyCesar(`✅ Contacto **${data.contact_name}** registrado.`, { ...context, source: 'donna' });
                     }
                     break;
 
@@ -538,7 +543,7 @@ export class CortexRouterService {
                         const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (c?.phone) {
                             await customerMessagingService.sendMessage(c.id, data.notes, { type: 'manual_via_donna' });
-                            await internalNotificationService.notifyCesar(`📨 WhatsApp enviado a ${c.contactName}.`, context);
+                            await internalNotificationService.notifyCesar(`📨 WhatsApp enviado a ${c.contactName}.`, { ...context, source: 'donna' });
                         }
                     }
                     break;

@@ -52,3 +52,13 @@ Eres César Reyes. Tu objetivo es generar una propuesta comercial profesional qu
 [PLAN_SUGERIDO]: {{REQUESTED_PLAN}}
 [CATÁLOGO]:
 {{PRODUCT_CATALOG}}
+
+## SALIDA ESPERADA (JSON)
+Devuelve tu respuesta en formato JSON con la siguiente estructura:
+{
+  "intent": "COTIZACION",
+  "data": {
+    "response": "CONTENIDO_DE_LA_PROPUESTA_EN_MARKDOWN_AQUÍ"
+  },
+  "reasoning": "Breve explicación de los puntos clave de la propuesta"
+}

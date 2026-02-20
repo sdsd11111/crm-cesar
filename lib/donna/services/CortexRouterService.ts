@@ -333,6 +333,22 @@ export class CortexRouterService {
         prompt = prompt.replace('{{TIME}}', format(nowZoned, "HH:mm")); // Alias for public_donna
 
 
+        // Ensure JSON mode requirement is met in the prompt for OpenAI compatibility
+        if (!prompt.toLowerCase().includes('json')) {
+            prompt += `
+\n\n## RESPUESTA OBLIGATORIA (FORMATO JSON)
+Debes responder SIEMPRE con un objeto JSON válido. 
+Estructura:
+{
+  "intent": "${intent}",
+  "data": {
+    "response": "Tu respuesta o contenido generado aquí"
+  },
+  "reasoning": "Breve explicación"
+}
+`;
+        }
+
         try {
             // Optimized AI Call (FAST model)
             const aiClient = getAIClient('FAST');

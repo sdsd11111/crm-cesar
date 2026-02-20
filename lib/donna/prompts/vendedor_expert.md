@@ -21,6 +21,15 @@ Eres el experto en herramientas comerciales para el equipo de Objetivo. Tu misi�
 Comando interno recibido:
 {{INTERNAL_DIGEST}}
 
-## 📊 Datos de Cartera
 {{SALES_HISTORY}}
 {{KNOWLEDGE_BASE}}
+
+## SALIDA ESPERADA (JSON)
+Devuelve tu respuesta en formato JSON con la siguiente estructura:
+{
+  "intent": "CHAT",
+  "data": {
+    "response": "Tu respuesta directa para el vendedor aquí"
+  },
+  "reasoning": "Breve explicación"
+}

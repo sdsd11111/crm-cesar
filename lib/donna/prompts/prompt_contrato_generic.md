@@ -26,3 +26,13 @@ Empresa: {{BUSINESS_NAME}}
 - El contrato debe verse impecable una vez renderizado en PDF.
 
 **IMPORTANTE**: Devuelve solo el contenido markdown del contrato, sin introducciones ni comentarios adicionales. No uses "¿?" de apertura (Estilo César).
+
+## SALIDA ESPERADA (JSON)
+Devuelve tu respuesta en formato JSON con la siguiente estructura:
+{
+  "intent": "CONTRATO",
+  "data": {
+    "response": "CONTENIDO_DEL_CONTRATO_EN_MARKDOWN_AQUÍ"
+  },
+  "reasoning": "Breve explicación de los puntos clave del contrato"
+}

@@ -23,24 +23,15 @@ export class AIClient {
             baseURL: "https://api.deepseek.com",
         });
 
-        // 2. Configure Standard Client (Gemini API via OpenAI Compatibility endpoint)
-        const googleApiKey = process.env.GOOGLE_API_KEY;
+        // 2. Configure Standard Client (OpenAI)
         const openAIKey = process.env.OPENAI_API_KEY;
+        if (!openAIKey) throw new Error("OPENAI_API_KEY is required for Standard/Audio functions.");
 
-        if (googleApiKey) {
-            this.standardClient = new OpenAI({
-                apiKey: googleApiKey,
-                baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-            });
-        } else if (openAIKey) {
-            // Fallback to OpenAI if Google key is missing
-            this.standardClient = new OpenAI({ apiKey: openAIKey });
-        } else {
-            throw new Error("Missing AI API Keys required for Standard functions.");
-        }
+        this.standardClient = new OpenAI({
+            apiKey: openAIKey,
+        });
 
         // 3. Configure Audio Client (OpenAI standard strictly)
-        if (!openAIKey) throw new Error("OPENAI_API_KEY is required for Audio Transcription.");
         this.audioClient = new OpenAI({
             apiKey: openAIKey,
         });
@@ -72,13 +63,13 @@ export class AIClient {
             case 'REASONING':
                 return "deepseek-reasoner";
             case 'STANDARD':
-                return "gemini-1.5-pro"; // Activated Gemini 3.1 Pro equivalent
+                return "gpt-4o";
             case 'FAST':
-                return "gemini-1.5-flash"; // Activated Fast Gemini
+                return "gpt-4o-mini";
             case 'AUDIO':
                 return "whisper-1";
             default:
-                return "gemini-1.5-pro";
+                return "gpt-4o";
         }
     }
 }

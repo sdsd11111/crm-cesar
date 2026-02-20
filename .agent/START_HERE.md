@@ -8,14 +8,17 @@ Este documento es la **LEY ABSOLUTA**. Si intentas modificar código sin leer es
 ## 🔐 1. REGLA DE ORO: EL GATEWAY DE ALEJANDRA
 El flujo de mensajes es **ESTRICTO** y **UNIDIRECCIONAL** para proteger el contexto.
 
-1.  **Entrada Cruda**: `Webhook` → `Queue` → `Worker` → **[Alejandra]**
+1.  **Entrada Cruda (Webhook Timeout Protection)**: `Webhook` → `Queue` → `Worker` → **[Alejandra]**
     *   **SOLO Alejandra** tiene permiso de leer el `input.text` crudo del cliente.
     *   Su trabajo es **clasificar, sanitizar y traducir** la intención del cliente a un "Comando Interno".
+    *   **Evadir Timeouts de Meta**: Para flujos pesados (ej. Cotizaciones), el `CortexRouter` despacha inmediatamente un *"⏳ Dame un minuto..."* para no colgar el Webhook mientras el LLM redacta.
 
-2.  **Distribución a Expertos**:
+2.  **Seguridad y Distribución a Expertos**:
+    *   **Separación de Roles (Prompt Injection)**: Todos los LLMs reciben sus instrucciones como `role: "system"` y la data del cliente escrupulosamente separada como `role: "user"`. NUNCA inyectar crudo en el System Prompt.
+    *   **Salidas JSON Estrictas**: Uso obligatorio de `response_format: { type: "json_object" }` en Fast Models para evitar parseos con expresiones regulares rompedizas.
     *   Alejandra genera un `Internal Digest` (ej: "Cliente pide cotización de X").
-    *   **CortexRouter** inyecta **SOLO** este `digest` en los prompts de los expertos (`{{INTERNAL_DIGEST}}`).
-    *   **NUNCA** pases el mensaje original a César, Abel o Ventas. Ellos actúan sobre la *interpretación* de Alejandra.
+    *   **CortexRouter** inyecta **SOLO** este `digest` en los prompts de los expertos.
+    *   Los teléfonos de Administración (César/Abel) ahora son leídos obligatoriamente desde `.env.local` (`CESAR_PHONE`, `ABEL_PHONE`). Ya NO están quemados en el código.
 
 ---
 
@@ -69,7 +72,7 @@ Si vas a realizar pruebas con el número del desarrollador (César):
 ---
 
 ## 🚀 Hitos Recientes (Febrero 2026)
+*   **Seguridad de Arquitectura IA**: Se estableció JSON explícito, roles System/User para blindar inyección de prompts y soporte de webhook buffering inmediato.
 *   **Generación Universal de PDFs**: Implementado motor basado en `@react-pdf/renderer` para Cotizaciones y Contratos.
-*   **Integración WhatsApp Media**: Donna ahora sube los PDFs directamente al CDN de Meta antes de enviarlos.
-*   **Consolidación de Expertos**: Prompts de expertos unificados en `lib/donna/prompts/`.
-*   **Build de Producción**: Verificado con `npm run build` y corrección de tipos en el Router.
+*   **Integración WhatsApp Media**: Donna sube los PDFs directamente al CDN de Meta como anexos nativos.
+*   **Handover al Humano**: Implementación del parámetro estricto `"handover": boolean` para pausar bots agresivos/confusos.

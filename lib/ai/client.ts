@@ -63,13 +63,13 @@ export class AIClient {
             case 'REASONING':
                 return "deepseek-reasoner";
             case 'STANDARD':
-                return "gpt-4o";
+                return "gemini-1.5-pro"; // Activated Gemini 3.1 Pro equivalent
             case 'FAST':
-                return "gpt-4o-mini";
+                return "gemini-1.5-flash"; // Activated Fast Gemini
             case 'AUDIO':
                 return "whisper-1";
             default:
-                return "gpt-4o";
+                return "gemini-1.5-pro";
         }
     }
 }

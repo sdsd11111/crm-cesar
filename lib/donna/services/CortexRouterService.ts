@@ -189,6 +189,10 @@ export class CortexRouterService {
             console.log(`🎤 Transcription marker found for ${input.chatId}. Audio processing already completed by worker.`);
         }
 
+        if (!input.skipSave) {
+            await this.saveMessage(input.chatId || 'system', input.source === 'cesar' ? 'user' : 'user', processedText, platform);
+        }
+
         const context = await this.getContext(input.chatId);
         let { contactId } = context;
 
@@ -336,24 +340,25 @@ export class CortexRouterService {
 
             const response = await aiClient.chat.completions.create({
                 model: modelId,
-                messages: [{ role: 'user', content: prompt }],
+                messages: [
+                    { role: 'system', content: prompt },
+                    { role: 'user', content: internalDigest } // Separate user input
+                ],
                 temperature: 0,
+                response_format: { type: 'json_object' }
             });
 
             const content = response.choices[0]?.message?.content || "{}";
-            const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            const jsonStartIndex = cleaned.indexOf('{');
-            const jsonEndIndex = cleaned.lastIndexOf('}');
-            const finalJsonStr = (jsonStartIndex >= 0 && jsonEndIndex > jsonStartIndex) ? cleaned.substring(jsonStartIndex, jsonEndIndex + 1) : cleaned;
 
             let parsed: any = {};
             try {
-                parsed = JSON.parse(finalJsonStr);
+                parsed = JSON.parse(content);
             } catch (e) {
                 console.warn('⚠️ [Router] Prompt did not return valid JSON. Falling back to CHAT intent.', e);
                 parsed = {
                     intent: 'CHAT',
-                    data: { response: cleaned }
+                    data: { response: content },
+                    handover: false
                 };
             }
 
@@ -414,6 +419,10 @@ export class CortexRouterService {
                             console.error('Handover Update Error:', err);
                         }
                     }
+                }
+
+                if (!input.skipSave) {
+                    await this.saveMessage(input.chatId!, 'assistant', responseText, platform);
                 }
 
                 // Update context
@@ -752,9 +761,20 @@ export class CortexRouterService {
         const aiClientGen = getAIClient('STANDARD');
         const modelIdGen = getModelId('STANDARD');
 
+        // 🔥 QUICK FIX: Avoid Meta Webhook Timeout by sending a "typing" buffer state immediately
+        const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${intent === 'COTIZACION' ? 'borrador de la cotización' : 'contrato'}...`;
+        if (input.source === 'client' && input.chatId) {
+            await customerMessagingService.sendHumanizedMessage(input.chatId, waitingMsg, replyContext);
+        } else if (input.source === 'cesar') {
+            await internalNotificationService.notifyCesar(waitingMsg, replyContext);
+        }
+
         const genResponse = await aiClientGen.chat.completions.create({
             model: modelIdGen,
-            messages: [{ role: 'system', content: prompt }],
+            messages: [
+                { role: 'system', content: prompt },
+                { role: 'user', content: 'Por favor redacta el documento basado en nuestra discusión anterior.' }
+            ],
             temperature: 0.7
         });
 

@@ -59,10 +59,12 @@ export class AlejandraService {
         let detectedRole: Role | null = null;
         const cleanChatId = context.chatId.replace(/\D/g, '');
 
-        // A. Hardcoded Fallback for Cesar & Abel
-        if (cleanChatId.endsWith('963410409') || context.chatId.includes('cesar')) {
+        // A. Environment Fallback for Cesar & Abel
+        const cesarPhone = process.env.CESAR_PHONE || '963410409';
+        const abelPhone = process.env.ABEL_PHONE || '967491847';
+        if (cleanChatId.endsWith(cesarPhone) || context.chatId.includes('cesar')) {
             detectedRole = 'cesar';
-        } else if (cleanChatId.endsWith('967491847') || context.chatId.includes('abel')) {
+        } else if (cleanChatId.endsWith(abelPhone) || context.chatId.includes('abel')) {
             detectedRole = 'abel';
         }
 
@@ -108,11 +110,14 @@ export class AlejandraService {
 
             const contextStr = `Role Detectado: ${detectedRole || 'Pendiente AI'}, Nombre: ${context.contactName || 'Desconocido'}, Empresa: ${context.businessName || 'N/A'}, Origen: ${context.source}`;
             const historyStr = context.history ? `\n\n[HISTORIAL RECIENTE]:\n${context.history}` : '';
-            const prompt = `${this.rolePrompt}\n\n[CONTEXTO]: ${contextStr}${historyStr}\n[MENSAJE]: "${text}"`;
+            const systemPrompt = `${this.rolePrompt}\n\n[CONTEXTO]: ${contextStr}${historyStr}`;
 
             const response = await aiClient.chat.completions.create({
                 model: modelId,
-                messages: [{ role: 'user', content: prompt }],
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: text }
+                ],
                 temperature: 0,
                 response_format: { type: 'json_object' }
             });

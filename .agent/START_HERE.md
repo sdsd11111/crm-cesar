@@ -35,7 +35,24 @@ Para evitar duplicidad y bucles infinitos, la escritura en base de datos está c
 
 ---
 
-## 🧪 3. PROTOCOLO DE TESTING
+## 📄 3. PRODUCCIÓN DE DOCUMENTOS: UNIVERSAL PDF SERVICE
+Donna ahora es un agente "Productor de Documentos", no solo un chatbot.
+
+1.  **Motor de Renderizado**:
+    *   Usa `PdfDocumentService.ts` + `UniversalPdfDocument.tsx`.
+    *   **Regla de Activos**: Los logos y firmas deben ser rutas locales absolutas (vía `path.join(process.cwd(), 'public', ...)`) para que `@react-pdf/renderer` los procese correctamente en el backend.
+
+2.  **Flujo de Entrega (Meta CDN)**:
+    *   **Generar** (Markdown) → **Renderizar** (Buffer) → **Subir** (Meta ID) → **Enviar** (Document).
+    *   **NUNCA** envíes el PDF como un link público de S3/GCP; siempre usa `uploadMedia` de `whatsappService` para enviarlo como un archivo nativo adjunto.
+
+3.  **Intenciones Especializadas**:
+    *   `COTIZACION`: Activa el calificador (`quotation_qualifier.md`) si falta contexto.
+    *   `CONTRATO`: Activa el motor de contratos con líneas de firma obligatorias.
+
+---
+
+## 🧪 4. PROTOCOLO DE TESTING
 Si vas a realizar pruebas con el número del desarrollador (César):
 
 1.  **Activa el Escudo**: Asegúrate de que `DISABLE_MESSAGE_PERSISTENCE=true` en `.env.local`.
@@ -49,4 +66,10 @@ Si vas a realizar pruebas con el número del desarrollador (César):
 *   **Reglas de Negocio**: `CRM_MASTER_RULES.md`
 *   **Arquitectura**: `docs/MASTER_CONTEXT/PROJECT_CONSOLIDATED_STATE.md`
 
-**SI ROMPES ESTAS REGLAS, ROMPES LA MEMORIA DE DONNA.**
+---
+
+## 🚀 Hitos Recientes (Febrero 2026)
+*   **Generación Universal de PDFs**: Implementado motor basado en `@react-pdf/renderer` para Cotizaciones y Contratos.
+*   **Integración WhatsApp Media**: Donna ahora sube los PDFs directamente al CDN de Meta antes de enviarlos.
+*   **Consolidación de Expertos**: Prompts de expertos unificados en `lib/donna/prompts/`.
+*   **Build de Producción**: Verificado con `npm run build` y corrección de tipos en el Router.

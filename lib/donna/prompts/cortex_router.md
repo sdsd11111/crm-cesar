@@ -75,7 +75,6 @@ A continuación verás los **últimos 5 mensajes** de la conversación, con sus 
 
 {{HISTORY}}
 ### 🧩 CONTEXTO E INYECCIÓN
-- **Entrada (Internal Digest)**: {{INPUT}}
 - **Historial Reciente (Memoria Episódica)**: {{HISTORY}}
 - **Reporte Estratégico (Memoria de Entidad)**: {{ENTITY_DIGEST}}
 - **Info Contacto**: {{CONTACT_INFO}}
@@ -238,7 +237,8 @@ Tu tarea es entender **qué quiere hacer el usuario** y clasificarlo en una de e
   },
   
   "needs_clarification": false,
-  "clarification_question": "null"
+  "clarification_question": "null",
+  "handover": false
 }
 ```
 
@@ -276,7 +276,4 @@ Si `needs_clarification: true`:
 
 ## 🎯 TU TURNO
 
-Analiza el input actual considerando el historial y devuelve **SOLO el JSON**.
-
-**INPUT ACTUAL:**
-{{INPUT}}
+Analiza el input del usuario provisto considerando el historial y devuelve **SOLO el JSON**.

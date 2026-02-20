@@ -616,6 +616,7 @@ export const discoveryLeads = pgTable('discovery_leads', {
 // Call Analyses Table for the Trainer module (NEW)
 export const callAnalyses = pgTable('call_analyses', {
   id: uuid('id').primaryKey().defaultRandom(),
+  contactId: uuid('contact_id').references(() => contacts.id),
   leadId: uuid('lead_id').references(() => leads.id),
   discoveryLeadId: uuid('discovery_lead_id').references(() => discoveryLeads.id),
   audioUrl: text('audio_url'),

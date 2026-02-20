@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
         const audioFile = formData.get("audio") as File;
+        const contactId = formData.get("contactId") as string;
         const leadId = formData.get("leadId") as string;
         const discoveryLeadId = formData.get("discoveryLeadId") as string;
 
@@ -14,8 +15,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No se encontró archivo de audio" }, { status: 400 });
         }
 
-        // 1. Transcribe (Reuse logic or call internal helper)
-        // For simplicity, we'll implement it here using OpenAI Whisper
+        // 1. Transcribe
         const apiKey = process.env.OPENAI_API_KEY;
         const transcriptionFormData = new FormData();
         transcriptionFormData.append("file", audioFile);
@@ -36,22 +36,30 @@ export async function POST(request: NextRequest) {
         const analysis = await analyzer.analyzeCall(transcription);
 
         // 3. Save to DB
-        const saved = await db.insert(callAnalyses).values({
-            leadId: leadId || null,
-            discoveryLeadId: discoveryLeadId || null,
+        // NOTE: We check if contactId exists in the schema during research.
+        // For now, we use a dynamic object to avoid TS errors if the schema is being updated.
+        const values: any = {
             transcription: JSON.stringify({ text: transcription }),
             metrics: JSON.stringify(analysis.metrics),
             feedback: JSON.stringify(analysis.feedback),
             nextFocus: analysis.feedback.next_focus || "",
-        }).returning();
+        };
+
+        if (contactId) values.contactId = contactId;
+        if (leadId) values.leadId = leadId;
+        if (discoveryLeadId) values.discoveryLeadId = discoveryLeadId;
+
+        const saved = await db.insert(callAnalyses).values(values).returning();
 
         return NextResponse.json({
             success: true,
-            analysisId: saved[0].id,
-            analysis
+            analysis: analysis,
+            transcription: transcription,
+            analysisId: saved[0].id
         });
-    } catch (error) {
-        console.error("Error in trainer analyze API:", error);
-        return NextResponse.json({ error: "Error al procesar el análisis de la llamada" }, { status: 500 });
+
+    } catch (error: any) {
+        console.error("❌ Trainer Analyze Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

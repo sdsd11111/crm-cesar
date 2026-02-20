@@ -7,11 +7,7 @@ import { getAIClient, getModelId } from '@/lib/ai/client';
 import { getClientContext, formatContextForAI } from '@/lib/ai/context-fetcher';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase for context fetcher
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
 
 const MASTER_PROMPT = `
 Eres el **Trainer de Alta Gama**, un preparador táctico para César. 
@@ -42,6 +38,12 @@ Tu misión es generar **CINCO ESTRATEGIAS SIMULTÁNEAS** para que César esté l
 `;
 
 export async function POST(req: Request) {
+    // Initialize Supabase inside the handler to avoid build-time environment variable requirements
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     try {
         const body = await req.json();
         const { entityId, compliment } = body;

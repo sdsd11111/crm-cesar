@@ -18,23 +18,32 @@ export class AIClient {
     private constructor() {
         // 1. Configure Reasoning Client (DeepSeek)
         const deepSeekKey = process.env.DEEPSEEK_API_KEY;
-        if (!deepSeekKey) console.warn("⚠️ DEEPSEEK_API_KEY missing. Reasoning capability disabled.");
-
         this.reasoningClient = new OpenAI({
             apiKey: deepSeekKey || "dummy",
             baseURL: "https://api.deepseek.com",
         });
 
-        // 2. Configure Standard Client (OpenAI / DeepSeek V3 if preferred later)
-        // For now, Standard = OpenAI GPT-4o as per map, but easy to swap.
+        // 2. Configure Standard Client (Gemini API via OpenAI Compatibility endpoint)
+        const googleApiKey = process.env.GOOGLE_API_KEY;
         const openAIKey = process.env.OPENAI_API_KEY;
-        if (!openAIKey) throw new Error("OPENAI_API_KEY is required for Standard/Audio functions.");
 
-        this.standardClient = new OpenAI({
+        if (googleApiKey) {
+            this.standardClient = new OpenAI({
+                apiKey: googleApiKey,
+                baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+            });
+        } else if (openAIKey) {
+            // Fallback to OpenAI if Google key is missing
+            this.standardClient = new OpenAI({ apiKey: openAIKey });
+        } else {
+            throw new Error("Missing AI API Keys required for Standard functions.");
+        }
+
+        // 3. Configure Audio Client (OpenAI standard strictly)
+        if (!openAIKey) throw new Error("OPENAI_API_KEY is required for Audio Transcription.");
+        this.audioClient = new OpenAI({
             apiKey: openAIKey,
         });
-
-        this.audioClient = this.standardClient;
     }
 
     public static getInstance(): AIClient {

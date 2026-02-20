@@ -736,8 +736,7 @@ Estructura:
             const hasMeetingInfo = originalText.toLowerCase().includes('reunion') || originalText.toLowerCase().includes('conversamos');
             const hasAgreements = originalText.length > 50;
 
-            // If it's César requesting, we relax the requirement (Assume he knows what he's doing)
-            if (input.source !== 'cesar' && (!hasMeetingInfo || !hasAgreements)) {
+            if (!hasMeetingInfo || !hasAgreements) {
                 console.log('🤔 [Router] Missing quotation context. Triggering Qualifier.');
                 const qualifierPrompt = this.getExpertPrompt('quotation_qualifier.md');
                 const p = qualifierPrompt

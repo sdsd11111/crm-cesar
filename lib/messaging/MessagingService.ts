@@ -93,7 +93,7 @@ export class MessagingService {
             }
 
             const result = await adapter.sendMessage(destination, text, metadata);
-            console.timeEnd(`⏱️ MessagingService.send[${id}]`);
+            console.timeEnd(`⏱️ MessagingService.send [${id}]`);
 
             // 3. Centralized Logging (NON-BLOCKING or optimized)
             if (result.success) {

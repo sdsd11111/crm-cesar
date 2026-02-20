@@ -18,9 +18,9 @@ export class InternalNotificationService {
 
         console.log('🔔 InternalNotificationService: Sending alert to César');
         return messagingService.send(this.CESAR_CHAT_ID, message, {
-            platform: 'telegram',
             type: 'internal_alert',
-            ...metadata
+            ...metadata,
+            platform: 'telegram', // Force Telegram for internal alerts
         });
     }
 

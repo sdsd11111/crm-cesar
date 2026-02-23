@@ -809,7 +809,22 @@ Estructura:
             temperature: 0.7
         });
 
-        const docContent = genResponse.choices[0]?.message?.content || '';
+        const rawContent = genResponse.choices[0]?.message?.content || '';
+        let docContent = rawContent;
+
+        // El prompt de intro_cotizacion devuelve JSON, el rojo devuelve RAW.
+        // Intentamos parsearlo e intentar extraer el markdown interno si viene en JSON.
+        try {
+            const parsedContent = JSON.parse(rawContent);
+            if (parsedContent.data?.response) {
+                docContent = parsedContent.data.response;
+            }
+        } catch (e) {
+            // Si falla, significa que es RAW markdown, lo cual está bien.
+        }
+
+        // Clean up markdown code blocks if the AI wraps it like ```markdown ... ```
+        docContent = docContent.replace(/^```markdown\n/m, '').replace(/```$/m, '').trim();
 
         // 3. Save to DB (Optional for contracts, mandatory for quotations)
         if (intent === 'COTIZACION' && contactId) {

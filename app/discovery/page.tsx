@@ -359,6 +359,26 @@ export default function DiscoveryPage() {
         }
     }
 
+    async function handleCallResult(leadId: string, value: string) {
+        try {
+            const res = await fetch(`/api/discovery/${leadId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ columna1: value }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Optimistic update in local state
+                setLeads(prev => prev.map(l => l.id === leadId ? { ...l, columna1: value as any } : l));
+                toast.success('Resultado guardado');
+            } else {
+                throw new Error(data.error || 'Error al guardar');
+            }
+        } catch (error) {
+            toast.error('Error: ' + (error as Error).message);
+        }
+    }
+
     // Toggle queue status (📋 button - THE MOST IMPORTANT)
     async function toggleQueue(leadId: string, currentStatus: string) {
         try {
@@ -695,7 +715,35 @@ export default function DiscoveryPage() {
                                                 )}
                                             </div>
 
-                                            <div className="pt-4 mt-auto flex gap-2">
+                                            {/* Call Result Selector */}
+                                            <div className="pt-3 border-t border-border/30">
+                                                <Select
+                                                    value={lead.columna1 || 'no_contactado'}
+                                                    onValueChange={(val) => handleCallResult(lead.id, val)}
+                                                >
+                                                    <SelectTrigger className={cn(
+                                                        "h-9 w-full text-[10px] font-bold uppercase tracking-wider rounded-xl border transition-all",
+                                                        lead.columna1 === 'contesto_interesado' && "bg-green-500/10 text-green-600 border-green-500/30",
+                                                        lead.columna1 === 'contesto_no_interesado' && "bg-red-500/10 text-red-500 border-red-500/30",
+                                                        lead.columna1 === 'no_contesto' && "bg-gray-500/10 text-gray-500 border-gray-500/30",
+                                                        lead.columna1 === 'buzon_voz' && "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
+                                                        lead.columna1 === 'numero_invalido' && "bg-red-900/10 text-red-700 border-red-700/30",
+                                                        (!lead.columna1 || lead.columna1 === 'no_contactado') && "bg-white/5 text-muted-foreground border-border/30",
+                                                    )}>
+                                                        <SelectValue placeholder="📞 Resultado de llamada" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="no_contactado">📞 Sin contactar</SelectItem>
+                                                        <SelectItem value="no_contesto">🔇 No contestó</SelectItem>
+                                                        <SelectItem value="buzon_voz">📩 Buzón de voz</SelectItem>
+                                                        <SelectItem value="numero_invalido">❌ Número inválido</SelectItem>
+                                                        <SelectItem value="contesto_interesado">✅ Contestó — Interesado</SelectItem>
+                                                        <SelectItem value="contesto_no_interesado">🚫 Contestó — No interesa hoy</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="pt-2 mt-auto flex gap-2">
                                                 <Button
                                                     variant={lead.researchData ? "secondary" : "default"}
                                                     className={cn(

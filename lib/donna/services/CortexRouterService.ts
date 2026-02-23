@@ -722,6 +722,20 @@ Estructura:
         }
     }
 
+    private async sendToOriginalChannel(input: any, replyContext: any, text: string, media?: any) {
+        // Helper: Replies on the same channel and number César originally wrote from
+        if (input.chatId && (input.platform === 'whatsapp' || input.source === 'client')) {
+            if (media) {
+                await whatsappService.sendMessage(input.chatId, '', replyContext, media);
+            } else {
+                await whatsappService.sendMessage(input.chatId, text, replyContext);
+            }
+        } else {
+            // Fallback to Telegram for commands originally from Telegram
+            await internalNotificationService.notifyCesar(text, replyContext);
+        }
+    }
+
     private async handleDocumentGeneration(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any) {
         const { intent, data } = parsed;
         const contact = contactId ? (await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1))[0] : null;
@@ -752,7 +766,8 @@ Estructura:
                 });
 
                 const question = response.choices[0]?.message?.content || 'César, cuéntame más sobre los acuerdos de la reunión para prepararte el borrador.';
-                await internalNotificationService.notifyCesar(question, replyContext);
+                // ✅ FIX: Reply on the same channel César used
+                await this.sendToOriginalChannel(input, replyContext, question);
                 return;
             }
         }
@@ -777,13 +792,9 @@ Estructura:
         const aiClientGen = getAIClient('STANDARD');
         const modelIdGen = getModelId('STANDARD');
 
-        // 🔥 QUICK FIX: Avoid Meta Webhook Timeout by sending a "typing" buffer state immediately
+        // Send "processing" message on same channel
         const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${intent === 'COTIZACION' ? 'borrador de la cotización' : 'contrato'}...`;
-        if (input.source === 'client' && input.chatId) {
-            await customerMessagingService.sendHumanizedMessage(input.chatId, waitingMsg, replyContext);
-        } else if (input.source === 'cesar') {
-            await internalNotificationService.notifyCesar(waitingMsg, replyContext);
-        }
+        await this.sendToOriginalChannel(input, replyContext, waitingMsg);
 
         const genResponse = await aiClientGen.chat.completions.create({
             model: modelIdGen,
@@ -825,22 +836,16 @@ Estructura:
                     caption: `📄 Aquí tienes el ${intent === 'COTIZACION' ? 'borrador de cotización' : 'contrato'} para ${businessName}.`
                 };
 
-                if (input.source === 'client' && input.chatId) {
-                    await whatsappService.sendMessage(input.chatId, "", replyContext, media);
-                } else {
-                    await internalNotificationService.notifyCesar(`✅ PDF generado y listo para enviar:\n\n${docContent.substring(0, 100)}...`, { ...replyContext, media });
-                }
+                // ✅ FIX: Always reply on original channel (WhatsApp when César writes from there)
+                await this.sendToOriginalChannel(input, replyContext, '', media);
             } else {
                 throw new Error(uploadResult.error || 'Fallo upload a Meta');
             }
         } catch (pdfError: any) {
             console.error('❌ Error en flujo PDF:', pdfError);
             const fallbackMsg = `Generé el texto, pero hubo un error con el PDF: ${pdfError.message}\n\nTexto:\n${docContent}`;
-            if (input.source === 'client' && input.chatId) {
-                await customerMessagingService.sendHumanizedMessage(input.chatId, fallbackMsg, replyContext);
-            } else {
-                await internalNotificationService.notifyCesar(fallbackMsg, replyContext);
-            }
+            // ✅ FIX: Fallback text also goes to original channel
+            await this.sendToOriginalChannel(input, replyContext, fallbackMsg);
         }
     }
 }

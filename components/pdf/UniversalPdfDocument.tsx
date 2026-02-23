@@ -135,8 +135,23 @@ const styles = StyleSheet.create({
     signatureLabel: {
         fontSize: 9,
         fontWeight: 'bold',
+    },
+    divider: {
+        marginVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eaeaea',
     }
 });
+
+const renderTextWithBold = (text: string) => {
+    const parts = text.split('**');
+    return parts.map((part, index) => {
+        if (index % 2 === 1) { // It's bold
+            return <Text key={index} style={{ fontFamily: 'Helvetica-Bold' }}>{part}</Text>;
+        }
+        return <Text key={index}>{part}</Text>;
+    });
+};
 
 const MarkdownRenderer = ({ content }: { content: string }) => {
     const lines = content.split('\n');
@@ -146,8 +161,18 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
     let tableRows: string[][] = [];
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line && !inTable) continue;
+        const originalLine = lines[i];
+        const line = originalLine.trim();
+        if (!line && !inTable) {
+            elements.push(<View key={`spacer-${i}`} style={{ height: 10 }} />);
+            continue;
+        }
+
+        if (line === '---') {
+            // Render as a page break to make proposals multi-page and professional
+            elements.push(<View key={`break-${i}`} break />);
+            continue;
+        }
 
         if (line.startsWith('|')) {
             const cols = line.split('|').filter(c => c.trim() !== '').map(c => c.trim());
@@ -192,21 +217,21 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
         }
 
         if (line.startsWith('### ')) {
-            elements.push(<Text key={i} style={styles.h3}>{line.replace('### ', '')}</Text>);
+            elements.push(<Text key={i} style={styles.h3}>{renderTextWithBold(line.replace('### ', ''))}</Text>);
         } else if (line.startsWith('## ')) {
-            elements.push(<Text key={i} style={styles.h2}>{line.replace('## ', '')}</Text>);
+            elements.push(<Text key={i} style={styles.h2}>{renderTextWithBold(line.replace('## ', ''))}</Text>);
         } else if (line.startsWith('# ')) {
-            elements.push(<Text key={i} style={styles.h1}>{line.replace('# ', '')}</Text>);
+            elements.push(<Text key={i} style={styles.h1}>{renderTextWithBold(line.replace('# ', ''))}</Text>);
         } else if (line.startsWith('- ') || line.startsWith('* ')) {
+            const isNested = originalLine.startsWith('  ') || originalLine.startsWith('\t');
             elements.push(
-                <View key={i} style={styles.bulletPoint}>
-                    <Text style={styles.bullet}>•</Text>
-                    <Text style={styles.bulletContent}>{line.replace(/^[-*] /, '')}</Text>
+                <View key={i} style={[styles.bulletPoint, isNested ? { marginLeft: 25 } : {}]}>
+                    <Text style={styles.bullet}>{isNested ? '◦' : '•'}</Text>
+                    <Text style={styles.bulletContent}>{renderTextWithBold(line.replace(/^[-*] /, ''))}</Text>
                 </View>
             );
         } else {
-            const cleanLine = line.replace(/\*\*/g, '');
-            elements.push(<Text key={i} style={styles.text}>{cleanLine}</Text>);
+            elements.push(<Text key={i} style={styles.text}>{renderTextWithBold(line)}</Text>);
         }
     }
 

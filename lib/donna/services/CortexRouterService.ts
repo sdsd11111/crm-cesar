@@ -468,7 +468,7 @@ Estructura:
             }
 
             // --- SPECIALIZED FLOW (Agenda, Cotizacion, etc.) ---
-            await this.routeToTable(parsed, input.contactId, input.text, replyContext, input);
+            await this.routeToTable(parsed, input.contactId, input.text, replyContext, input, history);
 
             // 🧠 BACK-PROPAGATION: Learning from conversation (Background)
             if (input.contactId && role !== 'cesar' && role !== 'abel') {
@@ -489,7 +489,7 @@ Estructura:
         }
     }
 
-    private async routeToTable(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any) {
+    private async routeToTable(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any, history: string = '') {
         const { intent, subtype, data } = parsed;
         const context = replyContext; // For backwards compatibility in this method
         console.log(`📍 Action: ${intent} (${subtype})`);
@@ -619,10 +619,8 @@ Estructura:
 
                 case 'COTIZACION':
                 case 'CONTRATO':
-                    await this.handleDocumentGeneration(parsed, contactId, originalText, replyContext, input);
+                    await this.handleDocumentGeneration(parsed, contactId, originalText, replyContext, input, history);
                     break;
-
-                case 'FINANZA':
 
                 case 'FINANZA':
                     await internalNotificationService.notifyCesar(`💰 **Registro de Finanza:**\n\n${originalText}`, replyContext);
@@ -736,7 +734,7 @@ Estructura:
         }
     }
 
-    private async handleDocumentGeneration(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any) {
+    private async handleDocumentGeneration(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any, history: string = '') {
         const { intent, data } = parsed;
         const contact = contactId ? (await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1))[0] : null;
 
@@ -745,30 +743,37 @@ Estructura:
         const pains = contact?.pains || 'Dolores no identificados aún';
         const plan = data.interest_tier || 'PRO';
 
-        // 1. Qualification Check (Only for Quotations)
+        // 1. AI-Powered Qualification Check (Only for Quotations)
         if (intent === 'COTIZACION') {
-            const hasMeetingInfo = originalText.toLowerCase().includes('reunion') || originalText.toLowerCase().includes('conversamos');
-            const hasAgreements = originalText.length > 50;
-
-            if (!hasMeetingInfo || !hasAgreements) {
-                console.log('🤔 [Router] Missing quotation context. Triggering Qualifier.');
-                const qualifierPrompt = this.getExpertPrompt('quotation_qualifier.md');
-                const p = qualifierPrompt
-                    .replace('{{HISTORY}}', originalText)
+            console.log('🤔 [Qualifier] Running AI-based context check...');
+            try {
+                const qualifierPrompt = this.getExpertPrompt('quotation_qualifier.md')
+                    .replace('{{HISTORY}}', history || 'Sin historial previo.')
+                    .replace('{{CURRENT_MESSAGE}}', originalText)
                     .replace('{{EXTRACTED_DATA}}', JSON.stringify(data));
 
                 const aiClient = getAIClient('FAST');
                 const modelId = getModelId('FAST');
-                const response = await aiClient.chat.completions.create({
+                const qualResponse = await aiClient.chat.completions.create({
                     model: modelId,
-                    messages: [{ role: 'system', content: p }],
-                    temperature: 0.7
+                    messages: [{ role: 'system', content: qualifierPrompt }],
+                    temperature: 0,
+                    response_format: { type: 'json_object' }
                 });
 
-                const question = response.choices[0]?.message?.content || 'César, cuéntame más sobre los acuerdos de la reunión para prepararte el borrador.';
-                // ✅ FIX: Reply on the same channel César used
-                await this.sendToOriginalChannel(input, replyContext, question);
-                return;
+                const qualResult = JSON.parse(qualResponse.choices[0]?.message?.content || '{}');
+                console.log('🤔 [Qualifier] Result:', qualResult.status);
+
+                if (qualResult.status !== 'sufficient') {
+                    const question = qualResult.question || 'César, faltan datos clave. ¿Cuál es el nombre del cliente y qué servicios quieres cotizar?';
+                    await this.sendToOriginalChannel(input, replyContext, question);
+                    return; // Stop here, do NOT generate yet
+                }
+                // status === 'sufficient' → fall through to generation
+                console.log('✅ [Qualifier] Info sufficient. Proceeding to generate document.');
+            } catch (qualError) {
+                // If qualifier itself fails, proceed anyway to avoid blocking César
+                console.warn('⚠️ [Qualifier] AI check failed, proceeding anyway:', qualError);
             }
         }
 

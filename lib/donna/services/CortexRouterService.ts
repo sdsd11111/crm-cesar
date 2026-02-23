@@ -408,7 +408,7 @@ Estructura:
                 if (input.source === 'client') {
                     await customerMessagingService.sendMessage(input.chatId!, parsed.clarification_question, replyContext);
                 } else {
-                    await internalNotificationService.notifyCesar(parsed.clarification_question, replyContext);
+                    await this.sendToOriginalChannel(input, replyContext, parsed.clarification_question);
                 }
                 return { status: 'needs_clarification', message: parsed.clarification_question };
             }
@@ -498,7 +498,7 @@ Estructura:
             switch (intent) {
                 case 'SCHEDULE':
                     if (!data.date || !data.time) {
-                        await internalNotificationService.notifyCesar(`Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`, { ...context, source: 'donna' });
+                        await this.sendToOriginalChannel(input, context, `Dale, necesito fecha y hora para agendarlo. ¿Cuándo es?`);
                         return;
                     }
 
@@ -525,12 +525,11 @@ Estructura:
                         location: data.location || event.hangoutLink || 'Google Meet'
                     });
 
-                    await internalNotificationService.notifyCesar(
+                    await this.sendToOriginalChannel(input, context,
                         `🗓️ **Agendado con éxito:**\n` +
                         `📌 ${data.title}\n` +
                         `⏰ ${format(startDate, "EEEE d 'de' MMMM, HH:mm", { locale: es })}\n` +
-                        `🔗 [Link al evento](${event.htmlLink})`,
-                        context
+                        `🔗 [Link al evento](${event.htmlLink})`
                     );
                     break;
 
@@ -555,7 +554,7 @@ Estructura:
                         assignedTo: 'César',
                     });
 
-                    await internalNotificationService.notifyCesar(`✅ Tarea/Recordatorio guardado: **${data.title}**`, { ...context, source: 'donna' });
+                    await this.sendToOriginalChannel(input, context, `✅ Tarea/Recordatorio guardado: **${data.title}**`);
                     break;
 
                 case 'QUERY_AGENDA': // Changed from 'QUERY' to 'QUERY_AGENDA' for clarity and consistency
@@ -576,19 +575,19 @@ Estructura:
                             const startOfDay = new Date(baseDate); startOfDay.setHours(0, 0, 0, 0);
                             const endOfDay = new Date(baseDate); endOfDay.setHours(23, 59, 59, 999);
 
-                            await internalNotificationService.notifyCesar(`📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`, { ...context, source: 'donna' });
+                            await this.sendToOriginalChannel(input, context, `📅 Revisando agenda para el **${format(baseDate, 'PPPP', { locale: es })}**...`);
 
                             const cal = await this.getCalendarService();
                             const agenda = await cal.listEvents(fromZonedTime(startOfDay, TIMEZONE).toISOString(), fromZonedTime(endOfDay, TIMEZONE).toISOString());
 
                             if (!agenda || agenda.length === 0) {
-                                await internalNotificationService.notifyCesar(`✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`, { ...context, source: 'donna' });
+                                await this.sendToOriginalChannel(input, context, `✅ Todo libre para el ${format(baseDate, 'EEEE', { locale: es })}.`);
                             } else {
                                 const list = agenda.map((e: any) => {
                                     const eventTime = e.start?.dateTime ? format(toZonedTime(new Date(e.start.dateTime), TIMEZONE), 'HH:mm') : 'Todo el día';
                                     return `• ${eventTime}: ${e.summary}`;
                                 }).join('\n');
-                                await internalNotificationService.notifyCesar(`📅 Eventos encontrados:\n\n${list}`, { ...context, source: 'donna' });
+                                await this.sendToOriginalChannel(input, context, `📅 Eventos encontrados:\n\n${list}`);
                             }
                         } catch (err) { console.error(err); }
                     }
@@ -603,7 +602,7 @@ Estructura:
                             email: data.email || null,
                             source: 'donna_telegram',
                         });
-                        await internalNotificationService.notifyCesar(`✅ Contacto **${data.contact_name}** registrado.`, { ...context, source: 'donna' });
+                        await this.sendToOriginalChannel(input, context, `✅ Contacto **${data.contact_name}** registrado.`);
                     }
                     break;
 
@@ -612,7 +611,7 @@ Estructura:
                         const [c] = await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1);
                         if (c?.phone) {
                             await customerMessagingService.sendMessage(c.id, data.notes, { type: 'manual_via_donna' });
-                            await internalNotificationService.notifyCesar(`📨 WhatsApp enviado a ${c.contactName}.`, { ...context, source: 'donna' });
+                            await this.sendToOriginalChannel(input, context, `📨 WhatsApp enviado a ${c.contactName}.`);
                         }
                     }
                     break;
@@ -623,16 +622,16 @@ Estructura:
                     break;
 
                 case 'FINANZA':
-                    await internalNotificationService.notifyCesar(`💰 **Registro de Finanza:**\n\n${originalText}`, replyContext);
+                    await this.sendToOriginalChannel(input, context, `💰 **Registro de Finanza:**\n\n${originalText}`);
                     break;
 
                 case 'VENTA':
-                    await internalNotificationService.notifyCesar(`📊 **Registro de Venta:**\n\n${originalText}`, replyContext);
+                    await this.sendToOriginalChannel(input, context, `📊 **Registro de Venta:**\n\n${originalText}`);
                     break;
 
                 default:
-                    if (context.platform === 'telegram') {
-                        await internalNotificationService.notifyCesar(`Entiendo, lo proceso enseguida.`, context);
+                    if (input.platform === 'telegram') {
+                        await this.sendToOriginalChannel(input, context, `Entiendo, lo proceso enseguida.`);
                     } else {
                         await customerMessagingService.sendMessage(context.chatId!, `Entiendo, lo proceso enseguida.`, context);
                     }

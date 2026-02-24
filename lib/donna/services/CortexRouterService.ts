@@ -898,6 +898,26 @@ Estructura:
         prompt = prompt.replace(/{{REQUESTED_PLAN}}/g, plan);
         prompt = prompt.replace(/{{AGREEMENTS}}/g, originalText);
 
+        // 💰 Inject explicit commercial terms - these MUST override any AI assumptions
+        const quantity = data.quantity ? String(data.quantity) : 'No especificada';
+        const unitPrice = data.unit_price ? `$${data.unit_price}` : 'No especificado';
+        const totalPrice = data.total_price
+            ? `$${data.total_price}`
+            : (data.quantity && data.unit_price ? `$${(data.quantity * data.unit_price).toFixed(2)}` : 'No especificado');
+        const paymentTerms = data.payment_terms || 'No especificadas';
+        const deliveryDays = data.delivery_days ? `${data.delivery_days} días` : 'No especificado';
+        const today = new Date();
+        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        const quoteDate = tomorrow.toLocaleDateString('es-EC', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        prompt = prompt.replace(/{{QUANTITY}}/g, quantity);
+        prompt = prompt.replace(/{{UNIT_PRICE}}/g, unitPrice);
+        prompt = prompt.replace(/{{TOTAL_PRICE}}/g, totalPrice);
+        prompt = prompt.replace(/{{PAYMENT_TERMS}}/g, paymentTerms);
+        prompt = prompt.replace(/{{DELIVERY_DAYS}}/g, deliveryDays);
+        prompt = prompt.replace(/{{DATE}}/g, quoteDate);
+
+
         const aiClientGen = getAIClient('STANDARD');
         const modelIdGen = getModelId('STANDARD');
 

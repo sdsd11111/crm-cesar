@@ -228,7 +228,12 @@ Tu tarea es entender **qué quiere hacer el usuario** y clasificarlo en una de e
     "duration_minutes": 60,
     "reminder_minutes": [15, 30],
     "notes": "Detalles adicionales | null",
-    "interest_tier": "PRO | ELITE | IMPERIO | EMPRENDEDOR | CRECIMIENTO | POSICIONAMIENTO | null"
+    "interest_tier": "PRO | ELITE | IMPERIO | EMPRENDEDOR | CRECIMIENTO | POSICIONAMIENTO | null",
+    "quantity": 21,
+    "unit_price": 12,
+    "total_price": 252,
+    "payment_terms": "contado contra entrega | a crédito | anticipo 50% | null",
+    "delivery_days": 3
   },
   
   "context": {
@@ -272,6 +277,18 @@ Si `needs_clarification: true`:
 - Genera pregunta natural y específica
 - Usa tono cercano: "Dale, ¿para qué día te la pongo? 📅"
 - Sugiere opciones cuando sea relevante
+
+### **PASO 5: Para COTIZACION - Extrae SIEMPRE si se mencionan**
+- `contact_name`: A nombre de quién va (ej: "Richard Torres")
+- `business_name`: Para qué empresa (ej: "Cooperativa La Merced")
+- `quantity`: Cuántas unidades (ej: 21)
+- `unit_price`: Precio por unidad (ej: 12)
+- `total_price`: Si no se menciona, calcula quantity × unit_price
+- `payment_terms`: Cómo paga (ej: "contado contra entrega")
+- `delivery_days`: En cuántos días (ej: 3)
+- `interested_product`: Producto exacto (ej: "Tarjeta Digital Simple")
+
+⚠️ NUNCA cambies precios, cantidades o condiciones que el usuario mencionó explícitamente.
 
 ---
 

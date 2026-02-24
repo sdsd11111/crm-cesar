@@ -737,8 +737,9 @@ Estructura:
         const { intent, data } = parsed;
         const contact = contactId ? (await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1))[0] : null;
 
-        const contactName = contact?.contactName || data.contact_name || 'Prospecto';
-        const businessName = contact?.businessName || data.business_name || 'Negocio';
+        // Prefer extracted data over DB context for the specific document
+        const contactName = data.contact_name || contact?.contactName || 'Prospecto';
+        const businessName = data.business_name || contact?.businessName || 'Negocio';
         const pains = contact?.pains || 'Dolores no identificados aún';
         const plan = data.interest_tier || 'PRO';
 

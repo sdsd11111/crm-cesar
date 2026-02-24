@@ -214,7 +214,7 @@ Tu tarea es entender **qué quiere hacer el usuario** y clasificarlo en una de e
 ```json
 {
   "reasoning": "Breve explicación de por qué elegiste esta intención basándote en el historial y el input actual.",
-  "intent": "SCHEDULE | TASK | CONTACT | QUERY | SEND | CANCEL | STRATEGIC",
+  "intent": "SCHEDULE | TASK | CONTACT | QUERY_AGENDA | SEND_MESSAGE | CANCEL | STRATEGIC | COTIZACION | CONTRATO | FINANZA | VENTA | CHAT",
   "subtype": "meeting | reminder | operational | commitment | create | note | null",
   "confidence": 0.95,
   
@@ -227,7 +227,8 @@ Tu tarea es entender **qué quiere hacer el usuario** y clasificarlo en una de e
     "location": "Lugar físico o virtual | null",
     "duration_minutes": 60,
     "reminder_minutes": [15, 30],
-    "notes": "Detalles adicionales | null"
+    "notes": "Detalles adicionales | null",
+    "interest_tier": "PRO | ELITE | IMPERIO | EMPRENDEDOR | CRECIMIENTO | POSICIONAMIENTO | null"
   },
   
   "context": {

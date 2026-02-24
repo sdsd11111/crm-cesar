@@ -279,11 +279,9 @@ export class CortexRouterService {
                 else if (subtype === 'agenda' || intent === 'QUERY_AGENDA') promptFile = 'agenda/query_agenda.md';
                 else if (subtype === 'borrar') promptFile = 'agenda/create_event.md'; // Assuming 'borrar' also uses create_event for now, or needs a specific prompt
                 else if (intent === 'COTIZACION') {
-                    console.log(`📑 [Router] Selected specialized Quotation prompt (Intro).`);
-                    promptFile = 'prompt_intro_cotizacion.md';
+                    console.log(`📑 [Router] Intent is COTIZACION. Keeping base router to extract parameters.`);
                 } else if (intent === 'CONTRATO') {
-                    console.log(`📜 [Router] Selected specialized Contract prompt.`);
-                    promptFile = 'prompt_contrato_generic.md';
+                    console.log(`📜 [Router] Intent is CONTRATO. Keeping base router to extract parameters.`);
                 }
             }
         }
@@ -369,6 +367,11 @@ Estructura:
             let parsed: any = {};
             try {
                 parsed = JSON.parse(content);
+                // 🛡️ Preserve parameters extracted by Alejandra (like contact_name, interest_tier)
+                // if the expert prompt omits them in its JSON output.
+                if (extractedData) {
+                    parsed.data = { ...extractedData, ...(parsed.data || {}) };
+                }
             } catch (e) {
                 console.warn('⚠️ [Router] Prompt did not return valid JSON. Falling back to CHAT intent.', e);
                 parsed = {

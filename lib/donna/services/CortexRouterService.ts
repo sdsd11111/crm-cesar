@@ -812,18 +812,30 @@ Estructura:
         const rawContent = genResponse.choices[0]?.message?.content || '';
         let docContent = rawContent;
 
-        // El prompt de intro_cotizacion devuelve JSON, el rojo devuelve RAW.
-        // Intentamos parsearlo e intentar extraer el markdown interno si viene en JSON.
-        try {
-            const parsedContent = JSON.parse(rawContent);
-            if (parsedContent.data?.response) {
-                docContent = parsedContent.data.response;
-            }
-        } catch (e) {
-            // Si falla, significa que es RAW markdown, lo cual está bien.
+        // 🛡️ Robust Extract: AI sometimes wraps JSON in markdown blocks
+        let cleanText = rawContent.trim();
+        if (cleanText.includes('```')) {
+            // Remove any code block wrappers (```json, ```markdown, etc.)
+            cleanText = cleanText.replace(/```[a-z]*\n?/gi, '').replace(/```$/g, '').trim();
         }
 
-        // Clean up markdown code blocks if the AI wraps it like ```markdown ... ```
+        try {
+            // Check if it's still JSON
+            const parsedContent = JSON.parse(cleanText);
+            if (parsedContent.data?.response) {
+                docContent = parsedContent.data.response;
+            } else if (parsedContent.response) {
+                docContent = parsedContent.response;
+            } else {
+                // If it's valid JSON but doesn't have our fields, maybe it's the raw text already
+                docContent = cleanText;
+            }
+        } catch (e) {
+            // If it's not valid JSON, it's likely raw markdown
+            docContent = cleanText;
+        }
+
+        // Final cleanup for any leftover markdown markers
         docContent = docContent.replace(/^```markdown\n/m, '').replace(/```$/m, '').trim();
 
         // 3. Save to DB (Optional for contracts, mandatory for quotations)

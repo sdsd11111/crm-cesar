@@ -53,12 +53,5 @@ Eres César Reyes. Tu objetivo es generar una propuesta comercial profesional qu
 [CATÁLOGO]:
 {{PRODUCT_CATALOG}}
 
-## SALIDA ESPERADA (JSON)
-Devuelve tu respuesta en formato JSON con la siguiente estructura:
-{
-  "intent": "COTIZACION",
-  "data": {
-    "response": "CONTENIDO_DE_LA_PROPUESTA_EN_MARKDOWN_AQUÍ"
-  },
-  "reasoning": "Breve explicación de los puntos clave de la propuesta"
-}
+## SALIDA ESPERADA
+Devuelve directamente el contenido de la propuesta comercial en formato Markdown puro y limpio, listo para ser impreso en un documento PDF. No envuelvas el texto en bloques de código (```markdown), ni incluyas JSON, ni explicaciones adicionales, ni saludos previos. Solo entrega el documento.

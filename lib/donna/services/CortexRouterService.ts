@@ -302,13 +302,12 @@ export class CortexRouterService {
             else timeDiffStr = `${Math.floor(seconds / 3600)} horas`;
         }
 
-        // Fetch Knowledge Base (Products)
-        const productsList = await db.select().from(products).limit(5); // Top 5 for context
-        const kbStr = productsList.map(p => `- ${p.name}: $${p.price}. ${p.description?.substring(0, 100)}...`).join('\n');
+        // Fetch Knowledge Base - Use static catalog for all roles (full product pricing context)
+        const catalogPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'product_catalog.md');
+        const kbStr = fs.existsSync(catalogPath) ? fs.readFileSync(catalogPath, 'utf-8') : 'Catálogo no disponible.';
 
-        // Inject Custom V3 Placeholders (Only for Public Ventas to avoid bias for Admin)
-        const kbContext = role === 'ventas' || role === 'vendedores' ? kbStr : 'No aplica para este rol administrativo.';
-        prompt = prompt.replace('{{KNOWLEDGE_BASE}}', kbContext);
+        // Inject catalog for ALL roles - César also needs to reference prices when logging field visits
+        prompt = prompt.replace('{{KNOWLEDGE_BASE}}', kbStr);
         prompt = prompt.replace('{{INTERNAL_DIGEST}}', internalDigest);
         prompt = prompt.replace('{{INPUT}}', internalDigest); // Backwards compatibility for prompts
         prompt = prompt.replace('{{CONTACT_INFO}}', `Nombre: ${context.contact_name || 'Desconocido'}, Empresa: ${context.business_name || 'Desconocida'}`);
@@ -632,6 +631,10 @@ Estructura:
                     await this.sendToOriginalChannel(input, context, `📊 **Registro de Venta:**\n\n${originalText}`);
                     break;
 
+                case 'RECORRIDO':
+                    await this.handleRecorrido(parsed, contactId, originalText, replyContext, input, history);
+                    break;
+
                 default:
                     if (input.platform === 'telegram') {
                         await this.sendToOriginalChannel(input, context, `Entiendo, lo proceso enseguida.`);
@@ -733,6 +736,104 @@ Estructura:
         } else {
             // Fallback to Telegram for commands originally from Telegram
             await internalNotificationService.notifyCesar(text, replyContext);
+        }
+    }
+
+    private async handleRecorrido(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any, history: string = '') {
+        const { data } = parsed;
+        const businessName = data?.business_name;
+        const contactName = data?.contact_name;
+
+        // If no business name was extracted, ask for clarification
+        if (!businessName) {
+            await this.sendToOriginalChannel(input, replyContext,
+                `Entendí que saliste de una visita, pero no capté el nombre del negocio. ¿A qué local visitaste?`
+            );
+            return;
+        }
+
+        // Map interest_level to contacts status
+        const interestMap: Record<string, string> = {
+            'interested': 'primer_contacto',
+            'not_interested': 'no_interesado',
+            'maybe': 'primer_contacto',
+            'quoted': 'cotizado',
+        };
+        const status = interestMap[data?.interest_level || 'maybe'] || 'primer_contacto';
+
+        try {
+            // Upsert the contact in the 'contacts' table
+            const [existing] = await db.select().from(contacts)
+                .where(eq(contacts.businessName, businessName))
+                .limit(1);
+
+            const contactPayload: any = {
+                businessName,
+                contactName: contactName || 'Sin nombre',
+                entityType: 'lead',
+                source: 'recorridos',
+                status,
+                verbalAgreements: data?.verbal_agreements || originalText,
+                interestedProduct: data?.interested_product || null,
+                address: data?.location || null,
+                updatedAt: new Date(),
+            };
+
+            let savedContact;
+            if (existing) {
+                // Update existing contact
+                await db.update(contacts).set(contactPayload).where(eq(contacts.id, existing.id));
+                savedContact = { ...existing, ...contactPayload };
+                console.log(`🏪 [Recorrido] Updated existing contact: ${businessName}`);
+            } else {
+                // Create new contact
+                const [newContact] = await db.insert(contacts).values({
+                    ...contactPayload,
+                    createdAt: new Date(),
+                }).returning();
+                savedContact = newContact;
+                console.log(`🏪 [Recorrido] Created new contact: ${businessName}`);
+            }
+
+            // Build emoji for interest level
+            const interestEmoji: Record<string, string> = {
+                'interested': '🟢 Interesado',
+                'not_interested': '🔴 No le interesó',
+                'maybe': '🟡 Quizás',
+                'quoted': '📋 Cotizado',
+            };
+            const interestLabel = interestEmoji[data?.interest_level || 'maybe'] || '🟡 Sin definir';
+
+            // Send confirmation summary to César
+            const summary = `✅ *Recorrido registrado.*\n\n` +
+                `🏪 *Negocio:* ${businessName}\n` +
+                `👤 *Contacto:* ${contactName || 'No especificado'}\n` +
+                `📍 *Ubicación:* ${data?.location || 'No especificada'}\n` +
+                `${interestLabel}\n` +
+                `🤝 *Acuerdos:* ${data?.verbal_agreements || 'Ninguno especificado'}\n` +
+                `🛒 *Interés en:* ${data?.interested_product || 'No especificado'}\n\n` +
+                `_¿Hay algo que corregir?_`;
+
+            await this.sendToOriginalChannel(input, replyContext, summary);
+
+            // If quotation was also requested, trigger it
+            if (data?.generate_quotation) {
+                console.log('📋 [Recorrido] Quotation also requested. Triggering document generation...');
+                await this.handleDocumentGeneration(
+                    { intent: 'COTIZACION', data: { ...data, contact_name: contactName, business_name: businessName } },
+                    savedContact?.id,
+                    originalText,
+                    replyContext,
+                    input,
+                    history
+                );
+            }
+
+        } catch (error) {
+            console.error('❌ [Recorrido] Failed to save:', error);
+            await this.sendToOriginalChannel(input, replyContext,
+                `Anoté tu recorrido mentalmente, pero hubo un error al guardarlo en la base de datos. Intenta de nuevo o escríbelo con el nombre del negocio claramente.`
+            );
         }
     }
 

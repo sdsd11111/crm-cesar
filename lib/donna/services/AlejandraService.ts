@@ -9,7 +9,7 @@ export type Role = 'cesar' | 'abel' | 'vendedores' | 'ventas';
 
 export interface AlejandraDigest {
     role: Role;
-    intent: 'CHAT' | 'SCHEDULE' | 'KNOWLEDGE' | 'COTIZACION' | 'CONTRATO' | 'FINANZA' | 'VENTA' | 'QUERY_AGENDA';
+    intent: 'CHAT' | 'SCHEDULE' | 'KNOWLEDGE' | 'COTIZACION' | 'CONTRATO' | 'FINANZA' | 'VENTA' | 'QUERY_AGENDA' | 'RECORRIDO' | 'TASK';
     digest: string;
     subtype?: string;
     reasoning?: string;
@@ -22,6 +22,11 @@ export interface AlejandraDigest {
         location?: string;
         interest_tier?: 'PRO' | 'ELITE' | 'IMPERIO' | 'EMPRENDEDOR' | 'CRECIMIENTO' | 'POSICIONAMIENTO';
         category?: 'hotel' | 'restaurante' | 'web' | 'seo';
+        // RECORRIDO-specific fields
+        interest_level?: 'interested' | 'not_interested' | 'maybe' | 'quoted';
+        verbal_agreements?: string;
+        interested_product?: string;
+        generate_quotation?: boolean;
         details?: any;
     };
     needs_clarification?: boolean;

@@ -625,6 +625,7 @@ Estructura:
                     break;
 
                 case 'COTIZACION':
+                case 'PROPUESTA':
                 case 'CONTRATO':
                     await this.handleDocumentGeneration(parsed, contactId, originalText, replyContext, input, history);
                     break;
@@ -853,8 +854,8 @@ Estructura:
         const pains = contact?.pains || 'Dolores no identificados aún';
         const plan = data.interest_tier || 'PRO';
 
-        // 1. AI-Powered Qualification Check (Only for Quotations)
-        if (intent === 'COTIZACION') {
+        // 1. AI-Powered Qualification Check (Only for Quotations and Proposals)
+        if (intent === 'COTIZACION' || intent === 'PROPUESTA') {
             console.log('🤔 [Qualifier] Running AI-based context check...');
             try {
                 const qualifierPrompt = this.getExpertPrompt('quotation_qualifier.md')
@@ -890,9 +891,13 @@ Estructura:
         // 2. Generate Text Content
         const catalog = this.getExpertPrompt('product_catalog.md');
         const isPremium = ['ELITE', 'IMPERIO', 'POSICIONAMIENTO'].includes(plan);
-        const promptFile = intent === 'COTIZACION'
-            ? (isPremium ? 'prompt_cotizacion_roja.md' : 'prompt_intro_cotizacion.md')
-            : 'prompt_contrato_generic.md';
+        let promptFile = 'prompt_contrato_generic.md';
+
+        if (intent === 'COTIZACION') {
+            promptFile = isPremium ? 'prompt_cotizacion_roja.md' : 'prompt_intro_cotizacion.md';
+        } else if (intent === 'PROPUESTA') {
+            promptFile = 'prompt_propuesta_posicionamiento.md';
+        }
 
         let prompt = this.getExpertPrompt(promptFile);
 
@@ -928,7 +933,8 @@ Estructura:
         const modelIdGen = getModelId('STANDARD');
 
         // Send "processing" message on same channel
-        const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${intent === 'COTIZACION' ? 'borrador de la cotización' : 'contrato'}...`;
+        const waitingDocName = intent === 'COTIZACION' ? 'borrador de la cotización' : (intent === 'PROPUESTA' ? 'borrador de la propuesta' : 'contrato');
+        const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${waitingDocName}...`;
         await this.sendToOriginalChannel(input, replyContext, waitingMsg);
 
         const genResponse = await aiClientGen.chat.completions.create({
@@ -969,8 +975,8 @@ Estructura:
         // Final cleanup for any leftover markdown markers
         docContent = docContent.replace(/^```markdown\n/m, '').replace(/```$/m, '').trim();
 
-        // 3. Save to DB (Optional for contracts, mandatory for quotations)
-        if (intent === 'COTIZACION' && contactId) {
+        // 3. Save to DB (Optional for contracts, mandatory for quotations/proposals)
+        if ((intent === 'COTIZACION' || intent === 'PROPUESTA') && contactId) {
             await db.update(contacts)
                 .set({
                     quotation: docContent,
@@ -981,21 +987,24 @@ Estructura:
 
         // 4. Generate PDF
         try {
-            const pdfBuffer = await pdfDocumentService.generatePdf(docContent, intent === 'COTIZACION' ? 'quotation' : 'contract', {
+            const pdfDocType = (intent === 'COTIZACION' || intent === 'PROPUESTA') ? 'quotation' : 'contract';
+            const pdfBuffer = await pdfDocumentService.generatePdf(docContent, pdfDocType, {
                 clientName: contactName,
                 signerName: "Ing. César Reyes Jaramillo"
             });
 
             // 5. Upload to Meta (WhatsApp)
-            const fileName = `${intent === 'COTIZACION' ? 'Cotizacion' : 'Contrato'}_${businessName.replace(/\s+/g, '_')}.pdf`;
+            const prefix = intent === 'COTIZACION' ? 'Cotizacion' : (intent === 'PROPUESTA' ? 'Propuesta' : 'Contrato');
+            const fileName = `${prefix}_${businessName.replace(/\s+/g, '_')}.pdf`;
             const uploadResult = await whatsappService.uploadMedia(pdfBuffer, fileName, 'application/pdf', 'document');
 
             if (uploadResult.success && uploadResult.mediaId) {
+                const captionText = intent === 'COTIZACION' ? 'borrador de cotización' : (intent === 'PROPUESTA' ? 'borrador de propuesta' : 'contrato');
                 const media: WhatsAppMedia = {
                     type: 'document',
                     id: uploadResult.mediaId,
                     filename: fileName,
-                    caption: `📄 Aquí tienes el ${intent === 'COTIZACION' ? 'borrador de cotización' : 'contrato'} para ${businessName}.`
+                    caption: `📄 Aquí tienes el ${captionText} para ${businessName}.`
                 };
 
                 // ✅ FIX: Always reply on original channel (WhatsApp when César writes from there)

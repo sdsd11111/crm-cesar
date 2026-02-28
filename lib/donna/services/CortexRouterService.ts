@@ -868,7 +868,8 @@ Estructura:
     }
 
     private async handleDocumentGeneration(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any, history: string = '') {
-        const { intent, data } = parsed;
+        const intent = parsed.intent;
+        const data = parsed.data || {}; // Prevent undefined access during MODIFY_DOC or generic flows
         const contact = contactId ? (await db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1))[0] : null;
 
         // Prefer extracted data over DB context for the specific document

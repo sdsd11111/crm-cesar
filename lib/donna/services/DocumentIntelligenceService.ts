@@ -56,7 +56,7 @@ export class DocumentIntelligenceService {
             const instructions = await db.select().from(donnaInstructions).where(eq(donnaInstructions.isActive, true));
             if (!instructions.length) return 'Sin instrucciones históricas registradas aún.';
 
-            return instructions.map(i => `- [${i.category.toUpperCase()}]: ${i.instruction}`).join('\n');
+            return instructions.map(i => `- ${i.instruction}`).join('\n');
         } catch (e) {
             console.error('[DocumentIntelligenceService] Error loading Instructions RAG:', e);
             return 'Sin instrucciones históricas.';

@@ -143,8 +143,15 @@ const styles = StyleSheet.create({
     }
 });
 
+const sanitizeText = (text: string) => {
+    // Strip emojis and extended pictographics that react-pdf standard fonts can't render
+    return text.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+};
+
 const renderTextWithBold = (text: string) => {
-    const parts = text.split('**');
+    // First sanitize the string to remove emojis
+    const cleanText = sanitizeText(text);
+    const parts = cleanText.split('**');
     return parts.map((part, index) => {
         if (index % 2 === 1) { // It's bold
             return <Text key={index} style={{ fontFamily: 'Helvetica-Bold' }}>{part}</Text>;

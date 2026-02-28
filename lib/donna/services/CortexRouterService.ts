@@ -193,6 +193,29 @@ export class CortexRouterService {
             console.log(`🎤 Transcription marker found for ${input.chatId}. Audio processing already completed by worker.`);
         }
 
+        // 📂 PDF MEDIA ANALYZER (New Phase 9)
+        const media = (input as any).media as WhatsAppMedia | undefined;
+        if (media && media.type === 'document' && media.id && media.filename?.toLowerCase().endsWith('.pdf')) {
+            console.log('📂 [CortexRouter] PDF Detectado. Iniciando análisis multimodal...');
+            try {
+                const mediaData = await whatsappService.getMedia(media.id);
+                if (mediaData) {
+                    const { pdfIntelligenceService } = await import('./PdfIntelligenceService');
+                    const pdfContext = await pdfIntelligenceService.extractContextFromPdf(mediaData.buffer, media.filename || 'documento.pdf');
+                    console.log('✅ [PdfIntelligence] Análisis completado:', pdfContext.summary);
+
+                    // Almacenar el contexto en la sesión para que el generador de documentos lo use
+                    const currentContext = await this.getContext(input.chatId);
+                    currentContext.pdf_context = pdfContext;
+                    await this.saveContext(input.chatId, currentContext);
+
+                    await this.sendToOriginalChannel(input, replyContext, `📂 He leído el PDF "${media.filename}". Extraje información sobre *${pdfContext.entities.business_name || 'el negocio'}* para usarla en tus documentos.`);
+                }
+            } catch (err) {
+                console.error('❌ [PdfIntelligence] Error procesando PDF:', err);
+            }
+        }
+
         if (!input.skipSave) {
             await this.saveMessage(input.chatId || 'system', input.source === 'cesar' ? 'user' : 'user', processedText, platform);
         }
@@ -945,6 +968,23 @@ Estructura:
                 instructionsHistory
             );
             console.log(`✅ [Cerebro 3] Documento generado exitosamente.`);
+
+            // ⚖️ LEGAL BRAIN: AUDIT (Solo para Contratos)
+            if (chosenFormat === 'CONTRATO') {
+                console.log('⚖️ [LegalBrain] Iniciando auditoría experta...');
+                try {
+                    const legalReview = await legalBrain.reviewContract(docContent, { contactName, businessName, pains, catalog_products: productRecognitionResult?.productos_identificados });
+                    docContent = legalReview.contract_content; // Usar la versión mejorada por el experto legal
+                    console.log('✅ [LegalBrain] Auditoría completada. Cláusulas añadidas:', legalReview.suggested_clauses.length);
+
+                    if (legalReview.missing_critical_info.length > 0) {
+                        const alert = `⚠️ *Nota Legal:* El consultor jurídico menciona que falta información crítica: ${legalReview.missing_critical_info.join(', ')}.`;
+                        await this.sendToOriginalChannel(input, replyContext, alert);
+                    }
+                } catch (e) {
+                    console.error('❌ [LegalBrain] Falló la auditoría:', e);
+                }
+            }
 
         } else {
             // Fallback para Contratos (Intent: CONTRATO)

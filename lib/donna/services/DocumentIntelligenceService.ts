@@ -76,7 +76,9 @@ export class DocumentIntelligenceService {
             .replace('{{PRODUCT_CATALOG}}', catalog)
             .replace('{{DONNA_INSTRUCTIONS}}', instructionsHistory || 'Sin instrucciones adicionales recientes.');
 
-        const promptRequest = `Analiza esto devolviendo estrictamente un JSON puro como se configuró: \n${fullPrompt}`;
+        // Forzamos el reconocimiento de intención de contrato si la palabra aparece
+        const contractForce = userInput.toLowerCase().includes('contrato') ? ' Si detectas que pide un contrato, pon tipo_documento_sugerido: "CONTRATO".' : '';
+        const promptRequest = `Analiza esto devolviendo estrictamente un JSON puro como se configuró: \n${fullPrompt}${contractForce}`;
 
         try {
             // Usamos el cliente estándar (Fast) pero con temperature 0 para que sea analítico, no creativo.
@@ -95,7 +97,10 @@ export class DocumentIntelligenceService {
             const jsonMatch = responseText.match(/```json([\s\S]*?)```/) || responseText.match(/\{[\s\S]*\}/);
             const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]).trim() : responseText.trim();
 
-            return JSON.parse(jsonString) as ProductRecognitionResult;
+            const result = JSON.parse(jsonString) as ProductRecognitionResult;
+
+            // Allow "CONTRATO" as a valid suggested type if inferred
+            return result;
 
         } catch (error) {
             console.error('[DocumentIntelligenceService] Error en Cerebro 1:', error);
@@ -111,16 +116,16 @@ export class DocumentIntelligenceService {
 
     /**
      * CEREBRO 2: The Reasoner (Estratega de Formato)
-     * Decide si el documento debe ser una Cotización simple o una Propuesta compleja.
+     * Decide si el documento debe ser una Cotización simple o una Propuesta compleja o un Contrato.
      */
-    public async determineFormat(userInput: string, identifiedProducts: ProductRecognitionResult): Promise<{ formato_decidido: 'COTIZACION' | 'PROPUESTA', razonamiento_interno: string }> {
+    public async determineFormat(userInput: string, identifiedProducts: ProductRecognitionResult): Promise<{ formato_decidido: 'COTIZACION' | 'PROPUESTA' | 'CONTRATO', razonamiento_interno: string }> {
         const promptTemplate = this.loadFileConfig('prompt_format_reasoner.md');
 
         const fullPrompt = promptTemplate
             .replace('{{USER_INPUT}}', userInput)
             .replace('{{IDENTIFIED_PRODUCTS}}', JSON.stringify(identifiedProducts, null, 2));
 
-        const promptRequest = `Analiza esto devolviendo estrictamente un JSON puro como se configuró: \n${fullPrompt}`;
+        const promptRequest = `Analiza esto devolviendo estrictamente un JSON puro como se configuró. Añade CONTRATO como opción si el usuario pide cerrar o firmar: \n${fullPrompt}`;
 
         try {
             const aiClient = getAIClient('FAST');
@@ -138,13 +143,13 @@ export class DocumentIntelligenceService {
             const jsonMatch = responseText.match(/```json([\s\S]*?)```/) || responseText.match(/\{[\s\S]*\}/);
             const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]).trim() : responseText.trim();
 
-            return JSON.parse(jsonString) as { formato_decidido: 'COTIZACION' | 'PROPUESTA', razonamiento_interno: string };
+            return JSON.parse(jsonString) as { formato_decidido: 'COTIZACION' | 'PROPUESTA' | 'CONTRATO', razonamiento_interno: string };
 
         } catch (error) {
             console.error('[DocumentIntelligenceService] Error en Cerebro 2:', error);
             // Fallback seguro: si el Cerebro 1 sugirió propuesta, úsala; si no, cotización por defecto.
             return {
-                formato_decidido: identifiedProducts.tipo_documento_sugerido || 'COTIZACION',
+                formato_decidido: identifiedProducts.tipo_documento_sugerido || 'COTIZACION' as any,
                 razonamiento_interno: 'Fallback por error en Cerebro 2'
             };
         }
@@ -155,12 +160,15 @@ export class DocumentIntelligenceService {
      * Redacta el documento final en el formato elegido usando los datos extraídos.
      */
     public async generateDocument(
-        format: 'COTIZACION' | 'PROPUESTA',
+        format: 'COTIZACION' | 'PROPUESTA' | 'CONTRATO',
         identifiedProducts: ProductRecognitionResult,
         contactData: { contactName: string; businessName: string; pains: string },
         instructionsHistory: string = ''
     ): Promise<string> {
-        const promptFileName = format === 'COTIZACION' ? 'prompt_presenter_quotation.md' : 'prompt_presenter_proposal.md';
+        let promptFileName = 'prompt_presenter_quotation.md';
+        if (format === 'PROPUESTA') promptFileName = 'prompt_presenter_proposal.md';
+        if (format === 'CONTRATO') promptFileName = 'prompt_contrato_generic.md'; // Using the legal-leaning generic one
+
         const promptTemplate = this.loadFileConfig(promptFileName);
 
         const fullPrompt = promptTemplate
@@ -172,7 +180,7 @@ export class DocumentIntelligenceService {
 
         try {
             // Usamos modelo "STANDARD" o "CREATIVE" porque aquí sí queremos buena redacción, no solo JSON estricto.
-            const aiClientGen = getAIClient('STANDARD'); // Asumiendo que STANDARD es un gpt-4o o similar bueno en texto
+            const aiClientGen = getAIClient('STANDARD');
             const modelIdGen = getModelId('STANDARD');
 
             const response = await aiClientGen.chat.completions.create({

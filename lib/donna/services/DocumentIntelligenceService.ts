@@ -17,7 +17,7 @@ export interface ProductRecognitionResult {
     }[];
     es_claro: boolean;
     pregunta_clarificacion: string | null;
-    tipo_documento_sugerido: 'COTIZACION' | 'PROPUESTA';
+    tipo_documento_sugerido: 'COTIZACION' | 'PROPUESTA' | 'CONTRATO';
 }
 
 /**

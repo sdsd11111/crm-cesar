@@ -19,6 +19,7 @@ import { whatsappService, WhatsAppMedia } from '@/lib/whatsapp/WhatsAppService';
 import { pdfDocumentService } from './PdfDocumentService';
 import { sessionManagerService } from './SessionManagerService';
 import { documentIntelligenceService } from './DocumentIntelligenceService';
+import { legalBrain } from '../brains/LegalBrain';
 
 const TIMEZONE = 'America/Guayaquil';
 
@@ -940,9 +941,9 @@ Estructura:
         if (parsed.textOverride) {
             console.log('📝 [DocumentGen] Using text override from session edit.');
             docContent = parsed.textOverride;
-        } else if (intent === 'COTIZACION' || intent === 'PROPUESTA') {
+        } else if (intent === 'COTIZACION' || intent === 'PROPUESTA' || intent === 'CONTRATO') {
             // 🧠 CEREBRO 2: THE REASONER (Solo si usamos Cerebro 1)
-            let chosenFormat: 'COTIZACION' | 'PROPUESTA' = intent;
+            let chosenFormat: 'COTIZACION' | 'PROPUESTA' | 'CONTRATO' = intent;
             if (productRecognitionResult && productRecognitionResult.productos_identificados.length > 0) {
                 console.log('🧠 [Cerebro 2] Activando Estratega de Formato...');
                 const reasonerResult = await documentIntelligenceService.determineFormat(originalText, productRecognitionResult);
@@ -951,7 +952,8 @@ Estructura:
             }
 
             // 📝 Send "processing" message
-            const waitingDocName = chosenFormat === 'COTIZACION' ? 'borrador de la cotización' : 'borrador de la propuesta';
+            let waitingDocName = chosenFormat === 'COTIZACION' ? 'borrador de la cotización' : 'borrador de la propuesta';
+            if (chosenFormat === 'CONTRATO') waitingDocName = 'borrador del contrato legal';
             const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${waitingDocName}...`;
             await this.sendToOriginalChannel(input, replyContext, waitingMsg);
 

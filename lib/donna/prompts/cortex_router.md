@@ -183,6 +183,18 @@ Tu tarea es entender **qué quiere hacer el usuario** y clasificarlo en una de e
 
 ---
 
+### **8. PROPUESTA** - Generar una propuesta persuasiva
+**Cuándo:** Piden enviar una propuesta de valor o posicionamiento, no solo un resumen de precios.
+**Ejemplo:** "Envíale una propuesta de SEO al cliente"
+
+---
+
+### **9. RECORRIDO** - Procesar notas de recorrido/visita
+**Cuándo:** El resumen indica que es el resultado de un recorrido o visita presencial.
+**Ejemplo:** "Le ofrecí tal cosa en la visita a la pizzería", "Salí de la reunión con Juan"
+
+---
+
 ## 🧮 RESOLUCIÓN DE ENTIDADES
 
 ### **Fechas Relativas:**
@@ -214,7 +226,7 @@ Tu tarea es entender **qué quiere hacer el usuario** y clasificarlo en una de e
 ```json
 {
   "reasoning": "Breve explicación de por qué elegiste esta intención basándote en el historial y el input actual.",
-  "intent": "SCHEDULE | TASK | CONTACT | QUERY_AGENDA | SEND_MESSAGE | CANCEL | STRATEGIC | COTIZACION | CONTRATO | FINANZA | VENTA | CHAT",
+  "intent": "SCHEDULE | TASK | CONTACT | QUERY_AGENDA | SEND_MESSAGE | CANCEL | STRATEGIC | COTIZACION | PROPUESTA | CONTRATO | FINANZA | VENTA | RECORRIDO | CHAT",
   "subtype": "meeting | reminder | operational | commitment | create | note | null",
   "confidence": 0.95,
   

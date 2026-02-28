@@ -823,9 +823,19 @@ Estructura:
 
             await this.sendToOriginalChannel(input, replyContext, summary);
 
-            // If quotation was also requested, trigger it
-            if (data?.generate_quotation) {
-                console.log('📋 [Recorrido] Quotation also requested. Triggering document generation...');
+            // If quotation or proposal was also requested, trigger it
+            if (data?.generate_proposal) {
+                console.log('📝 [Recorrido] Proposal requested. Triggering document generation...');
+                await this.handleDocumentGeneration(
+                    { intent: 'PROPUESTA', data: { ...data, contact_name: contactName, business_name: businessName } },
+                    savedContact?.id,
+                    originalText,
+                    replyContext,
+                    input,
+                    history
+                );
+            } else if (data?.generate_quotation) {
+                console.log('📋 [Recorrido] Quotation requested. Triggering document generation...');
                 await this.handleDocumentGeneration(
                     { intent: 'COTIZACION', data: { ...data, contact_name: contactName, business_name: businessName } },
                     savedContact?.id,

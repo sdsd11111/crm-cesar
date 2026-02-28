@@ -540,9 +540,15 @@ Estructura:
                     if (data.date) {
                         const timeStr = data.time || "12:00";
                         try {
-                            finalDueDate = fromZonedTime(`${data.date} ${timeStr}`, TIMEZONE);
+                            const parsed = fromZonedTime(`${data.date} ${timeStr}`, TIMEZONE);
+                            if (!isNaN(parsed.getTime())) {
+                                finalDueDate = parsed;
+                            } else {
+                                const fallback = new Date(`${data.date}T12:00:00`);
+                                if (!isNaN(fallback.getTime())) finalDueDate = fallback;
+                            }
                         } catch (e) {
-                            finalDueDate = new Date(`${data.date}T12:00:00`);
+                            console.warn('⚠️ [Router] Invalid task date format:', data.date);
                         }
                     }
 

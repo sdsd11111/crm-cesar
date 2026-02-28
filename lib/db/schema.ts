@@ -808,3 +808,48 @@ export const pendingMessagesQueue = pgTable('pending_messages_queue', {
   metadata: jsonb('metadata').default({}),
   receivedAt: timestamp('received_at').defaultNow().notNull(),
 });
+
+// ============================================
+// CONVERSATIONAL SESSIONS (State Machine for long-running workflows)
+// ============================================
+export const conversationalSessions = pgTable('conversational_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+  chatId: text('chat_id').notNull(), // The WhatsApp/Telegram identifier
+  status: text('status', { enum: ['open', 'reviewing', 'paused', 'closed', 'abandoned'] }).default('open').notNull(),
+  documentType: text('document_type', { enum: ['COTIZACION', 'PROPUESTA', 'CONTRATO'] }).notNull(),
+  collectedData: jsonb('collected_data').default({}), // The JSON that accumulates state
+  lastGeneratedText: text('last_generated_text'), // The actual text/markdown body of the active PDF
+  metadata: jsonb('metadata').default({}), // Any extra tracking info
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  chatIdIdx: index('conversational_sessions_chat_id_idx').on(t.chatId),
+  statusIdx: index('conversational_sessions_status_idx').on(t.status),
+}));
+
+// ============================================
+// DONNA BRAINS: INSTRUCTIONAL RAG (Long-term Knowledge Base)
+// ============================================
+export const donnaInstructions = pgTable('donna_instructions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  category: text('category', { enum: ['commercial', 'personality', 'formatting', 'product_mapping'] }).notNull(),
+  instruction: text('instruction').notNull(), // "Always use 'César' instead of 'Cheche'"
+  isActive: boolean('is_active').default(true).notNull(),
+  metadata: jsonb('metadata').default({}), // Who added it, context, etc.
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ============================================
+// DONNA BRAINS: SESSION TELEMETRY (For Learning Extraction)
+// ============================================
+export const donnaSessionTelemetry = pgTable('donna_session_telemetry', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').references(() => conversationalSessions.id, { onDelete: 'cascade' }).notNull(),
+  initialRequest: text('initial_request').notNull(), // What the user originally asked
+  finalDocumentText: text('final_document_text'), // The successful text output
+  iterationCount: integer('iteration_count').default(0).notNull(), // How many times it was modified
+  wasSuccessful: boolean('was_successful').default(true).notNull(), // Did it end in 'closed' or 'abandoned'?
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

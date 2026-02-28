@@ -9,12 +9,16 @@ import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getAIClient, getModelId } from '../../ai/client';
+export { getAIClient, getModelId }; // Re-export for DocumentIntelligenceService
+
 import { internalNotificationService } from '@/lib/messaging/services/InternalNotificationService';
 import { customerMessagingService } from '@/lib/messaging/services/CustomerMessagingService';
 import { alejandraService } from './AlejandraService';
 import { transcriptionService } from '../../ai/TranscriptionService';
 import { whatsappService, WhatsAppMedia } from '@/lib/whatsapp/WhatsAppService';
 import { pdfDocumentService } from './PdfDocumentService';
+import { sessionManagerService } from './SessionManagerService';
+import { documentIntelligenceService } from './DocumentIntelligenceService';
 
 const TIMEZONE = 'America/Guayaquil';
 
@@ -191,6 +195,15 @@ export class CortexRouterService {
 
         if (!input.skipSave) {
             await this.saveMessage(input.chatId || 'system', input.source === 'cesar' ? 'user' : 'user', processedText, platform);
+        }
+
+        // --- CONTEXTUAL SESSION INTERCEPTOR ---
+        if (input.chatId) {
+            const activeSession = await sessionManagerService.getActiveSession(input.chatId);
+            if (activeSession) {
+                console.log(`🧵 [CortexRouter] Intercepted by active session ${activeSession.id} (${activeSession.status})`);
+                return this.handleActiveSession(activeSession, input, replyContext);
+            }
         }
 
         const context = await this.getContext(input.chatId);
@@ -864,125 +877,137 @@ Estructura:
         const pains = contact?.pains || 'Dolores no identificados aún';
         const plan = data.interest_tier || 'PRO';
 
-        // 1. AI-Powered Qualification Check (Only for Quotations and Proposals)
-        if (intent === 'COTIZACION' || intent === 'PROPUESTA') {
-            console.log('🤔 [Qualifier] Running AI-based context check...');
+        // 1. CEREBRO 1: IDENTIFICADOR DE CATÁLOGO (Product Recognizer)
+        // Skip Cerebro 1 if we are in an iterative modify loop (textOverride provided)
+        let productRecognitionResult = null;
+        if (!parsed.textOverride && (intent === 'COTIZACION' || intent === 'PROPUESTA')) {
+            console.log('🧠 [Cerebro 1] Activando Product Recognizer...');
             try {
-                const qualifierPrompt = this.getExpertPrompt('quotation_qualifier.md')
-                    .replace('{{HISTORY}}', history || 'Sin historial previo.')
-                    .replace('{{CURRENT_MESSAGE}}', originalText)
-                    .replace('{{EXTRACTED_DATA}}', JSON.stringify(data));
+                // Fetch historical instructions/corrections (The RAG "Mochila de Experiencia")
+                const instructionsHistory = await documentIntelligenceService.getExperiencePack();
+                productRecognitionResult = await documentIntelligenceService.recognizeProducts(originalText, instructionsHistory);
 
-                const aiClient = getAIClient('FAST');
-                const modelId = getModelId('FAST');
-                const qualResponse = await aiClient.chat.completions.create({
-                    model: modelId,
-                    messages: [{ role: 'system', content: qualifierPrompt }],
-                    temperature: 0,
-                    response_format: { type: 'json_object' }
-                });
+                console.log('🧠 [Cerebro 1] Resultado:', JSON.stringify(productRecognitionResult, null, 2));
 
-                const qualResult = JSON.parse(qualResponse.choices[0]?.message?.content || '{}');
-                console.log('🤔 [Qualifier] Result:', qualResult.status);
+                if (!productRecognitionResult.es_claro || !productRecognitionResult.productos_identificados.length) {
+                    const question = productRecognitionResult.pregunta_clarificacion || 'César, no me queda claro qué producto(s) del catálogo debo cotizar. ¿Podrías ser más específico?';
 
-                if (qualResult.status !== 'sufficient') {
-                    const question = qualResult.question || 'César, faltan datos clave. ¿Cuál es el nombre del cliente y qué servicios quieres cotizar?';
-                    await this.sendToOriginalChannel(input, replyContext, question);
-                    return; // Stop here, do NOT generate yet
+                    // Start an 'open' session to collect more info
+                    if (input.chatId) {
+                        await sessionManagerService.createSession(input.chatId, intent, data, contactId);
+                        const enhancedQuestion = `${question}\n\n*(He abierto un borrador de ${intent.toLowerCase()} para ir anotando lo que me digas).*`;
+                        await this.sendToOriginalChannel(input, replyContext, enhancedQuestion);
+                    } else {
+                        await this.sendToOriginalChannel(input, replyContext, question);
+                    }
+                    return; // Stop here, wait for user clarification
                 }
-                // status === 'sufficient' → fall through to generation
-                console.log('✅ [Qualifier] Info sufficient. Proceeding to generate document.');
-            } catch (qualError) {
-                // If qualifier itself fails, proceed anyway to avoid blocking César
-                console.warn('⚠️ [Qualifier] AI check failed, proceeding anyway:', qualError);
+
+                console.log('✅ [Cerebro 1] Productos identificados. Avanzando a generación.');
+            } catch (error) {
+                console.error('❌ [Cerebro 1] Falló la extracción:', error);
+                // Fallback to normal flow if intelligence service throws
             }
         }
 
-        // 2. Generate Text Content
-        const catalog = this.getExpertPrompt('product_catalog.md');
-        const isPremium = ['ELITE', 'IMPERIO', 'POSICIONAMIENTO'].includes(plan);
-        let promptFile = 'prompt_contrato_generic.md';
+        // 2. Generate or Use Text Content
+        let docContent = '';
 
-        if (intent === 'COTIZACION') {
-            promptFile = isPremium ? 'prompt_cotizacion_roja.md' : 'prompt_intro_cotizacion.md';
-        } else if (intent === 'PROPUESTA') {
-            promptFile = 'prompt_propuesta_posicionamiento.md';
-        }
+        if (parsed.textOverride) {
+            console.log('📝 [DocumentGen] Using text override from session edit.');
+            docContent = parsed.textOverride;
+        } else if (intent === 'COTIZACION' || intent === 'PROPUESTA') {
+            // 🧠 CEREBRO 2: THE REASONER (Solo si usamos Cerebro 1)
+            let chosenFormat: 'COTIZACION' | 'PROPUESTA' = intent;
+            if (productRecognitionResult && productRecognitionResult.productos_identificados.length > 0) {
+                console.log('🧠 [Cerebro 2] Activando Estratega de Formato...');
+                const reasonerResult = await documentIntelligenceService.determineFormat(originalText, productRecognitionResult);
+                chosenFormat = reasonerResult.formato_decidido;
+                console.log(`🧠 [Cerebro 2] Decisión: ${chosenFormat} | Razón: ${reasonerResult.razonamiento_interno}`);
+            }
 
-        let prompt = this.getExpertPrompt(promptFile);
+            // 📝 Send "processing" message
+            const waitingDocName = chosenFormat === 'COTIZACION' ? 'borrador de la cotización' : 'borrador de la propuesta';
+            const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${waitingDocName}...`;
+            await this.sendToOriginalChannel(input, replyContext, waitingMsg);
 
-        prompt = prompt.replace(/{{CONTACT_NAME}}/g, contactName);
-        prompt = prompt.replace(/{{BUSINESS_NAME}}/g, businessName);
-        prompt = prompt.replace(/{{PAINS}}/g, pains);
-        prompt = prompt.replace(/{{PRODUCT_CATALOG}}/g, catalog);
-        prompt = prompt.replace(/{{HISTORY}}/g, originalText);
-        prompt = prompt.replace(/{{REQUESTED_PLAN}}/g, plan);
-        prompt = prompt.replace(/{{AGREEMENTS}}/g, originalText);
+            // ✍️ CEREBRO 3: THE PRESENTER
+            console.log(`🧠 [Cerebro 3] Generando documento final (${chosenFormat})...`);
 
-        // 💰 Inject explicit commercial terms - these MUST override any AI assumptions
-        const quantity = data.quantity ? String(data.quantity) : 'No especificada';
-        const unitPrice = data.unit_price ? `$${data.unit_price}` : 'No especificado';
-        const totalPrice = data.total_price
-            ? `$${data.total_price}`
-            : (data.quantity && data.unit_price ? `$${(data.quantity * data.unit_price).toFixed(2)}` : 'No especificado');
-        const paymentTerms = data.payment_terms || 'No especificadas';
-        const deliveryDays = data.delivery_days ? `${data.delivery_days} días` : 'No especificado';
-        const today = new Date();
-        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-        const quoteDate = tomorrow.toLocaleDateString('es-EC', { day: 'numeric', month: 'long', year: 'numeric' });
+            // Re-fetch instructions in case they weren't fetched in Cerebro 1
+            const instructionsHistory = await documentIntelligenceService.getExperiencePack();
 
-        prompt = prompt.replace(/{{QUANTITY}}/g, quantity);
-        prompt = prompt.replace(/{{UNIT_PRICE}}/g, unitPrice);
-        prompt = prompt.replace(/{{TOTAL_PRICE}}/g, totalPrice);
-        prompt = prompt.replace(/{{PAYMENT_TERMS}}/g, paymentTerms);
-        prompt = prompt.replace(/{{DELIVERY_DAYS}}/g, deliveryDays);
-        prompt = prompt.replace(/{{DATE}}/g, quoteDate);
+            docContent = await documentIntelligenceService.generateDocument(
+                chosenFormat,
+                productRecognitionResult || { productos_identificados: [], es_claro: true, pregunta_clarificacion: null, tipo_documento_sugerido: chosenFormat },
+                { contactName, businessName, pains },
+                instructionsHistory
+            );
+            console.log(`✅ [Cerebro 3] Documento generado exitosamente.`);
 
+        } else {
+            // Fallback para Contratos (Intent: CONTRATO)
+            const catalog = this.getExpertPrompt('product_catalog.md');
+            let prompt = this.getExpertPrompt('prompt_contrato_generic.md');
 
-        const aiClientGen = getAIClient('STANDARD');
-        const modelIdGen = getModelId('STANDARD');
+            prompt = prompt.replace(/{{CONTACT_NAME}}/g, contactName);
+            prompt = prompt.replace(/{{BUSINESS_NAME}}/g, businessName);
+            prompt = prompt.replace(/{{PAINS}}/g, pains);
+            prompt = prompt.replace(/{{PRODUCT_CATALOG}}/g, catalog);
+            prompt = prompt.replace(/{{HISTORY}}/g, originalText);
+            prompt = prompt.replace(/{{REQUESTED_PLAN}}/g, plan);
+            prompt = prompt.replace(/{{AGREEMENTS}}/g, originalText);
 
-        // Send "processing" message on same channel
-        const waitingDocName = intent === 'COTIZACION' ? 'borrador de la cotización' : (intent === 'PROPUESTA' ? 'borrador de la propuesta' : 'contrato');
-        const waitingMsg = `⏳ Dame un minuto, estoy redactando el ${waitingDocName}...`;
-        await this.sendToOriginalChannel(input, replyContext, waitingMsg);
+            // 💰 Inject explicit commercial terms
+            const quantity = data.quantity ? String(data.quantity) : 'No especificada';
+            const unitPrice = data.unit_price ? `$${data.unit_price}` : 'No especificado';
+            const totalPrice = data.total_price
+                ? `$${data.total_price}`
+                : (data.quantity && data.unit_price ? `$${(data.quantity * data.unit_price).toFixed(2)}` : 'No especificado');
+            const paymentTerms = data.payment_terms || 'No especificadas';
+            const deliveryDays = data.delivery_days ? `${data.delivery_days} días` : 'No especificado';
+            const today = new Date();
+            const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+            const quoteDate = tomorrow.toLocaleDateString('es-EC', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        const genResponse = await aiClientGen.chat.completions.create({
-            model: modelIdGen,
-            messages: [
-                { role: 'system', content: prompt },
-                { role: 'user', content: 'Por favor redacta el documento basado en nuestra discusión anterior.' }
-            ],
-            temperature: 0.7
-        });
+            prompt = prompt.replace(/{{QUANTITY}}/g, quantity);
+            prompt = prompt.replace(/{{UNIT_PRICE}}/g, unitPrice);
+            prompt = prompt.replace(/{{TOTAL_PRICE}}/g, totalPrice);
+            prompt = prompt.replace(/{{PAYMENT_TERMS}}/g, paymentTerms);
+            prompt = prompt.replace(/{{DELIVERY_DAYS}}/g, deliveryDays);
+            prompt = prompt.replace(/{{DATE}}/g, quoteDate);
 
-        const rawContent = genResponse.choices[0]?.message?.content || '';
-        let docContent = rawContent;
+            const aiClientGen = getAIClient('STANDARD');
+            const modelIdGen = getModelId('STANDARD');
 
-        // 🛡️ Robust Extract: AI sometimes wraps JSON in markdown blocks
-        let cleanText = rawContent.trim();
-        if (cleanText.includes('```')) {
-            // Remove any code block wrappers (```json, ```markdown, etc.)
-            cleanText = cleanText.replace(/```[a-z]*\n?/gi, '').replace(/```$/g, '').trim();
-        }
+            const waitingMsg = `⏳ Dame un minuto, estoy redactando el borrador del contrato...`;
+            await this.sendToOriginalChannel(input, replyContext, waitingMsg);
 
-        try {
-            // Check if it's still JSON
-            const parsedContent = JSON.parse(cleanText);
-            if (parsedContent.data?.response) {
-                docContent = parsedContent.data.response;
-            } else if (parsedContent.response) {
-                docContent = parsedContent.response;
-            } else {
-                // If it's valid JSON but doesn't have our fields, maybe it's the raw text already
+            const genResponse = await aiClientGen.chat.completions.create({
+                model: modelIdGen,
+                messages: [
+                    { role: 'system', content: prompt },
+                    { role: 'user', content: 'Por favor redacta el documento basado en nuestra discusión anterior.' }
+                ],
+                temperature: 0.7
+            });
+
+            const rawContent = genResponse.choices[0]?.message?.content || '';
+
+            // 🛡️ Robust Extract
+            let cleanText = rawContent.trim();
+            if (cleanText.includes('```')) {
+                cleanText = cleanText.replace(/```[a-z]*\n?/gi, '').replace(/```$/g, '').trim();
+            }
+
+            try {
+                const parsedContent = JSON.parse(cleanText);
+                docContent = parsedContent.data?.response || parsedContent.response || cleanText;
+            } catch (e) {
                 docContent = cleanText;
             }
-        } catch (e) {
-            // If it's not valid JSON, it's likely raw markdown
-            docContent = cleanText;
         }
 
-        // Final cleanup for any leftover markdown markers
         docContent = docContent.replace(/^```markdown\n/m, '').replace(/```$/m, '').trim();
 
         // 3. Save to DB (Optional for contracts, mandatory for quotations/proposals)
@@ -995,8 +1020,9 @@ Estructura:
                 .where(eq(contacts.id, contactId));
         }
 
-        // 4. Generate PDF
+        // 4. Generate PDF and Send
         try {
+            console.log('📄 [DocumentGen] Rendering PDF...');
             const pdfDocType = (intent === 'COTIZACION' || intent === 'PROPUESTA') ? 'quotation' : 'contract';
             const pdfBuffer = await pdfDocumentService.generatePdf(docContent, pdfDocType, {
                 clientName: contactName,
@@ -1017,8 +1043,24 @@ Estructura:
                     caption: `📄 Aquí tienes el ${captionText} para ${businessName}.`
                 };
 
-                // ✅ FIX: Always reply on original channel (WhatsApp when César writes from there)
+                // ✅ Always reply on original channel
                 await this.sendToOriginalChannel(input, replyContext, '', media);
+
+                // --- SESSION TRANSITION ---
+                // If we just sent a PDF, we should be in 'reviewing' state
+                if (input.chatId) {
+                    const activeSession = await sessionManagerService.getActiveSession(input.chatId);
+                    if (activeSession) {
+                        await sessionManagerService.setReviewingDocument(activeSession.id, docContent);
+                    } else {
+                        // Create a new session in 'reviewing' state if it didn't exist
+                        const sess = await sessionManagerService.createSession(input.chatId, intent, data, contactId);
+                        await sessionManagerService.setReviewingDocument(sess.id, docContent);
+                    }
+
+                    const postSendMsg = `¿Qué te parece? ¿Necesitas algún ajuste o damos por cerrada esta sesión?`;
+                    await this.sendToOriginalChannel(input, replyContext, postSendMsg);
+                }
             } else {
                 throw new Error(uploadResult.error || 'Fallo upload a Meta');
             }
@@ -1028,6 +1070,98 @@ Estructura:
             // ✅ FIX: Fallback text also goes to original channel
             await this.sendToOriginalChannel(input, replyContext, fallbackMsg);
         }
+    }
+
+    /**
+     * Handles inputs when a session (Drafting/Reviewing) is currently active.
+     */
+    private async handleActiveSession(session: any, input: any, replyContext: any): Promise<any> {
+        const aiClient = getAIClient();
+        const modelId = getModelId();
+
+        // 1. EVALUATE NEXT STEP
+        const evalPrompt = this.getExpertPrompt('prompt_session_evaluator.md')
+            .replace('{{documentType}}', session.documentType)
+            .replace('{{sessionStatus}}', session.status)
+            .replace('{{userInput}}', input.text);
+
+        const evalResponse = await aiClient.chat.completions.create({
+            model: modelId,
+            messages: [{ role: 'system', content: evalPrompt }],
+            response_format: { type: 'json_object' }
+        });
+
+        const decisionJson = JSON.parse(evalResponse.choices[0].message.content || '{}');
+        const decision = decisionJson.decision;
+
+        console.log(`⚖️ [SessionManager] Decision: ${decision} (${decisionJson.reason})`);
+
+        if (decision === 'GENERATE_NOW') {
+            // Trigger document generation with current collected data
+            return this.handleDocumentGeneration({
+                intent: session.documentType,
+                data: session.collectedData
+            }, session.contactId, input.text, replyContext, input);
+        }
+
+        if (decision === 'CLOSE_SESSION') {
+            await sessionManagerService.updateSessionStatus(session.id, 'closed');
+            const msg = `✅ Sesión de ${session.documentType} cerrada correctamente.`;
+            await this.sendToOriginalChannel(input, replyContext, msg);
+            return { status: 'session_closed' };
+        }
+
+        if (decision === 'CONTINUE_COLLECTING' || session.status === 'open') {
+            // MERGE DATA
+            const mergePrompt = this.getExpertPrompt('prompt_session_merge.md')
+                .replace('{{documentType}}', session.documentType)
+                .replace('{{collectedData}}', JSON.stringify(session.collectedData, null, 2))
+                .replace('{{userInput}}', input.text);
+
+            const mergeResponse = await aiClient.chat.completions.create({
+                model: modelId,
+                messages: [{ role: 'system', content: mergePrompt }],
+                response_format: { type: 'json_object' }
+            });
+
+            const updatedData = JSON.parse(mergeResponse.choices[0].message.content || '{}');
+            await sessionManagerService.updateCollectedData(session.id, updatedData);
+
+            const confirmMsg = `📝 Anotado. Sigo armando tu ${session.documentType.toLowerCase()}. ¿Algo más o la generamos?`;
+            await this.sendToOriginalChannel(input, replyContext, confirmMsg);
+            return { status: 'collecting' };
+        }
+
+        if (decision === 'MODIFY_DOC' && session.status === 'reviewing') {
+            // EDIT EXISTING DOCUMENT TEXT
+            const editPrompt = this.getExpertPrompt('prompt_session_edit_doc.md')
+                .replace('{{documentType}}', session.documentType)
+                .replace('{{lastGeneratedText}}', session.lastGeneratedText || '')
+                .replace('{{userInput}}', input.text);
+
+            const editResponse = await aiClient.chat.completions.create({
+                model: modelId,
+                messages: [{ role: 'system', content: editPrompt }]
+            });
+
+            const newText = editResponse.choices[0].message.content || '';
+            await sessionManagerService.setReviewingDocument(session.id, newText);
+
+            // Re-generate and send PDF
+            return this.handleDocumentGeneration({
+                intent: session.documentType,
+                textOverride: newText // We'll need to update handleDocumentGeneration to accept this
+            }, session.contactId, input.text, replyContext, input);
+        }
+
+        if (decision === 'OTHER') {
+            // Auto-close and let normal routing handle the current message
+            await sessionManagerService.updateSessionStatus(session.id, 'closed');
+            console.log(`🔌 [SessionManager] Switching to normal routing for unrelated topic.`);
+            return this.processInput({ ...input, skipSave: true }); // Avoid double saving
+        }
+
+        return { status: 'session_handled' };
     }
 }
 

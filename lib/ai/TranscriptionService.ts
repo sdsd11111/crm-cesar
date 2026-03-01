@@ -35,33 +35,38 @@ export class TranscriptionService {
         }
 
         try {
-            const formData = new FormData();
-            const blob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/ogg' });
-            formData.append('file', blob, fileName);
-            formData.append('model', 'whisper-1');
-            formData.append('language', 'es');
+            console.log(`📡 Sending audio to Gemini (${audioBuffer.byteLength} bytes)...`);
 
-            if (this.prompt) {
-                formData.append('prompt', this.prompt);
-            }
+            // Reemplazado OpenAI Whisper con Gemini 2.0 Flash por límites de cuota
+            const { GoogleGenerativeAI } = await import('@google/generative-ai');
+            const apiKey = process.env.GEMINI_API_KEY;
 
-            console.log(`📡 Sending audio to Whisper (${audioBuffer.byteLength} bytes)...`);
-            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                },
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.text();
-                console.error('❌ TranscriptionService: OpenAI API Error:', errorData);
+            if (!apiKey) {
+                console.error('❌ TranscriptionService: GEMINI_API_KEY not configured');
                 return null;
             }
 
-            const result = await response.json();
-            return result.text || '';
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+            const base64Audio = audioBuffer.toString('base64');
+
+            const promptText = this.prompt
+                ? `${this.prompt}\n\nTranscribe el siguiente audio exactamente como se escucha:`
+                : "Transcribe el siguiente audio en español exactamente como se escucha. Solo responde con la transcripción, sin agregar notas ni comentarios adicionales.";
+
+            const result = await model.generateContent([
+                {
+                    inlineData: {
+                        mimeType: "audio/ogg",
+                        data: base64Audio
+                    }
+                },
+                promptText
+            ]);
+
+            const responseText = result.response.text();
+            return responseText ? responseText.trim() : '';
         } catch (error) {
             console.error('❌ TranscriptionService Error:', error);
             return null;

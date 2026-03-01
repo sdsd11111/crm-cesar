@@ -50,10 +50,7 @@ export class TranscriptionService {
             const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
             const base64Audio = audioBuffer.toString('base64');
-
-            const promptText = this.prompt
-                ? `${this.prompt}\n\nTranscribe el siguiente audio exactamente como se escucha:`
-                : "Transcribe el siguiente audio en español exactamente como se escucha. Solo responde con la transcripción, sin agregar notas ni comentarios adicionales.";
+            const transcriptionPrompt = this.prompt || "Transcribe este audio comercial en español. Solo devuelve el texto transcrito.";
 
             const result = await model.generateContent([
                 {
@@ -62,14 +59,15 @@ export class TranscriptionService {
                         data: base64Audio
                     }
                 },
-                promptText
+                transcriptionPrompt
             ]);
 
             const responseText = result.response.text();
             return responseText ? responseText.trim() : '';
         } catch (error) {
-            console.error('❌ TranscriptionService Error:', error);
-            return null;
+            console.error('❌ TranscriptionService Gemini Error:', error);
+            // Si la transcripción falla por cuota o error, devolvemos un marcador para que el router sepa que hubo un audio
+            return "[Error en transcripción de audio]";
         }
     }
 }

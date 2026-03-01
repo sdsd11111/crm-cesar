@@ -30,15 +30,13 @@ async function evalSessionStep(
         .replace('{{collectedData}}', JSON.stringify(collectedData, null, 2))
         .replace('{{userInput}}', userInput);
 
-    // Use OpenAI compatible client (same as production)
+    // Use DeepSeek for testing because OpenAI quota is exhausted
     const { OpenAI } = await import('openai');
-    const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.GEMINI_API_KEY
-        ? 'https://generativelanguage.googleapis.com/v1beta/openai/'
-        : undefined;
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const baseURL = "https://api.deepseek.com";
 
     const client = new OpenAI({ apiKey, baseURL });
-    const modelId = process.env.GEMINI_API_KEY ? 'gemini-2.0-flash' : 'gpt-4o-mini';
+    const modelId = 'deepseek-chat';
 
     const response = await client.chat.completions.create({
         model: modelId,

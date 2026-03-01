@@ -28,7 +28,7 @@ export interface ProductRecognitionResult {
  */
 export class DocumentIntelligenceService {
     private brainsPath = path.join(process.cwd(), 'lib', 'donna', 'prompts');
-    private catalogPath = path.join(process.cwd(), '.agent', 'product_catalog.md');
+    private catalogPath = path.join(process.cwd(), 'lib', 'donna', 'prompts', 'product_catalog.md');
 
     // Helper para cargar prompts y catálogo
     private loadFileConfig(filename: string): string {

@@ -39,10 +39,10 @@ export class TranscriptionService {
 
             // Reemplazado OpenAI Whisper con Gemini 2.0 Flash por límites de cuota
             const { GoogleGenerativeAI } = await import('@google/generative-ai');
-            const apiKey = process.env.GEMINI_API_KEY;
+            const apiKey = process.env.GOOGLE_API_KEY;
 
             if (!apiKey) {
-                console.error('❌ TranscriptionService: GEMINI_API_KEY not configured');
+                console.error('❌ TranscriptionService: GOOGLE_API_KEY not configured');
                 return null;
             }
 

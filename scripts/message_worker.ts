@@ -87,6 +87,7 @@ async function processQueue() {
         if (readyChats.length > 0) {
             console.log(`🚀 Processing batch for ${readyChats.length} chats in parallel...`);
             await Promise.all(readyChats.map(async (chat) => {
+                let messageIds: string[] = [];
                 try {
                     // A. Fetch all message IDs for this chat
                     const messages = await db.select()
@@ -95,7 +96,7 @@ async function processQueue() {
                         .orderBy(pendingMessagesQueue.receivedAt);
 
                     if (messages.length === 0) return;
-                    const messageIds = messages.map(m => m.id);
+                    messageIds = messages.map(m => m.id);
 
                     // --- TRANSCRIPTION LOGIC ---
                     const processedMessages = await Promise.all(messages.map(async (m) => {

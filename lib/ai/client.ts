@@ -23,17 +23,16 @@ export class AIClient {
             baseURL: "https://api.deepseek.com",
         });
 
-        // 2. Configure Standard Client (OpenAI)
+        // 2. Configure Standard Client (Fallback to DeepSeek since OpenAI quota is exhausted)
         const openAIKey = process.env.OPENAI_API_KEY;
-        if (!openAIKey) throw new Error("OPENAI_API_KEY is required for Standard/Audio functions.");
-
         this.standardClient = new OpenAI({
-            apiKey: openAIKey,
+            apiKey: deepSeekKey || openAIKey || "dummy",
+            baseURL: deepSeekKey ? "https://api.deepseek.com" : undefined,
         });
 
-        // 3. Configure Audio Client (OpenAI standard strictly)
+        // 3. Configure Audio Client (OpenAI standard strictly, although currently out of quota)
         this.audioClient = new OpenAI({
-            apiKey: openAIKey,
+            apiKey: openAIKey || "dummy",
         });
     }
 
@@ -63,13 +62,14 @@ export class AIClient {
             case 'REASONING':
                 return "deepseek-reasoner";
             case 'STANDARD':
-                return "gpt-4o";
+                return "deepseek-chat"; // Fallback to DeepSeek
             case 'FAST':
-                return "gpt-4o-mini";
+                return "deepseek-chat"; // Fallback to DeepSeek
             case 'AUDIO':
                 return "whisper-1";
             default:
-                return "gpt-4o";
+                return "deepseek-chat";
+
         }
     }
 }

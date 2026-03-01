@@ -781,6 +781,11 @@ Estructura:
             // Fallback to Telegram for commands originally from Telegram
             await internalNotificationService.notifyCesar(text, replyContext);
         }
+
+        // 📝 LOG ASSISTANT RESPONSE (Phase 10 Fix)
+        if (input.chatId && text) {
+            await this.saveMessage(input.chatId, 'assistant', text, input.platform || 'whatsapp');
+        }
     }
 
     private async handleRecorrido(parsed: any, contactId: string | undefined, originalText: string, replyContext: any, input: any, history: string = '') {
@@ -904,8 +909,17 @@ Estructura:
 
         // 1. CEREBRO 1: IDENTIFICADOR DE CATÁLOGO (Product Recognizer)
         // Skip Cerebro 1 if we are in an iterative modify loop (textOverride provided)
+        // Skip Cerebro 1 if we ALREADY HAVE recognized products from a session (Phase 10 Fix)
         let productRecognitionResult = null;
-        if (!parsed.textOverride && (intent === 'COTIZACION' || intent === 'PROPUESTA')) {
+        if (data.productos_identificados && Array.isArray(data.productos_identificados) && data.productos_identificados.length > 0) {
+            console.log('🧠 [Cerebro 1] Reutilizando productos identificados en la sesión:', data.productos_identificados.length);
+            productRecognitionResult = {
+                productos_identificados: data.productos_identificados,
+                es_claro: true,
+                pregunta_clarificacion: null,
+                tipo_documento_sugerido: intent as any
+            };
+        } else if (!parsed.textOverride && (intent === 'COTIZACION' || intent === 'PROPUESTA' || intent === 'CONTRATO')) {
             console.log('🧠 [Cerebro 1] Activando Product Recognizer...');
             try {
                 // Fetch historical instructions/corrections (The RAG "Mochila de Experiencia")

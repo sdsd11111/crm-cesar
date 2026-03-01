@@ -53,7 +53,7 @@ export class DocumentIntelligenceService {
      */
     public async getExperiencePack(): Promise<string> {
         try {
-            const instructions = await db.select().from(donnaInstructions).where(eq(donnaInstructions.isActive, true));
+            const instructions = await db.select({ instruction: donnaInstructions.instruction }).from(donnaInstructions).where(eq(donnaInstructions.isActive, true));
             if (!instructions.length) return 'Sin instrucciones históricas registradas aún.';
 
             return instructions.map(i => `- ${i.instruction}`).join('\n');

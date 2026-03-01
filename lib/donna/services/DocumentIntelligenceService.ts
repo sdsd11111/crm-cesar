@@ -53,13 +53,19 @@ export class DocumentIntelligenceService {
      */
     public async getExperiencePack(): Promise<string> {
         try {
-            const instructions = await db.select({ instruction: donnaInstructions.instruction }).from(donnaInstructions).where(eq(donnaInstructions.isActive, true));
+            const instructions = await db.select({ instruction: donnaInstructions.instruction })
+                .from(donnaInstructions)
+                .where(eq(donnaInstructions.isActive, true));
             if (!instructions.length) return 'Sin instrucciones históricas registradas aún.';
-
             return instructions.map(i => `- ${i.instruction}`).join('\n');
-        } catch (e) {
-            console.error('[DocumentIntelligenceService] Error loading Instructions RAG:', e);
-            return 'Sin instrucciones históricas.';
+        } catch (e: any) {
+            // Table may not exist yet in production - this is non-critical, we continue without it
+            if (e?.cause?.code === '42P01' || e?.cause?.code === '42703') {
+                console.warn('[DocumentIntelligenceService] donna_instructions table/column missing in DB - skipping RAG.');
+            } else {
+                console.error('[DocumentIntelligenceService] Error loading Instructions RAG:', e);
+            }
+            return ''; // Return empty string so Cerebro 1 can continue without this
         }
     }
 

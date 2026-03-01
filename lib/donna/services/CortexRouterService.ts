@@ -1154,11 +1154,29 @@ Estructura:
         console.log(`⚖️ [SessionManager] Decision: ${decision} (${decisionJson.reason})`);
 
         if (decision === 'GENERATE_NOW') {
-            // Trigger document generation with current collected data
+            // Build a rich context string from session data so Cerebro 1 gets full product info.
+            // ⚠️ Critical: we CANNOT pass input.text (e.g. 'generar') here because Cerebro 1 uses it to
+            // identify products. Instead we reconstruct the key commercial context.
+            const sd = session.collectedData || {};
+            const contextParts: string[] = [];
+            if (sd.business_name) contextParts.push(`Negocio: ${sd.business_name}`);
+            if (sd.contact_name) contextParts.push(`Cliente: ${sd.contact_name}`);
+            if (sd.description) contextParts.push(sd.description);
+            if (sd.interested_product) contextParts.push(`Producto: ${sd.interested_product}`);
+            if (sd.price || sd.unit_price) contextParts.push(`Precio: $${sd.price || sd.unit_price}`);
+            if (sd.notes) contextParts.push(sd.notes);
+            // Fallback: stringify all collected data
+            const sessionContextText = contextParts.length > 0
+                ? contextParts.join('. ')
+                : JSON.stringify(sd);
+
+            const richOriginalText = sessionContextText || input.text;
+            console.log(`📄 [GENERATE_NOW] Passing session context to DocumentGen: "${richOriginalText.substring(0, 80)}..."`);
+
             return this.handleDocumentGeneration({
                 intent: session.documentType,
                 data: session.collectedData
-            }, session.contactId, input.text, replyContext, input);
+            }, session.contactId, richOriginalText, replyContext, input);
         }
 
         if (decision === 'CLOSE_SESSION') {

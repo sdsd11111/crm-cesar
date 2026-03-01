@@ -252,12 +252,23 @@ async function processQueue() {
                     }
 
                     // F. Clear ONLY processed IDs from the queue
+                    // ⚠️ This runs unconditionally to prevent zombie messages re-processing on failure
                     await db.delete(pendingMessagesQueue)
                         .where(inArray(pendingMessagesQueue.id, messageIds));
                     console.log(`🗑️ Cleared ${messageIds.length} messages from queue for ${chat.chatId}`);
 
                 } catch (e) {
                     console.error(`❌ Batch Error for ${chat.chatId}:`, e);
+                    // Even on error, try to clear the queue to avoid zombie messages
+                    try {
+                        if (messageIds && messageIds.length > 0) {
+                            await db.delete(pendingMessagesQueue)
+                                .where(inArray(pendingMessagesQueue.id, messageIds));
+                            console.log(`🧹 [Error Recovery] Cleared ${messageIds.length} zombie messages for ${chat.chatId}`);
+                        }
+                    } catch (cleanupErr) {
+                        console.error(`❌ Failed to clear zombie messages for ${chat.chatId}:`, cleanupErr);
+                    }
                 }
             }));
         }

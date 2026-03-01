@@ -1140,6 +1140,7 @@ Estructura:
         const evalPrompt = this.getExpertPrompt('prompt_session_evaluator.md')
             .replace('{{documentType}}', session.documentType)
             .replace('{{sessionStatus}}', session.status)
+            .replace('{{collectedData}}', JSON.stringify(session.collectedData || {}, null, 2))
             .replace('{{userInput}}', input.text);
 
         const evalResponse = await aiClient.chat.completions.create({

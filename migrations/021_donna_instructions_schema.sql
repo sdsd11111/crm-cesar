@@ -3,8 +3,12 @@
 -- Fixes production error: "column category does not exist" / "instruction does not exist"
 -- =============================================================================
 
+-- ⚠️ PHASE 10 FIX: Drop broken/legacy versions of these tables to ensure clean state
+DROP TABLE IF EXISTS donna_session_telemetry;
+DROP TABLE IF EXISTS donna_instructions;
+
 -- DONNA BRAINS: INSTRUCTIONAL RAG (Long-term Knowledge Base)
-CREATE TABLE IF NOT EXISTS donna_instructions (
+CREATE TABLE donna_instructions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category TEXT NOT NULL CHECK (category IN ('commercial', 'personality', 'formatting', 'product_mapping')),
   instruction TEXT NOT NULL,
@@ -15,7 +19,7 @@ CREATE TABLE IF NOT EXISTS donna_instructions (
 );
 
 -- DONNA BRAINS: SESSION TELEMETRY (For Learning Extraction)
-CREATE TABLE IF NOT EXISTS donna_session_telemetry (
+CREATE TABLE donna_session_telemetry (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID REFERENCES conversational_sessions(id) ON DELETE CASCADE NOT NULL,
   initial_request TEXT NOT NULL,

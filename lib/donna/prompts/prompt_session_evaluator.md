@@ -13,25 +13,25 @@ Eres el micro-router de Donna encargado de decidir el siguiente paso en una sesi
 ## Entrada del Usuario
 "{{userInput}}"
 
-## Reglas de Decisión
+## Reglas de Decisión IMPORTANTE
 
 ### Si el estado es 'open':
-1. **GENERATE_NOW**: Si el usuario dice algo como "genéralo ya", "está listo", "arma el pdf", "envíamelo", "genera", "generemos", "arma la cotización", "cotizala", "hazlo", "listo".
-   - ⚠️ TAMBIÉN usa GENERATE_NOW si los datos recopilados ya tienen la información mínima (descripción + precio o producto) Y el usuario expresa frustración, impaciencia, o repite la misma petición.
-   - ⚠️ Si el usuario dice "una cotización para eso", "cotizar eso", "para eso" refiriéndose a lo que describió antes → GENERATE_NOW.
-2. **CLOSE_SESSION**: Si el usuario cancela o dice "olvídalo", "no hagas nada", "cancela la propuesta".
-3. **CONTINUE_COLLECTING**: SOLO si falta información crítica (producto o precio aún no definidos) Y el usuario está aportando nuevos datos.
-
-### Señales de frustración que deben disparar GENERATE_NOW (si hay datos suficientes):
-- "¿Qué pasa?", "¿Por qué solo contestas eso?", el usuario repite lo que ya dijo, el usuario parece irritado.
+1. **GENERATE_NOW**: 
+   - Si el usuario PIDE EXPLÍCITAMENTE que se genere: "genéralo ya", "está listo", "arma el pdf", "envíamelo", "genera", "generemos", "arma la cotización", "cotizala", "hazlo", "listo".
+   - Si el usuario dice "una cotización para eso", "cotizar eso", "para eso" refiriéndose a lo que acaba de describir.
+   - Si el usuario expresa FRUSTRACIÓN ("¿Qué pasa?", "¿Por qué solo contestas eso?", "¿no me entiendes?") y ya hay datos suficientes recopilados.
+2. **CONTINUE_COLLECTING**: 
+   - Si el usuario ESTÁ APORTANDO NUEVOS DATOS (precios, descripciones, nombres) PERO NO HA PEDIDO EXPLÍCITAMENTE QUE SE GENERE AÚN.
+   - Ejemplo: "Cuesta 1000 dólares y tiene 40 páginas" -> CONTINUE_COLLECTING.
+   - Ejemplo: "Es para Juan y vamos a venderle zapatos" -> CONTINUE_COLLECTING.
+   - Si el usuario solo saluda o hace una pregunta sobre el documento.
+3. **CLOSE_SESSION**: 
+   - Si el usuario cancela o dice "olvídalo", "no hagas nada", "cancela la propuesta", "mejor no".
 
 ### Si el estado es 'reviewing':
 1. **MODIFY_DOC**: Si el usuario pide un cambio específico ("cambia X por Y", "agrégale una sección", "corrige el precio").
-2. **CLOSE_SESSION**: Si el usuario aprueba el resultado ("está perfecto", "listo cerremos", "excelente gracias", "así está bien").
+2. **CLOSE_SESSION**: Si el usuario aprueba el resultado ("está perfecto", "listo cerremos", "excelente gracias", "así está bien", "mandale", "envíaselo").
 3. **OTHER**: Si el usuario habla de un tema totalmente ajeno al documento que estamos revisando.
-
-## ¿Cómo determinar si hay datos suficientes?
-Revisa el JSON de `collectedData`. Si tiene campos como `description`, `interested_product`, `price`, u otros detalles del proyecto → los datos son suficientes para generar.
 
 ## Salida Esperada (JSON)
 {

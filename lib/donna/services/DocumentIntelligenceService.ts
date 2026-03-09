@@ -57,7 +57,11 @@ export class DocumentIntelligenceService {
                 .from(donnaInstructions)
                 .where(eq(donnaInstructions.isActive, true));
             if (!instructions.length) return 'Sin instrucciones históricas registradas aún.';
-            return instructions.map(i => `- ${i.instruction}`).join('\n');
+
+            // Deduplicate instructions (Phase 10 Robustness)
+            const uniqueInstructions = Array.from(new Set(instructions.map(i => i.instruction.trim())));
+
+            return uniqueInstructions.map(i => `- ${i}`).join('\n');
         } catch (e: any) {
             // Table may not exist yet in production - this is non-critical, we continue without it
             if (e?.cause?.code === '42P01' || e?.cause?.code === '42703') {

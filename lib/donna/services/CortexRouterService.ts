@@ -73,14 +73,18 @@ export class CortexRouterService {
     // --- MEMORY SYSTEM ---
     private async saveMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string, platform: 'telegram' | 'whatsapp' = 'whatsapp') {
         if (!chatId) return;
+        if (process.env.DISABLE_MESSAGE_PERSISTENCE === 'true') {
+            console.log(`⏭️ [Memory] Persistence disabled. Skipping save for ${chatId}`);
+            return;
+        }
         try {
             await db.insert(donnaChatMessages).values({
                 chatId,
                 role,
                 content,
-                platform, // Use actual platform
+                platform,
                 messageTimestamp: new Date(),
-                metadata: { platform }
+                metadata: { platform, source: 'cortex_router' }
             });
         } catch (e) {
             console.error('[Memory] Error saving message (Ignored):', e);
@@ -476,9 +480,10 @@ Estructura:
                     }
                 }
 
-                if (!input.skipSave) {
-                    await this.saveMessage(input.chatId!, 'assistant', responseText, platform);
-                }
+                // Logic removed here as it is handled by message_worker.ts (Single Writer Pattern)
+                // if (!input.skipSave) {
+                //     await this.saveMessage(input.chatId!, 'assistant', responseText, platform);
+                // }
 
                 // Update context
                 if (input.chatId) {
@@ -783,6 +788,8 @@ Estructura:
         }
 
         // 📝 LOG ASSISTANT RESPONSE (Phase 10 Fix)
+        // Note: For CHAT intent, message_worker handles this. This part is for 
+        // intermediate messages (like "Dame un minuto...") or PDF send confirmation.
         if (input.chatId && text) {
             await this.saveMessage(input.chatId, 'assistant', text, input.platform || 'whatsapp');
         }

@@ -807,6 +807,7 @@ export const pendingMessagesQueue = pgTable('pending_messages_queue', {
   platform: text('platform').default('whatsapp'),
   metadata: jsonb('metadata').default({}),
   receivedAt: timestamp('received_at').defaultNow().notNull(),
+  claimedAt: timestamp('claimed_at'), // To prevent multiple workers from processing the same chat
 });
 
 // ============================================

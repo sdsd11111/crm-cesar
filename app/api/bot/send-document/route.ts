@@ -116,7 +116,7 @@ export async function POST(request: Request) {
                 title: body.title,
                 clientId: body.clientId,
                 leadId: body.leadId || null,
-                status: 'sent', // Asumimos enviado
+                status: 'pending_signature', // Asumimos enviado y pendiente de firma
                 contractData: body.contractData ? JSON.stringify(body.contractData) : '{}',
                 notes: 'Generado y enviado por Donna vía WhatsApp',
             }).returning();

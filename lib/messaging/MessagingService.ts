@@ -123,6 +123,27 @@ export class MessagingService {
     }
 
     /**
+     * Sends a document via the best channel
+     */
+    async sendDocument(id: string, buffer: Buffer, filename: string, caption?: string, metadata: any = {}) {
+        try {
+            const requestedChannel = metadata.platform || 'whatsapp';
+            let destination = id;
+
+            // Simple resolution for now (ID is either phone or chat_id)
+            const adapter = this.adapters.get(requestedChannel);
+            if (!adapter) throw new Error(`No adapter found for channel: ${requestedChannel}`);
+
+            console.log(`📨 MessagingService: Sending document via ${requestedChannel}. Destination: ${destination}`);
+
+            return await adapter.sendDocument(destination, buffer, filename, caption, metadata);
+        } catch (error: any) {
+            console.error('MessagingService Document Error:', error);
+            return { success: false, error: error.message, data: undefined };
+        }
+    }
+
+    /**
      * Context Retrieval with Identity Merging
      * Fetches history for a contact, OR all contacts belonging to the same Client.
      */

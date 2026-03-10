@@ -16,6 +16,11 @@ export interface IMessagingAdapter {
     sendTemplate?(to: string, templateName: string, language?: string, components?: any[]): Promise<any>;
 
     /**
+     * Sends a document (PDF, images, etc) to a phone number or chat ID.
+     */
+    sendDocument(to: string, buffer: Buffer, filename: string, caption?: string, metadata?: any): Promise<{ success: boolean; data?: any; error?: string }>;
+
+    /**
      * Validates if the phone number/ID is valid for this channel.
      */
     validateContact(contact: string): Promise<boolean>;

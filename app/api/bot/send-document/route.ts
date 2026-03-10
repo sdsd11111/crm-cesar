@@ -62,20 +62,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Error al generar el PDF desde Markdown.', details: error.message }, { status: 500 });
         }
 
-        // 4. Subir a Meta (WhatsApp)
-        let mediaId;
-        try {
-            const uploadResult = await whatsappService.uploadMedia(pdfBuffer, 'Documento.pdf', 'application/pdf', 'document');
-            if (!uploadResult.success) {
-                throw new Error(uploadResult.error || 'Upload failed sin error específico');
-            }
-            mediaId = uploadResult.mediaId;
-        } catch (error: any) {
-            console.error('[BotAPI] Error subiendo PDF a WhatsApp:', error);
-            return NextResponse.json({ error: 'Error al subir el PDF a los servidores de WhatsApp.', details: error.message }, { status: 500 });
-        }
-
-        // 5. Enviar mensaje de WhatsApp
+        // 4. Send Document via MessagingService (Platform agnostic)
+        const platform = body.platform || 'whatsapp';
         const messageText = body.messageText || (
             documentType === 'quotation' ? 'Te adjuntamos la propuesta solicitada.' :
                 documentType === 'contract' ? 'Te adjuntamos el borrador del contrato.' :
@@ -83,15 +71,15 @@ export async function POST(request: Request) {
         );
         const fileName = body.title ? `${body.title.replace(/[^a-z0-9]/gi, '_')}.pdf` : 'Documento.pdf';
 
-        const sendResult = await whatsappService.sendMessage(body.phone, messageText, { source: 'donna_bot_document' }, {
-            type: 'document',
-            id: mediaId,
-            filename: fileName
+        const { messagingService } = await import('@/lib/messaging/MessagingService');
+        const sendResult = await messagingService.sendDocument(body.phone, pdfBuffer, fileName, messageText, {
+            platform,
+            source: 'donna_bot_document'
         });
 
         if (!sendResult.success) {
-            console.error('[BotAPI] Error enviando WhatsApp:', sendResult);
-            return NextResponse.json({ error: 'Error al enviar el PDF por WhatsApp.', details: sendResult.error }, { status: 500 });
+            console.error('[BotAPI] Error sending document:', sendResult);
+            return NextResponse.json({ error: 'Error al enviar el documento.', details: sendResult.error }, { status: 500 });
         }
 
         // 6. (Opcional) Guardar registro en la Base de Datos si hay contexto
@@ -129,7 +117,8 @@ export async function POST(request: Request) {
                 success: true,
                 message: 'Documento generado en PDF y enviado exitosamente por WhatsApp.',
                 data: {
-                    whatsappMessageId: sendResult.data?.messages?.[0]?.id,
+                    whatsappMessageId: sendResult.data?.id || sendResult.data?.messages?.[0]?.id || sendResult.data?.message_id,
+                    telegramMessageId: sendResult.data?.message_id,
                     fileName,
                     record: createdRecord
                 }

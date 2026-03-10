@@ -20,9 +20,13 @@ const nextConfig = {
     webpackBuildWorker: false,
   },
   swcMinify: false, // Desactivar SWC minifier para ahorrar memoria
+  output: 'standalone', // Generar salida standalone para reducir peso en runtime
   webpack: (config, { isServer }) => {
     // Desactivar caché de webpack para ahorrar RAM durante la serialización
     config.cache = false;
+
+    // Forzar paralelismo a 1 (MÁXIMO AHORRO DE RAM)
+    config.parallelism = 1;
 
     // Desactivar minimización para reducir drásticamente el uso de memoria (Nuclear Option)
     if (config.optimization) {

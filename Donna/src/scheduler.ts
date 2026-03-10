@@ -108,38 +108,4 @@ export function startScheduler(): void {
         repeat(sendDailyBriefing);
     }, msUntilBriefing);
 
-    // CRM Keep-Alive Ping (Runs every 10 minutes to stay within Render's 15min limit)
-    startKeepAlivePing();
-}
-
-/**
- * Pings the CRM every 10 minutes to prevent Render's Free tier from spinning down.
- */
-function startKeepAlivePing(): void {
-    const CRM_URL = env.CRM_BASE_URL;
-    if (!CRM_URL) {
-        console.warn("[KeepAlive] CRM_BASE_URL not set. Skipping ping.");
-        return;
-    }
-
-    const PING_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-
-    const doPing = async () => {
-        try {
-            console.log(`[KeepAlive] 📡 Pinging CRM at ${new Date().toLocaleTimeString()}...`);
-            // We use a simple GET request to any public endpoint or root
-            const response = await fetch(CRM_URL, { method: 'HEAD' });
-            if (response.ok) {
-                console.log(`[KeepAlive] ✅ CRM is Awake (Status: ${response.status})`);
-            } else {
-                console.warn(`[KeepAlive] ⚠️ CRM responded with status ${response.status}`);
-            }
-        } catch (error) {
-            console.error("[KeepAlive] ❌ CRM Ping failed:", (error as Error).message);
-        }
-    };
-
-    // Run immediately and then every 10 minutes
-    doPing();
-    setInterval(doPing, PING_INTERVAL_MS);
 }

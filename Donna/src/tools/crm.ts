@@ -21,10 +21,19 @@ async function crmFetch(path: string, method: string, body?: unknown): Promise<u
         body: body ? JSON.stringify(body) : undefined,
     });
 
-    const json = await res.json() as any;
+    let json;
+    try {
+        json = await res.json() as any;
+    } catch (e) {
+        json = { error: "Failed to parse JSON", text: await res.text().catch(() => "No text") };
+    }
 
     if (!res.ok) {
-        throw new Error(`CRM respondió ${res.status}: ${json?.error ?? JSON.stringify(json)}`);
+        const errorDetail = json?.details || json?.error || JSON.stringify(json);
+        console.error(`\n[CRM DEBUG] API Call Failed: ${method} ${path}`);
+        console.error(`[CRM DEBUG] Status: ${res.status} ${res.statusText}`);
+        console.error(`[CRM DEBUG] Response Payload:`, errorDetail);
+        throw new Error(`CRM Error ${res.status}: ${errorDetail}`);
     }
     return json;
 }

@@ -15,6 +15,10 @@ const nextConfig = {
     // Escapa la validación de tipos durante el build para ahorrar memoria
     ignoreBuildErrors: true,
   },
+  experimental: {
+    // Forzar build en un solo proceso (ayuda con el límite de 512MB en Render)
+    webpackBuildWorker: false,
+  },
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Asegurarse de que externals sea un array

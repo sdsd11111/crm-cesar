@@ -5,6 +5,8 @@ import { verifyBotAuth } from '@/lib/bot-auth';
 import { pdfDocumentService } from '@/lib/donna/services/PdfDocumentService';
 import { whatsappService } from '@/lib/whatsapp/WhatsAppService';
 
+export const maxDuration = 60; // Aumentar timeout a 60s para generación de PDF y envío
+
 /**
  * POST /api/bot/send-document
  *

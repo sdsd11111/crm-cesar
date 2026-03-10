@@ -58,8 +58,12 @@ export async function POST(request: Request) {
                 signerName: body.signerName
             });
         } catch (error: any) {
-            console.error('[BotAPI] Error generando PDF:', error);
-            return NextResponse.json({ error: 'Error al generar el PDF desde Markdown.', details: error.message }, { status: 500 });
+            console.error('❌ [BotAPI] Error crítico en generación de PDF:', error);
+            return NextResponse.json({
+                error: 'Error al generar el PDF.',
+                details: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            }, { status: 500 });
         }
 
         // 4. Send Document via MessagingService (Platform agnostic)
@@ -128,9 +132,13 @@ export async function POST(request: Request) {
 
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
-        console.error('[BotAPI] Error crítico al procesar el envío de documento:', msg);
+        console.error('❌ [BotAPI] ERROR CRÍTICO NO CONTROLADO:', error);
         return NextResponse.json(
-            { error: 'Error interno al procesar el envío del documento.', details: msg },
+            {
+                error: 'Error interno del servidor en el endpoint de documentos.',
+                details: msg,
+                stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+            },
             { status: 500 }
         );
     }

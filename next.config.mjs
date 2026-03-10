@@ -19,7 +19,16 @@ const nextConfig = {
     // Forzar build en un solo proceso (ayuda con el límite de 512MB en Render)
     webpackBuildWorker: false,
   },
+  swcMinify: false, // Desactivar SWC minifier para ahorrar memoria
   webpack: (config, { isServer }) => {
+    // Desactivar caché de webpack para ahorrar RAM durante la serialización
+    config.cache = false;
+
+    // Desactivar minimización para reducir drásticamente el uso de memoria (Nuclear Option)
+    if (config.optimization) {
+      config.optimization.minimize = false;
+    }
+
     if (isServer) {
       // Asegurarse de que externals sea un array
       const existingExternals = Array.isArray(config.externals)

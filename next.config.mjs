@@ -19,7 +19,6 @@ const nextConfig = {
     // Forzar build en un solo proceso (ayuda con el límite de 512MB en Render)
     webpackBuildWorker: false,
   },
-  staticGenerationMaxConcurrency: 1, // Reducir procesos paralelos de generación estática
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Asegurarse de que externals sea un array
